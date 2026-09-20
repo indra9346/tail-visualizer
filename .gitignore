@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.local
+dist/
+build/
+.vercel/
+*.log
+.DS_Store
+
+# Added by ggshield
+.cache_ggshield
+
+# personal photos used by live Phase 4 tests (never commit)
+test/fixtures/
+
+# Supabase CLI local state
+supabase/.temp/

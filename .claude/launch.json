@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tile-visualizer-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--prefix",
+        "client",
+        "--",
+        "--host",
+        "--port",
+        "4173"
+      ],
+      "port": 4173
+    },
+    {
+      "name": "tile-visualizer-client-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "client",
+        "--",
+        "--host",
+        "--port",
+        "5173"
+      ],
+      "port": 5173
+    }
+  ]
+}

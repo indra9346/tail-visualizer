@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: "Fraunces", ui-serif, Georgia, serif;
+  }
+  :focus-visible {
+    outline: 2px solid theme("colors.clay.500");
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+}
