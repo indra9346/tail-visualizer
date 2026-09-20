@@ -12,6 +12,7 @@
  * Plus:     cross-user reads via storage and API remain impossible.
  */
 import "../server/lib/loadLocalEnv.js";
+import "./_liveGuard.js"; // refuses to run without PHASE4_ALLOW_LIVE_TESTS=1; prints the target project ref
 import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseServerClient } from "../server/lib/supabaseServerClient.js";

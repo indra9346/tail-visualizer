@@ -10,7 +10,6 @@
         "--prefix",
         "client",
         "--",
-        "--host",
         "--port",
         "4173"
       ],
@@ -25,7 +24,6 @@
         "--prefix",
         "client",
         "--",
-        "--host",
         "--port",
         "5173"
       ],

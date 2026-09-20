@@ -5,6 +5,7 @@
  * Never prints passwords, tokens or keys.
  */
 import "../server/lib/loadLocalEnv.js";
+import "./_liveGuard.js"; // refuses to run without PHASE4_ALLOW_LIVE_TESTS=1; prints the target project ref
 import { randomBytes, randomUUID } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import { existsSync, readFileSync } from "node:fs";

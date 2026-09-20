@@ -1,5 +1,6 @@
 /** Phase 4 live server probe — LOCAL ONLY. Read-only; creates nothing. Never prints secrets. */
 import "../server/lib/loadLocalEnv.js";
+import "./_liveGuard.js"; // refuses to run without PHASE4_ALLOW_LIVE_TESTS=1; prints the target project ref
 import { getSupabaseServerClient } from "../server/lib/supabaseServerClient.js";
 import { makeReq, makeRes } from "../test/helpers/fakeHttp.js";
 
@@ -11,7 +12,7 @@ const routes: [string, string, string, string?][] = [
   ["GET","rooms/[id]","../api/rooms/[id]/index.js"],
   ["POST","rooms/[id]/analyze","../api/rooms/[id]/analyze.js"],
   ["GET","rooms/[id]/analysis","../api/rooms/[id]/analysis.js"],
-  ["POST","tiles/recommend","../api/tiles/recommend.js"],
+  ["GET","tiles/recommend","../api/tiles/recommend.js"],
   ["GET","tiles/search","../api/tiles/search.js"],
   ["POST","visualizations/generate","../api/visualizations/generate.js"],
   ["GET","visualizations/[id]","../api/visualizations/[id]/index.js"],
