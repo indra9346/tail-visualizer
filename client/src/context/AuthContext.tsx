@@ -7,7 +7,11 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   signInWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUpWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUpWithPassword: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -36,7 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUpWithPassword(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return { error: error.message, needsConfirmation: false };
+    // An existing confirmed email returns a user with no identities (Supabase hides "already registered").
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      return { error: "This email is already registered. Please sign in instead.", needsConfirmation: false };
+    }
+    // A session means email confirmation is switched off: the user is already signed in.
+    return { error: null, needsConfirmation: !data.session };
+  }
+
+  async function resendConfirmation(email: string) {
+    const { error } = await supabase.auth.resend({ type: "signup", email });
     return { error: error?.message ?? null };
   }
 
@@ -46,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user: session?.user ?? null, session, loading, signInWithPassword, signUpWithPassword, signOut }}
+      value={{ user: session?.user ?? null, session, loading, signInWithPassword, signUpWithPassword, resendConfirmation, signOut }}
     >
       {children}
     </AuthContext.Provider>

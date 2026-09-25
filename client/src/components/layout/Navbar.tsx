@@ -18,7 +18,11 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between">
-        <NavLink to="/" className="font-display text-lg tracking-tight text-stone-900" onClick={() => setMobileOpen(false)}>
+        <NavLink to="/" className="flex items-center gap-2 font-display text-xl tracking-tight text-stone-900" onClick={() => setMobileOpen(false)}>
+          <span className="grid h-7 w-7 grid-cols-2 gap-0.5 rounded-md bg-stone-900 p-1" aria-hidden="true">
+            <span className="rounded-[2px] bg-clay-300" /><span className="rounded-[2px] bg-clay-500" />
+            <span className="rounded-[2px] bg-clay-500" /><span className="rounded-[2px] bg-clay-300" />
+          </span>
           Attelier
         </NavLink>
 
