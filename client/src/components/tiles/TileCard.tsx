@@ -38,6 +38,9 @@ export function TileCard({
           alt={`${tile.name} tile sample`}
           className="h-full w-full object-cover"
           loading="lazy"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
         />
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">

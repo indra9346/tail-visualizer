@@ -71,6 +71,7 @@ function makeFloorTile(overrides: Partial<Record<string, unknown>> = {}) {
     suitableRooms: ["bathroom" as const],
     storagePath: "catalog/real-tile.jpg",
     isActive: true,
+    ownerId: USER_ID,
     createdAt: "2026-01-01",
     ...overrides,
   };
@@ -187,6 +188,17 @@ describe("POST /api/visualizations/generate", () => {
 
     expect(res.statusCode).toBe(409);
     expect((res._json as any).error.code).toBe("TILE_INACTIVE");
+  });
+
+  test("rejects a tile that belongs to another showroom (reported as not found)", async () => {
+    tileImpl = async () => makeFloorTile({ ownerId: OTHER_USER_ID });
+
+    const req = buildReq({ roomUploadId: ROOM_ID, tileId: randomUUID(), surfaces: ["floor"] });
+    const res = makeRes();
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(404);
+    expect((res._json as any).error.code).toBe("TILE_NOT_FOUND");
   });
 
   test("rejects a wall tile applied to a floor surface (category incompatibility)", async () => {
@@ -358,6 +370,7 @@ describe("POST /api/visualizations/generate", () => {
     // Attacker (OTHER_USER_ID), authenticated with their OWN valid room, tries
     // to pass the victim's visualizationId as a "retry" target.
     currentUserId = OTHER_USER_ID;
+    tileImpl = async () => ({ ...tile, ownerId: OTHER_USER_ID }); // attacker uses their OWN tile
     const req2 = buildReq({
       roomUploadId: attackerRoom.id,
       tileId: tile.id,

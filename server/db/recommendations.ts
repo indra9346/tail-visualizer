@@ -44,6 +44,7 @@ interface RawRecommendationJoinRow {
     storage_path: string;
     suitable_rooms: TileRow["suitableRooms"];
     is_active: boolean;
+    owner_id: string | null;
     created_at: string;
   } | null;
 }
@@ -53,7 +54,7 @@ export async function getRecommendationsWithTiles(roomAnalysisId: string): Promi
   const { data, error } = await supabase
     .from("tile_recommendations")
     .select(
-      "tile_id, surface, rank, reason, tiles ( id, sku, name, brand, category, material, finish, color_family, size_mm, price_per_sqft, currency, storage_path, suitable_rooms, is_active, created_at )",
+      "tile_id, surface, rank, reason, tiles ( id, sku, name, brand, category, material, finish, color_family, size_mm, price_per_sqft, currency, storage_path, suitable_rooms, is_active, owner_id, created_at )",
     )
     .eq("room_analysis_id", roomAnalysisId)
     .order("surface", { ascending: true })
@@ -94,6 +95,7 @@ export async function getRecommendationsWithTiles(roomAnalysisId: string): Promi
           suitableRooms: t.suitable_rooms,
           storagePath: t.storage_path,
           isActive: t.is_active,
+          ownerId: t.owner_id,
           createdAt: t.created_at,
         },
       };

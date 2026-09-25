@@ -12,6 +12,7 @@ import { UploadPage } from "@/pages/UploadPage";
 import { AnalysisPage } from "@/pages/AnalysisPage";
 import { TilesPage } from "@/pages/TilesPage";
 import { TileCatalogPage } from "@/pages/TileCatalogPage";
+import { MyTilesPage } from "@/pages/MyTilesPage";
 import { ResultPage } from "@/pages/ResultPage";
 
 export default function App() {
@@ -26,7 +27,8 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/tiles" element={<TileCatalogPage />} />
+                <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
+                <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />
                 <Route
                   path="/projects"
                   element={

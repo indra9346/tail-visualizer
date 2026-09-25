@@ -31,7 +31,7 @@ export function TileCatalogPage() {
   return (
     <PageContainer>
       <h1 className="font-display text-3xl text-stone-900">Tile Catalog</h1>
-      <p className="mt-2 text-stone-600">Every tile shown here is a real, purchasable product from our catalog.</p>
+      <p className="mt-2 text-stone-600">These are the tiles in your showroom catalog. Add or edit them under My Tiles.</p>
 
       <div className="mt-8">
         <TileFilters filters={filters} onChange={setFilters} />

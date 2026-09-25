@@ -47,7 +47,7 @@ export default createHandler({ methods: ["GET"], operation: "recommendTilesEndpo
 
   checkRateLimit(`tileRecommend:${user.id}`, RateLimits.tileRecommend.limit, RateLimits.tileRecommend.windowMs);
 
-  const candidateTiles = await getCandidateTilesForSurfaces(analysis.recommendedSurfaces);
+  const candidateTiles = await getCandidateTilesForSurfaces(analysis.recommendedSurfaces, user.id);
   const recommendations = await recommendTiles(analysis, candidateTiles);
 
   await insertRecommendations(analysis.id, recommendations);

@@ -55,7 +55,8 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
   }
 
   const tile = await getTileById(body.tileId);
-  if (!tile) {
+  // A showroom may only visualize its own tiles; another owner's tile is reported as not found.
+  if (!tile || tile.ownerId !== user.id) {
     throw Errors.tileNotFound();
   }
   if (!tile.isActive) {

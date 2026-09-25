@@ -31,3 +31,7 @@ export function generatedVisualizationPath(
 ): string {
   return `${userId}/${projectId}/${visualizationId}.${extensionForMimeType(mimeType)}`;
 }
+
+export function tileImagePath(ownerId: string, tileId: string, mimeType: string): string {
+  return `${ownerId}/${tileId}.${extensionForMimeType(mimeType)}`;
+}

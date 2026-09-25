@@ -33,10 +33,12 @@ interface RawTileRow {
   storage_path: string;
   suitable_rooms: RoomType[];
   is_active: boolean;
+  owner_id: string | null;
   created_at: string;
 }
 
 export interface TileRow extends TileCandidate {
+  ownerId: string | null;
   currency: string;
   createdAt: string;
 }
@@ -57,12 +59,13 @@ function mapRow(row: RawTileRow): TileRow {
     suitableRooms: row.suitable_rooms,
     storagePath: row.storage_path,
     isActive: row.is_active,
+    ownerId: row.owner_id,
     createdAt: row.created_at,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, sku, name, brand, category, material, finish, color_family, size_mm, price_per_sqft, currency, storage_path, suitable_rooms, is_active, created_at";
+  "id, sku, name, brand, category, material, finish, color_family, size_mm, price_per_sqft, currency, storage_path, suitable_rooms, is_active, owner_id, created_at";
 
 export interface TileSearchFilters {
   category?: TileCandidate["category"];
@@ -75,9 +78,10 @@ export interface TileSearchFilters {
   pageSize?: number;
 }
 
-export async function searchTiles(filters: TileSearchFilters): Promise<{ tiles: TileRow[]; total: number }> {
+export async function searchTiles(filters: TileSearchFilters, ownerId?: string): Promise<{ tiles: TileRow[]; total: number }> {
   const supabase = getSupabaseServerClient();
   let query = supabase.from("tiles").select(SELECT_COLUMNS, { count: "exact" }).eq("is_active", true);
+  if (ownerId) query = query.eq("owner_id", ownerId);
 
   if (filters.category) query = query.eq("category", filters.category);
   if (filters.roomType) query = query.contains("suitable_rooms", [filters.roomType]);
@@ -106,10 +110,12 @@ export async function searchTiles(filters: TileSearchFilters): Promise<{ tiles: 
 }
 
 /** Candidate set for recommendTiles(): active tiles whose category matches one of the requested surfaces. */
-export async function getCandidateTilesForSurfaces(surfaces: SurfaceType[]): Promise<TileRow[]> {
+export async function getCandidateTilesForSurfaces(surfaces: SurfaceType[], ownerId?: string): Promise<TileRow[]> {
   const supabase = getSupabaseServerClient();
   const categories = [...surfaces, "both"];
-  const { data, error } = await supabase.from("tiles").select(SELECT_COLUMNS).eq("is_active", true).in("category", categories);
+  let query = supabase.from("tiles").select(SELECT_COLUMNS).eq("is_active", true).in("category", categories);
+  if (ownerId) query = query.eq("owner_id", ownerId);
+  const { data, error } = await query;
 
   if (error) {
     apiLogger.error("getCandidateTilesForSurfaces failed", { operation: "getCandidateTilesForSurfaces", errorCategory: error.code });
@@ -147,5 +153,80 @@ export async function getActiveTileById(tileId: string): Promise<TileRow | null>
     throw Errors.internal("Failed to load tile.");
   }
 
+  return data ? mapRow(data) : null;
+}
+
+export interface NewTileInput {
+  id: string;
+  sku: string;
+  name: string;
+  brand: string | null;
+  category: TileCandidate["category"];
+  material: string | null;
+  finish: string | null;
+  colorFamily: string | null;
+  sizeMm: string | null;
+  pricePerSqft: number | null;
+  currency: string;
+  suitableRooms: RoomType[];
+  storagePath: string;
+}
+
+/** All tiles owned by this showroom, including deactivated ones (for the management screen). */
+export async function listOwnedTiles(ownerId: string): Promise<TileRow[]> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("tiles").select(SELECT_COLUMNS).eq("owner_id", ownerId).order("created_at", { ascending: false });
+  if (error) {
+    apiLogger.error("listOwnedTiles failed", { operation: "listOwnedTiles", errorCategory: error.code });
+    throw Errors.internal("Failed to load your tiles.");
+  }
+  return (data ?? []).map(mapRow);
+}
+
+export async function createTile(ownerId: string, input: NewTileInput): Promise<TileRow> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("tiles")
+    .insert({
+      id: input.id,
+      owner_id: ownerId,
+      sku: input.sku,
+      name: input.name,
+      brand: input.brand,
+      category: input.category,
+      material: input.material,
+      finish: input.finish,
+      color_family: input.colorFamily,
+      size_mm: input.sizeMm,
+      price_per_sqft: input.pricePerSqft,
+      currency: input.currency,
+      suitable_rooms: input.suitableRooms,
+      storage_path: input.storagePath,
+      is_active: true,
+    })
+    .select(SELECT_COLUMNS)
+    .single();
+  if (error || !data) {
+    if (error?.code === "23505") throw Errors.validation("You already have a tile with this SKU. Use a different SKU.");
+    apiLogger.error("createTile failed", { operation: "createTile", errorCategory: error?.code });
+    throw Errors.internal("Failed to save the tile.");
+  }
+  return mapRow(data);
+}
+
+/** Owner-scoped: the owner_id filter guarantees a showroom can only change its own tiles. */
+export async function setOwnedTileActive(ownerId: string, tileId: string, isActive: boolean): Promise<TileRow | null> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("tiles")
+    .update({ is_active: isActive })
+    .eq("id", tileId)
+    .eq("owner_id", ownerId)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+  if (error) {
+    apiLogger.error("setOwnedTileActive failed", { operation: "setOwnedTileActive", errorCategory: error.code });
+    throw Errors.internal("Failed to update the tile.");
+  }
   return data ? mapRow(data) : null;
 }

@@ -8,6 +8,7 @@ const navItems = [
   { to: "/", label: "Home", end: true },
   { to: "/projects", label: "Projects" },
   { to: "/tiles", label: "Tiles" },
+  { to: "/my-tiles", label: "My Tiles" },
 ];
 
 export function Navbar() {

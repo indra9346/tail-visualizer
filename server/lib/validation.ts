@@ -59,7 +59,7 @@ export const generateVisualizationBodySchema = z
  * Parses and validates, throwing a safe 400 ApiError (not a raw ZodError)
  * on failure so route handlers never need their own try/catch for this.
  */
-export function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
+export function parseOrThrow<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {
     const message = result.error.issues.map((i) => `${i.path.join(".") || "(body)"}: ${i.message}`).join("; ");
@@ -67,3 +67,40 @@ export function parseOrThrow<T>(schema: z.ZodType<T>, data: unknown): T {
   }
   return result.data;
 }
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null));
+
+export const createTileBodySchema = z
+  .object({
+    name: z.string().trim().min(1, "Tile name is required.").max(200),
+    sku: z.string().trim().max(60).optional(),
+    brand: optionalText(100),
+    category: z.enum(TILE_CATEGORIES),
+    material: optionalText(100),
+    finish: optionalText(100),
+    colorFamily: optionalText(100),
+    sizeMm: optionalText(40),
+    pricePerSqft: z
+      .number()
+      .min(0)
+      .max(1_000_000)
+      .nullable()
+      .optional()
+      .transform((v) => v ?? null),
+    currency: z.string().trim().length(3).default("INR"),
+    suitableRooms: z.array(z.enum(ROOM_TYPES)).max(ROOM_TYPES.length).default([]),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    base64Data: z
+      .string()
+      .min(1)
+      .max(Math.ceil((aiConfig.image.maxTileImageBytes * 4) / 3) + 10_000, "Image payload is too large."),
+  })
+  .strict();
+
+export const setTileActiveBodySchema = z.object({ tileId: uuidSchema, isActive: z.boolean() }).strict();

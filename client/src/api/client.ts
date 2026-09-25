@@ -74,6 +74,16 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function apiSend<T>(method: "PATCH" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw await parseErrorResponse(res);
+  return (await res.json()) as T;
+}
+
 /** User-facing copy for known error codes; falls back to the server's own message otherwise. */
 export function friendlyErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ImagePreprocessError) return err.message;
