@@ -144,6 +144,7 @@ export function UploadPage() {
               disabled={submitting}
             />
           </div>
+          <p className="-mt-4 text-xs leading-relaxed text-stone-500">For unfinished washrooms, kitchens, or puja spaces, upload a clear photo showing the whole room. Keep permanent plumbing, windows, and the camera view visible. The preview is a design concept, not a construction measurement.</p>
 
           {submitError && <ErrorState message={submitError} onRetry={() => setSubmitError(null)} />}
 

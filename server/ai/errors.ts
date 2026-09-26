@@ -88,9 +88,13 @@ export class GeminiTimeoutError extends AiServiceError {
 
 export class GeminiRateLimitError extends AiServiceError {
   constructor(operation: string, cause?: unknown) {
+    const detail = cause instanceof Error ? cause.message : String(cause ?? "");
+    const exhausted = /limit:\s*0|quota.*(?:exhausted|exceeded)|billing.*(?:disabled|account)|resource_exhausted/i.test(detail);
     super({
       code: "AI_RATE_LIMITED",
-      safeMessage: "The AI service is busy right now. Please try again shortly.",
+      safeMessage: exhausted
+        ? "Gemini image generation is unavailable for this API project because its quota or billing is not enabled. Enable image-generation quota for the same Google Cloud project as GEMINI_API_KEY, then retry."
+        : "The AI service is busy right now. Please try again shortly.",
       internalMessage: `Gemini operation "${operation}" was rate limited`,
       retryable: true,
       cause,

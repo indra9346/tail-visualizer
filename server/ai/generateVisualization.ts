@@ -165,6 +165,10 @@ export async function generateVisualization(rawInput: GenerateVisualizationInput
       if (retryErr instanceof VisualizationGenerationError || retryErr instanceof GeminiEmptyResponseError) {
         throw retryErr;
       }
+      // Preserve the actionable quota/configuration message after the bounded retry.
+      if (retryErr instanceof GeminiRateLimitError || retryErr instanceof GeminiUpstreamError) {
+        throw retryErr;
+      }
       throw new VisualizationGenerationError(
         "Visualization generation failed after one retry",
         false,
