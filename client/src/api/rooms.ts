@@ -1,9 +1,10 @@
 import { apiGet, apiPost } from "./client";
 import type { RoomAnalysis, RoomUpload } from "./types";
 import { preprocessRoomImage } from "@/lib/imagePreprocess";
+import { MAX_SOURCE_IMAGE_BYTES, validateImageFileMeta } from "@/lib/imageSizing";
 
 export const SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-export const MAX_ROOM_IMAGE_BYTES = 10 * 1024 * 1024; // must match server/ai/config.ts image.maxRoomImageBytes
+export const MAX_ROOM_IMAGE_BYTES = MAX_SOURCE_IMAGE_BYTES; // must match server/ai/config.ts image.maxRoomImageBytes
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -23,15 +24,9 @@ export interface RoomImageValidationError {
   message: string;
 }
 
-/** Client-side pre-check mirroring the server's actual limits — never a substitute for server validation, just faster feedback. */
+/** Client-side pre-check — a quick, best-effort filter, NEVER the real gatekeeper. See validateImageFileMeta for the actual (DOM-free, unit-tested) logic. */
 export function validateRoomImageFile(file: File): RoomImageValidationError | null {
-  if (!(SUPPORTED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-    return { message: "Please upload a JPEG, PNG, or WebP image." };
-  }
-  if (file.size > MAX_ROOM_IMAGE_BYTES) {
-    return { message: `This image is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). The maximum is 10 MB.` };
-  }
-  return null;
+  return validateImageFileMeta(file, MAX_ROOM_IMAGE_BYTES);
 }
 
 interface RoomUploadResponse {

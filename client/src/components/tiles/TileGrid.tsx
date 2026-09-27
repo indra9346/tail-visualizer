@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { Tile } from "@/api/types";
 import { TileCard } from "./TileCard";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -10,7 +11,8 @@ export function TileGrid({
   onSelect,
   loading,
   emptyTitle = "No tiles are available yet.",
-  emptyDescription = "The tile catalog for this filter is currently empty. Try a different filter, or check back soon.",
+  emptyDescription = "Your catalog doesn't have any tiles yet.",
+  showAddTileCta = true,
 }: {
   tiles: Tile[];
   reasons?: Record<string, string>;
@@ -19,6 +21,8 @@ export function TileGrid({
   loading?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  /** Shows a link to My Tiles in the empty state — set false where a catalog-with-tiles empty state (e.g. a filter) is more accurate. */
+  showAddTileCta?: boolean;
 }) {
   if (loading) {
     return (
@@ -31,7 +35,19 @@ export function TileGrid({
   }
 
   if (tiles.length === 0) {
-    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+    return (
+      <EmptyState
+        title={emptyTitle}
+        description={emptyDescription}
+        action={
+          showAddTileCta ? (
+            <Link to="/my-tiles" className="text-sm font-medium text-stone-900 underline">
+              Add a tile in My Tiles
+            </Link>
+          ) : undefined
+        }
+      />
+    );
   }
 
   return (

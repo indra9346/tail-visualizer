@@ -100,7 +100,7 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
         <input
           ref={inputRef}
           type="file"
-          accept={SUPPORTED_IMAGE_TYPES.join(",")}
+          accept="image/*"
           className="sr-only"
           disabled={disabled}
           onChange={(e) => handleFiles(e.target.files)}

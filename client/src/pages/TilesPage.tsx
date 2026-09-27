@@ -193,7 +193,12 @@ export function TilesPage() {
                 onSelect={handleSelect}
                 loading={recommendationsLoading}
                 emptyTitle="No recommendations yet"
-                emptyDescription="We couldn't find a strong match in the catalog for this room. Browse the full catalog below instead."
+                emptyDescription={
+                  catalogTiles.length === 0 && !catalogLoading
+                    ? "You haven't added any tiles to your catalog yet — add one to get recommendations and to visualize with it."
+                    : "We couldn't find a strong match in the catalog for this room. Browse the full catalog below instead."
+                }
+                showAddTileCta={catalogTiles.length === 0 && !catalogLoading}
               />
             </div>
           </section>

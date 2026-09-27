@@ -88,3 +88,40 @@ describe("client upload sizing (Vercel 4.5 MB request-body limit)", () => {
     expect(jpegFileName("noext")).toBe("noext.jpg");
   });
 });
+
+describe("validateImageFileMeta (regression: browser-reported file.type is unreliable)", () => {
+  const { validateImageFileMeta, MAX_SOURCE_IMAGE_BYTES } = require("../client/src/lib/imageSizing");
+
+  test("accepts the three officially supported MIME types", () => {
+    for (const type of ["image/jpeg", "image/png", "image/webp"]) {
+      expect(validateImageFileMeta({ type, size: 1000 })).toBeNull();
+    }
+  });
+
+  test("regression: an EMPTY file.type (common on Windows for a real photo, e.g. synced from a phone) is accepted, not rejected", () => {
+    // Before this fix, this exact case silently blocked real users from ever submitting a valid
+    // photo, because file.type is set by the OS/browser from file associations and is frequently blank.
+    expect(validateImageFileMeta({ type: "", size: 1000 })).toBeNull();
+  });
+
+  test("accepts any other image/* subtype (e.g. image/heic) — the real decision is the actual decode attempt, not this guess", () => {
+    expect(validateImageFileMeta({ type: "image/heic", size: 1000 })).toBeNull();
+  });
+
+  test("rejects a file the browser confidently reports as a different, non-image type", () => {
+    const err = validateImageFileMeta({ type: "application/pdf", size: 1000 });
+    expect(err).not.toBeNull();
+    expect(err.message).toMatch(/photo/i);
+  });
+
+  test("still enforces the size limit regardless of type/emptiness", () => {
+    const err = validateImageFileMeta({ type: "", size: MAX_SOURCE_IMAGE_BYTES + 1 });
+    expect(err).not.toBeNull();
+    expect(err.message).toMatch(/too large/i);
+  });
+
+  test("exactly at the size limit is accepted; a custom limit is honoured", () => {
+    expect(validateImageFileMeta({ type: "image/jpeg", size: MAX_SOURCE_IMAGE_BYTES })).toBeNull();
+    expect(validateImageFileMeta({ type: "image/jpeg", size: 6 * 1024 * 1024 }, 5 * 1024 * 1024)).not.toBeNull();
+  });
+});

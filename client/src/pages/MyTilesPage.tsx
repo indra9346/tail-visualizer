@@ -139,7 +139,7 @@ export function MyTilesPage() {
                   ) : (
                     <span className="px-4">Click to choose a clear, straight-on photo of the tile surface (JPEG, PNG or WebP)</span>
                   )}
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
+                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
                 </label>
               </div>
 

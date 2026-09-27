@@ -106,3 +106,43 @@ export function jpegFileName(original: string): string {
   const base = original.replace(/\.[^./\\]+$/, "").trim();
   return `${base || "room"}.jpg`;
 }
+
+/** Max size accepted for a room/tile photo before any resizing is attempted (see MAX_ROOM_IMAGE_BYTES in api/rooms.ts, which re-exports this value). */
+export const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
+
+export interface FileMeta {
+  type: string;
+  size: number;
+}
+
+export interface FileValidationError {
+  message: string;
+}
+
+/**
+ * Pure, DOM-free validation logic for a picked file, kept separate from
+ * api/rooms.ts (which wraps this with the `File` DOM type) so it can be
+ * unit-tested from the root Jest config the same way as the rest of this
+ * file — see clientImageSizing.test.ts.
+ *
+ * `file.type` is set by the browser/OS from file associations and is
+ * frequently EMPTY or wrong for perfectly valid photos (common on Windows
+ * for images synced from a phone, or for files with no registered
+ * association) — a file with an empty or "image/*" type is passed
+ * through unconditionally. This only rejects a file the browser
+ * CONFIDENTLY reports as a different, non-image type (a PDF, a Word
+ * document, ...). The real decision is the actual decode attempt in
+ * imagePreprocess.ts, which gives a far more accurate "we couldn't read
+ * this image" if the file truly can't be opened, followed by the
+ * server's own file-signature check, which never trusts what the
+ * browser claims either way.
+ */
+export function validateImageFileMeta(file: FileMeta, maxBytes: number = MAX_SOURCE_IMAGE_BYTES): FileValidationError | null {
+  if (file.type && !file.type.startsWith("image/")) {
+    return { message: "Please upload a photo (JPEG, PNG, or WebP)." };
+  }
+  if (file.size > maxBytes) {
+    return { message: `This image is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). The maximum is ${(maxBytes / (1024 * 1024)).toFixed(0)} MB.` };
+  }
+  return null;
+}
