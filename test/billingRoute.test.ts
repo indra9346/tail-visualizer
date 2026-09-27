@@ -241,3 +241,30 @@ describe("POST /api/razorpayWebhook", () => {
     expect(res2.statusCode).toBe(405);
   });
 });
+
+describe("GET /api/admin/overview", () => {
+  test("a non-admin user is refused with 403, never sees platform-wide data", async () => {
+    jest.resetModules();
+    jest.doMock("../server/lib/auth", () => ({ authenticateRequest: async () => ({ id: USER, email: null }) }));
+    jest.doMock("../server/lib/httpHandler", () => jest.requireActual("../server/lib/httpHandler"));
+    jest.doMock("../server/db/profiles", () => ({ isAdminUser: async () => false }));
+    jest.doMock("../server/db/billing", () => ({ getAdminOverview: async () => ({ users: { total: 999 } }) }));
+    const { default: handler } = await import("../api/_routes/adminOverview");
+    const res = makeRes();
+    await handler(makeReq({ method: "GET", headers: { authorization: "Bearer x" } }), res);
+    expect(res.statusCode).toBe(403);
+    expect(res._json).not.toHaveProperty("overview");
+  });
+
+  test("an admin user receives the overview", async () => {
+    jest.resetModules();
+    jest.doMock("../server/lib/auth", () => ({ authenticateRequest: async () => ({ id: USER, email: null }) }));
+    jest.doMock("../server/db/profiles", () => ({ isAdminUser: async () => true }));
+    jest.doMock("../server/db/billing", () => ({ getAdminOverview: async () => ({ users: { total: 3 } }) }));
+    const { default: handler } = await import("../api/_routes/adminOverview");
+    const res = makeRes();
+    await handler(makeReq({ method: "GET", headers: { authorization: "Bearer x" } }), res);
+    expect(res.statusCode).toBe(200);
+    expect((res._json as any).overview.users.total).toBe(3);
+  });
+});

@@ -75,6 +75,10 @@
       "destination": "/api/billing?op=verify"
     },
     {
+      "source": "/api/admin/overview",
+      "destination": "/api/billing?op=adminOverview"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

@@ -15,3 +15,14 @@ export async function ensureProfile(userId: string): Promise<void> {
     apiLogger.error("ensureProfile upsert failed", { operation: "ensureProfile", userId, errorCategory: error.code });
   }
 }
+
+/** Authoritative admin check — always re-derived from the database, never from a client-supplied flag. */
+export async function isAdminUser(userId: string): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
+  if (error) {
+    apiLogger.error("isAdminUser check failed", { operation: "isAdminUser", userId, errorCategory: error.code });
+    return false; // fail closed
+  }
+  return data?.is_admin === true;
+}

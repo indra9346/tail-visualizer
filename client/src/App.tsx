@@ -18,6 +18,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { CreditsPage } from "@/pages/CreditsPage";
 import { PaymentsPage } from "@/pages/PaymentsPage";
 import { MyVisualizationsPage } from "@/pages/MyVisualizationsPage";
+import { AdminPage } from "@/pages/AdminPage";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
                 <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
                 <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
                 <Route path="/my-visualizations" element={<ProtectedRoute><MyVisualizationsPage /></ProtectedRoute>} />
+                <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
                 <Route
                   path="/projects"
                   element={
