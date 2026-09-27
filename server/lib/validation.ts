@@ -196,3 +196,15 @@ export const updateTileBodySchema = z
 export const deleteTileQuerySchema = z.object({ tileId: uuidSchema });
 
 export const setTileActiveBodySchema = z.object({ tileId: uuidSchema, isActive: z.boolean() }).strict();
+
+// ---------- billing ----------
+
+export const createCheckoutBodySchema = z.object({ packageId: z.string().trim().min(1).max(60) }).strict();
+
+export const verifyCheckoutBodySchema = z
+  .object({
+    razorpay_order_id: z.string().trim().min(1).max(100),
+    razorpay_payment_id: z.string().trim().min(1).max(100),
+    razorpay_signature: z.string().trim().min(1).max(200),
+  })
+  .strict();

@@ -21,6 +21,8 @@ import { aiConfig } from "../../server/ai/config.js";
 import { AiServiceError } from "../../server/ai/errors.js";
 import { Errors } from "../../server/lib/apiError.js";
 import { tileSupportsSurface, type SurfaceType } from "../../server/ai/types.js";
+import { billingConfig } from "../../server/billing/config.js";
+import { holdCreditsForGeneration, commitCreditHold, releaseCreditHold, releaseStaleHoldsQuietly } from "../../server/db/billing.js";
 
 function surfacesMatch(a: SurfaceType[], b: SurfaceType[]): boolean {
   const sa = [...a].sort();
@@ -85,10 +87,27 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     await updateVisualizationStatus(visualization.id, { status: visualization.status, requirements });
   }
 
+  // Best-effort: return any credits orphaned by a previous crashed/timed-out
+  // request for this user before we reason about the current balance.
+  await releaseStaleHoldsQuietly(user.id);
+
   // Left outside the try/catch below: if this throws (including
   // RETRY_LIMIT_EXCEEDED), no job row exists yet, so there is nothing to
   // mark failed.
   const job = await createNextGenerationJob(visualization.id);
+
+  // Atomic, keyed by this job's id: a client retry with the same job can
+  // never reserve credits twice (see credit_hold's idempotency key). If the
+  // balance is too low, NOTHING is reserved and Gemini is never called.
+  let hold;
+  try {
+    hold = await holdCreditsForGeneration(user.id, job.id, billingConfig.generationCreditCost);
+  } catch (err) {
+    const safeMessage = err instanceof Error ? err.message : "Insufficient credits.";
+    await markJobFailed(job.id, safeMessage);
+    await updateVisualizationStatus(visualization.id, { status: "failed", errorMessage: safeMessage });
+    throw err;
+  }
 
   try {
     await markJobProcessing(job.id, aiConfig.models.visualization);
@@ -115,6 +134,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
         status: "completed",
         resultStoragePath: resultPath,
         completedAt: new Date().toISOString(),
+        creditsCharged: billingConfig.generationCreditCost,
       });
     } catch (dbErr) {
       // Generated image is safely stored but the DB row didn't update — clean up the orphan.
@@ -123,6 +143,10 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     }
 
     await markJobCompleted(job.id);
+
+    // The image is generated, stored, and the visualization row is committed —
+    // ONLY NOW does the reservation become a real charge, exactly once.
+    await commitCreditHold(hold.transactionId);
 
     const signedUrl = await createSignedUrl(BUCKETS.generatedVisualizations, resultPath, user.id);
 
@@ -134,12 +158,15 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
         surfaces: body.surfaces,
         resultImageUrl: signedUrl,
         attemptNumber: job.attemptNumber,
+        creditsCharged: billingConfig.generationCreditCost,
       },
     });
   } catch (err) {
     const safeMessage = err instanceof AiServiceError ? err.safeMessage : "Visualization generation failed.";
     await markJobFailed(job.id, safeMessage);
     await updateVisualizationStatus(visualization.id, { status: "failed", errorMessage: safeMessage });
+    // The reservation is returned — a failed generation never permanently consumes credits.
+    await releaseCreditHold(hold.transactionId, safeMessage);
     throw err;
   }
 });

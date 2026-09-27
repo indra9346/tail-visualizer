@@ -47,6 +47,30 @@
       "destination": "/api/visualizations?op=get&id=:id"
     },
     {
+      "source": "/api/billing/summary",
+      "destination": "/api/billing?op=summary"
+    },
+    {
+      "source": "/api/billing/transactions",
+      "destination": "/api/billing?op=transactions"
+    },
+    {
+      "source": "/api/billing/payments",
+      "destination": "/api/billing?op=payments"
+    },
+    {
+      "source": "/api/billing/packages",
+      "destination": "/api/billing?op=packages"
+    },
+    {
+      "source": "/api/billing/checkout",
+      "destination": "/api/billing?op=checkout"
+    },
+    {
+      "source": "/api/billing/verify",
+      "destination": "/api/billing?op=verify"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

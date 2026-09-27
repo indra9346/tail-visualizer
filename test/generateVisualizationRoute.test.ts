@@ -126,10 +126,11 @@ jest.mock("../server/db/analyses", () => ({
 jest.mock("../server/db/tiles", () => ({
   getTileById: (tileId: string) => tileImpl(tileId),
 }));
+let uploadImageImpl: () => Promise<void> = async () => undefined;
 jest.mock("../server/storage/imageStorage", () => ({
   downloadRoomImage: async () => ({ buffer: Buffer.from("room"), mimeType: "image/jpeg" }),
   downloadTileImage: async () => ({ buffer: Buffer.from("tile"), mimeType: "image/jpeg" }),
-  uploadImage: async () => undefined,
+  uploadImage: () => uploadImageImpl(),
   deleteImageQuietly: async () => undefined,
   createSignedUrl: async () => "https://example.test/signed",
 }));
@@ -139,6 +140,29 @@ jest.mock("../server/ai/generateVisualization", () => ({
     lastGenerateInput = input;
     return generateVisualizationImpl();
   },
+}));
+
+let holdShouldFail = false;
+const heldTransactions = new Set<string>();
+const committedTransactions = new Set<string>();
+const releasedTransactions = new Set<string>();
+jest.mock("../server/db/billing", () => ({
+  holdCreditsForGeneration: async (_userId: string, jobId: string) => {
+    if (holdShouldFail) {
+      const { Errors } = require("../server/lib/apiError");
+      throw Errors.insufficientCredits();
+    }
+    const txId = `hold-${jobId}`;
+    heldTransactions.add(txId);
+    return { transactionId: txId, balance: 90, duplicate: false };
+  },
+  commitCreditHold: async (txId: string) => {
+    committedTransactions.add(txId);
+  },
+  releaseCreditHold: async (txId: string) => {
+    releasedTransactions.add(txId);
+  },
+  releaseStaleHoldsQuietly: async () => undefined,
 }));
 
 import handler from "../api/_routes/vizGenerate";
@@ -158,6 +182,11 @@ describe("POST /api/_routes/vizGenerate", () => {
       throw Errors.roomNotFound();
     };
     analysisImpl = async () => fakeAnalysis;
+    holdShouldFail = false;
+    heldTransactions.clear();
+    committedTransactions.clear();
+    releasedTransactions.clear();
+    uploadImageImpl = async () => undefined;
   });
 
   test("rejects when no room analysis exists yet (never silently analyzes)", async () => {
@@ -322,6 +351,85 @@ describe("POST /api/_routes/vizGenerate", () => {
 
     const afterSecond = fakeClient._dump("visualizations");
     expect(afterSecond).toHaveLength(2); // a genuinely new request after success gets its own visualization
+  });
+
+  describe("credit charging", () => {
+    test("a successful generation holds then COMMITS the credit hold exactly once; response reports the cost", async () => {
+      const tile = makeFloorTile();
+      tileImpl = async () => tile;
+      generateVisualizationImpl = async () => ({ imageBuffer: Buffer.from("generated"), mimeType: "image/png", model: "m", finishReason: null, durationMs: 1 });
+
+      const res = makeRes();
+      await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"] }), res);
+
+      expect(res.statusCode).toBe(200);
+      expect((res._json as any).visualization.creditsCharged).toBe(10);
+      expect(heldTransactions.size).toBe(1);
+      expect(committedTransactions.size).toBe(1);
+      expect(releasedTransactions.size).toBe(0);
+      const [heldId] = [...heldTransactions];
+      expect(committedTransactions.has(heldId!)).toBe(true);
+      expect(fakeClient._dump("visualizations")[0]!.credits_charged).toBe(10);
+    });
+
+    test("insufficient credits: no Gemini call, no visualization/job left running, no charge — 402", async () => {
+      const tile = makeFloorTile();
+      tileImpl = async () => tile;
+      holdShouldFail = true;
+      let generateCalls = 0;
+      generateVisualizationImpl = async () => {
+        generateCalls++;
+        throw new Error("must not be called");
+      };
+
+      const res = makeRes();
+      await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"] }), res);
+
+      expect(res.statusCode).toBe(402);
+      expect((res._json as any).error.code).toBe("INSUFFICIENT_CREDITS");
+      expect(generateCalls).toBe(0);
+      expect(heldTransactions.size).toBe(0);
+      expect(committedTransactions.size).toBe(0);
+      expect(fakeClient._dump("visualizations")[0]!.status).toBe("failed");
+      expect(fakeClient._dump("generation_jobs")[0]!.status).toBe("failed");
+    });
+
+    test("a failed Gemini call RELEASES the hold (never permanently loses credits) and never commits it", async () => {
+      const tile = makeFloorTile();
+      tileImpl = async () => tile;
+      generateVisualizationImpl = async () => {
+        throw new Error("Gemini upstream failure");
+      };
+
+      const res = makeRes();
+      await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"] }), res);
+
+      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      expect(heldTransactions.size).toBe(1);
+      const [heldId] = [...heldTransactions];
+      expect(releasedTransactions.has(heldId!)).toBe(true);
+      expect(committedTransactions.has(heldId!)).toBe(false);
+      expect(fakeClient._dump("visualizations")[0]!.status).toBe("failed");
+      // credits_charged is never set on this row (DB default 0 — the fake table doesn't model column defaults).
+      expect(fakeClient._dump("visualizations")[0]!.credits_charged ?? 0).toBe(0);
+    });
+
+    test("a storage upload failure after Gemini succeeds still releases the hold", async () => {
+      const tile = makeFloorTile();
+      tileImpl = async () => tile;
+      generateVisualizationImpl = async () => ({ imageBuffer: Buffer.from("generated"), mimeType: "image/png", model: "m", finishReason: null, durationMs: 1 });
+      uploadImageImpl = async () => {
+        throw new Error("storage unavailable");
+      };
+
+      const res = makeRes();
+      await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"] }), res);
+
+      expect(res.statusCode).toBeGreaterThanOrEqual(400);
+      const [heldId] = [...heldTransactions];
+      expect(releasedTransactions.has(heldId!)).toBe(true);
+      expect(committedTransactions.size).toBe(0);
+    });
   });
 
   test("requirements flow through: stored on the visualization row AND passed to Gemini (sanitized)", async () => {

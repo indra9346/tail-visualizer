@@ -16,6 +16,7 @@ export interface VisualizationRow {
   errorMessage: string | null;
   requirements: string | null;
   roomType: string | null;
+  creditsCharged: number;
   createdAt: string;
   completedAt: string | null;
 }
@@ -31,6 +32,7 @@ interface RawVisualizationRow {
   error_message: string | null;
   requirements: string | null;
   room_type: string | null;
+  credits_charged: number;
   created_at: string;
   completed_at: string | null;
 }
@@ -47,13 +49,14 @@ function mapRow(row: RawVisualizationRow): VisualizationRow {
     errorMessage: row.error_message,
     requirements: row.requirements,
     roomType: row.room_type,
+    creditsCharged: row.credits_charged,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, created_at, completed_at";
+  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, credits_charged, created_at, completed_at";
 
 export async function createVisualization(input: {
   roomUploadId: string;
@@ -152,7 +155,7 @@ export async function findInFlightVisualization(
 
 export async function updateVisualizationStatus(
   visualizationId: string,
-  update: { status: VisualizationStatus; resultStoragePath?: string | null; errorMessage?: string | null; completedAt?: string | null; requirements?: string | null },
+  update: { status: VisualizationStatus; resultStoragePath?: string | null; errorMessage?: string | null; completedAt?: string | null; requirements?: string | null; creditsCharged?: number },
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
   const patch: Record<string, unknown> = { status: update.status };
@@ -160,6 +163,7 @@ export async function updateVisualizationStatus(
   if (update.errorMessage !== undefined) patch.error_message = update.errorMessage;
   if (update.completedAt !== undefined) patch.completed_at = update.completedAt;
   if (update.requirements !== undefined) patch.requirements = update.requirements;
+  if (update.creditsCharged !== undefined) patch.credits_charged = update.creditsCharged;
 
   const { error } = await supabase.from("visualizations").update(patch).eq("id", visualizationId);
 

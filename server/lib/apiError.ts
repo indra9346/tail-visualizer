@@ -17,6 +17,10 @@ export type ApiErrorCode =
   | "TILE_NOT_FOUND"
   | "TILE_INACTIVE"
   | "TILE_IN_USE"
+  | "INSUFFICIENT_CREDITS"
+  | "PAYMENT_NOT_FOUND"
+  | "PAYMENT_ALREADY_PROCESSED"
+  | "PAYMENT_VERIFICATION_FAILED"
   | "TILE_SURFACE_INCOMPATIBLE"
   | "VISUALIZATION_NOT_FOUND"
   | "RETRY_LIMIT_EXCEEDED"
@@ -37,6 +41,10 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   TILE_NOT_FOUND: 404,
   TILE_INACTIVE: 409,
   TILE_IN_USE: 409,
+  INSUFFICIENT_CREDITS: 402,
+  PAYMENT_NOT_FOUND: 404,
+  PAYMENT_ALREADY_PROCESSED: 409,
+  PAYMENT_VERIFICATION_FAILED: 400,
   TILE_SURFACE_INCOMPATIBLE: 422,
   VISUALIZATION_NOT_FOUND: 404,
   RETRY_LIMIT_EXCEEDED: 429,
@@ -79,6 +87,11 @@ export const Errors = {
   tileInactive: () => new ApiError("TILE_INACTIVE", "This tile is no longer available."),
   tileInUse: () =>
     new ApiError("TILE_IN_USE", "This tile is used by saved visualizations and cannot be deleted. Deactivate it instead to hide it from new visualizations."),
+  insufficientCredits: () =>
+    new ApiError("INSUFFICIENT_CREDITS", "You've used all available credits. Buy more credits to generate another visualization."),
+  paymentNotFound: () => new ApiError("PAYMENT_NOT_FOUND", "Payment not found."),
+  paymentAlreadyProcessed: () => new ApiError("PAYMENT_ALREADY_PROCESSED", "This payment has already been processed."),
+  paymentVerificationFailed: () => new ApiError("PAYMENT_VERIFICATION_FAILED", "We couldn't verify this payment. Please try again or contact support."),
   tileSurfaceIncompatible: (surface: string) =>
     new ApiError("TILE_SURFACE_INCOMPATIBLE", `This tile cannot be applied to the "${surface}" surface.`),
   visualizationNotFound: () => new ApiError("VISUALIZATION_NOT_FOUND", "Visualization not found."),

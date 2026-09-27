@@ -27,12 +27,55 @@ describe("secret handling", () => {
     expect(hits).toHaveLength(1);
   });
 
+  // A "read" is the name appearing as a quoted string literal (process.env["NAME"] or a
+  // required("NAME")-style helper call) or as a direct property access (process.env.NAME) —
+  // never plain prose in a comment/user-facing message, which has no quotes or leading dot.
+  function readsOf(name: string): RegExp {
+    return new RegExp(`["'\`]${name}["'\`]|\\.${name}\\b`);
+  }
+
   test("SUPABASE_SERVICE_ROLE_KEY is read in exactly one file", () => {
-    const hits = serverAndApiFiles.filter((f) => readFileSync(f, "utf8").includes("SUPABASE_SERVICE_ROLE_KEY"));
+    const hits = serverAndApiFiles.filter((f) => readsOf("SUPABASE_SERVICE_ROLE_KEY").test(readFileSync(f, "utf8")));
     expect(hits.map((h) => h.replace(root, ""))).toEqual(
       expect.arrayContaining([expect.stringContaining("env.ts")]),
     );
     expect(hits).toHaveLength(1);
+  });
+
+  test("RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET are read in exactly one file (server/billing/razorpay.ts)", () => {
+    for (const name of ["RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET"]) {
+      const hits = serverAndApiFiles.filter((f) => readsOf(name).test(readFileSync(f, "utf8")));
+      expect(hits.map((h) => h.replace(root, ""))).toEqual(
+        expect.arrayContaining([expect.stringContaining("razorpay.ts")]),
+      );
+      expect(hits).toHaveLength(1);
+    }
+  });
+
+  test("RAZORPAY_KEY_ID (publishable) may be read, but never the secret keys, outside server/billing/razorpay.ts", () => {
+    for (const file of serverAndApiFiles) {
+      if (file.includes("razorpay.ts")) continue;
+      const content = readFileSync(file, "utf8");
+      expect(content).not.toMatch(/RAZORPAY_KEY_SECRET|RAZORPAY_WEBHOOK_SECRET/);
+    }
+  });
+
+  test("no client (React) file references any Razorpay secret name", () => {
+    function walkClient(dir: string): string[] {
+      const out: string[] = [];
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) out.push(...walkClient(full));
+        else if (entry.endsWith(".ts") || entry.endsWith(".tsx")) out.push(full);
+      }
+      return out;
+    }
+    const clientFiles = walkClient(join(root, "client", "src"));
+    expect(clientFiles.length).toBeGreaterThan(0);
+    for (const file of clientFiles) {
+      const content = readFileSync(file, "utf8");
+      expect(content).not.toMatch(/RAZORPAY_KEY_SECRET|RAZORPAY_WEBHOOK_SECRET/);
+    }
   });
 
   test("no server/api file references a VITE_-prefixed secret name", () => {
