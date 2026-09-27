@@ -1,23 +1,39 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { friendlyErrorMessage } from "@/api/client";
 import { getBillingSummary, getCreditTransactions, type BillingSummary, type CreditTransaction } from "@/api/billing";
 
+/** Cards count in one after another, like the stats being tallied up. */
+const statGridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+};
+const statCardVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
+
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <Card>
-      <CardBody>
-        <p className="text-xs uppercase tracking-wide text-stone-400">{label}</p>
-        <p className="mt-1 font-display text-2xl text-stone-900">{value}</p>
-        {sub && <p className="mt-0.5 text-xs text-stone-500">{sub}</p>}
-      </CardBody>
-    </Card>
+    <motion.div variants={statCardVariants}>
+      <Card>
+        <CardBody>
+          <p className="text-xs uppercase tracking-wide text-stone-400">{label}</p>
+          <p className="mt-1 font-display text-2xl text-stone-900">
+            {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+          </p>
+          {sub && <p className="mt-0.5 text-xs text-stone-500">{sub}</p>}
+        </CardBody>
+      </Card>
+    </motion.div>
   );
 }
 
@@ -74,7 +90,9 @@ export function DashboardPage() {
               <CardBody className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-stone-400">Current balance</p>
-                  <p className="mt-1 font-display text-4xl text-stone-900">{summary.balance.toLocaleString()} Credits</p>
+                  <p className="mt-1 font-display text-4xl text-stone-900">
+                    <AnimatedNumber value={summary.balance} /> Credits
+                  </p>
                   {summary.balance <= 20 && (
                     <p className="mt-1 text-sm text-amber-700">
                       {summary.balance === 0 ? "You've used all available credits." : "Your credits are running low."}
@@ -90,32 +108,32 @@ export function DashboardPage() {
 
           <section className="mt-8">
             <h2 className="font-display text-lg text-stone-900">Usage</h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-4">
+            <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
               <StatCard label="Used today" value={summary.used.today} />
               <StatCard label="Used this week" value={summary.used.week} />
               <StatCard label="Used this month" value={summary.used.month} />
               <StatCard label="Total used" value={summary.used.total} sub={summary.used.reserved > 0 ? `${summary.used.reserved} reserved` : undefined} />
-            </div>
+            </motion.div>
           </section>
 
           <section className="mt-8">
             <h2 className="font-display text-lg text-stone-900">Generations</h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-4">
+            <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
               <StatCard label="Total" value={summary.generations.total} />
               <StatCard label="Successful" value={summary.generations.completed} />
               <StatCard label="Failed" value={summary.generations.failed} />
               <StatCard label="In progress" value={summary.generations.inProgress} />
-            </div>
+            </motion.div>
           </section>
 
           <section className="mt-8">
             <h2 className="font-display text-lg text-stone-900">Payments</h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-4">
+            <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
               <StatCard label="Total paid" value={`₹${(summary.payments.paidPaise / 100).toLocaleString()}`} />
               <StatCard label="Successful" value={summary.payments.paid} />
               <StatCard label="Pending" value={summary.payments.pending} />
               <StatCard label="Failed" value={summary.payments.failed} />
-            </div>
+            </motion.div>
           </section>
 
           <section className="mt-10">
@@ -145,8 +163,14 @@ export function DashboardPage() {
                       </td>
                     </tr>
                   ) : (
-                    transactions.map((t) => (
-                      <tr key={t.id} className="border-b border-stone-50 last:border-0">
+                    transactions.map((t, i) => (
+                      <motion.tr
+                        key={t.id}
+                        className="border-b border-stone-50 last:border-0"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.25, delay: i * 0.03, ease: "easeOut" }}
+                      >
                         <td className="whitespace-nowrap px-4 py-3 text-stone-500">{new Date(t.createdAt).toLocaleString()}</td>
                         <td className="px-4 py-3">
                           <Badge tone={TX_TONE[t.type] ?? "neutral"}>{t.type.replace(/_/g, " ")}</Badge>
@@ -158,7 +182,7 @@ export function DashboardPage() {
                         </td>
                         <td className="px-4 py-3 text-right text-stone-500">{t.balanceAfter}</td>
                         <td className="px-4 py-3 text-stone-500">{t.status}</td>
-                      </tr>
+                      </motion.tr>
                     ))
                   )}
                 </tbody>

@@ -10,6 +10,12 @@ const categoryLabel: Record<Tile["category"], string> = {
   both: "Floor + Wall",
 };
 
+/** Inherited from TileGrid's stagger container. */
+const cardVariants = {
+  hidden: { opacity: 0, y: 12, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: "easeOut" } },
+};
+
 export function TileCard({
   tile,
   reason,
@@ -25,23 +31,44 @@ export function TileCard({
     <motion.button
       type="button"
       onClick={() => onSelect(tile)}
-      whileHover={{ y: -2 }}
+      variants={cardVariants}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.18 }}
       className={cn(
-        "flex flex-col overflow-hidden rounded-2xl border bg-white text-left shadow-soft transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-500",
+        "group flex flex-col overflow-hidden rounded-2xl border bg-white text-left shadow-soft transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-500",
         selected ? "border-stone-900 ring-2 ring-stone-900" : "border-stone-200 hover:shadow-lg",
       )}
       aria-pressed={selected}
     >
-      <div className="aspect-square w-full overflow-hidden bg-stone-100">
+      <div className="relative aspect-square w-full overflow-hidden bg-stone-100">
         <img
           src={getPublicTileImageUrl(tile.storagePath)}
           alt={`${tile.name} tile sample`}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
           onError={(e) => {
             e.currentTarget.style.display = "none";
           }}
         />
+        {/* Glossy light sweep on hover — a nod to a real glazed tile catching the light. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 transition-[transform,opacity] duration-700 ease-out group-hover:translate-x-full group-hover:opacity-100"
+        />
+        {selected && (
+          <motion.span
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-stone-900 text-white shadow"
+            aria-hidden="true"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </motion.span>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { BeforeAfterSlider } from "@/components/visualization/BeforeAfterSlider";
 import { Button } from "@/components/ui/Button";
@@ -102,14 +103,33 @@ export function ResultPage() {
   return (
     <PageContainer className="max-w-4xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-3xl text-stone-900">Your Visualization</h1>
-        <Badge tone={visualization.status === "completed" ? "success" : visualization.status === "failed" ? "danger" : "clay"}>
-          {visualization.status === "completed"
-            ? "Completed"
-            : visualization.status === "failed"
-              ? "Failed"
-              : "Generating…"}
-        </Badge>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-clay-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-clay-800">
+              Virtual Trial Room Preview
+            </span>
+            <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700">
+              In-Situ Transformation
+            </span>
+          </div>
+          <h1 className="mt-1.5 font-display text-3xl text-stone-900">Your Virtual Preview</h1>
+        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={visualization.status}
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 22 }}
+          >
+            <Badge tone={visualization.status === "completed" ? "success" : visualization.status === "failed" ? "danger" : "clay"}>
+              {visualization.status === "completed"
+                ? "Completed"
+                : visualization.status === "failed"
+                  ? "Failed"
+                  : "Generating…"}
+            </Badge>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {visualization.status === "failed" && (
@@ -119,24 +139,44 @@ export function ResultPage() {
       )}
 
       {(visualization.status === "pending" || visualization.status === "generating") && (
-        <div className="mt-6 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-6">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-6 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-6"
+        >
           <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900" />
-          <p className="text-sm text-stone-600">Still generating — this page will update automatically.</p>
-        </div>
+          <motion.p
+            className="text-sm text-stone-600"
+            animate={{ opacity: [1, 0.5, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          >
+            Still generating — this page will update automatically.
+          </motion.p>
+        </motion.div>
       )}
 
       {visualization.status === "completed" && visualization.resultImageUrl && room?.imageUrl && (
-        <div className="mt-6">
+        <motion.div
+          className="mt-6"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
           <BeforeAfterSlider
             beforeSrc={room.imageUrl}
             afterSrc={visualization.resultImageUrl}
             beforeAlt="Original room before visualization"
             afterAlt="Room finished with the selected tile"
           />
-        </div>
+        </motion.div>
       )}
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+      <motion.div
+        className="mt-8 grid gap-6 sm:grid-cols-2"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
+      >
         <Card>
           <CardBody className="flex items-center gap-4">
             {visualization.tile && (
@@ -164,15 +204,17 @@ export function ResultPage() {
             </div>
           </CardBody>
         </Card>
-      </div>
+      </motion.div>
 
       {visualization.requirements && (
-        <Card className="mt-6">
-          <CardBody>
-            <p className="text-xs uppercase tracking-wide text-stone-400">Your requirements</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-stone-700">{visualization.requirements}</p>
-          </CardBody>
-        </Card>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.18, ease: "easeOut" }}>
+          <Card className="mt-6">
+            <CardBody>
+              <p className="text-xs uppercase tracking-wide text-stone-400">Your requirements</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-stone-700">{visualization.requirements}</p>
+            </CardBody>
+          </Card>
+        </motion.div>
       )}
 
       {downloadError && (
@@ -184,7 +226,7 @@ export function ResultPage() {
       <div className="mt-10 flex flex-wrap gap-3">
         {visualization.status === "completed" && visualization.resultImageUrl && (
           <Button size="lg" variant="secondary" onClick={handleDownload} loading={downloading}>
-            Download Visualization
+            Save Visualization
           </Button>
         )}
         {visualization.roomUploadId && (
@@ -192,21 +234,21 @@ export function ResultPage() {
             Try Another Tile
           </Button>
         )}
-        <Link to="/projects">
+        {visualization.roomUploadId && (
+          <Button size="lg" variant="outline" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
+            Compare Another Tile
+          </Button>
+        )}
+        <Link to="/tiles">
           <Button size="lg" variant="outline">
-            View in Saved Projects
+            View Tile Catalog
           </Button>
         </Link>
-        <Button
-          size="lg"
-          variant="ghost"
-          onClick={() => {
-            reset();
-            navigate("/upload");
-          }}
-        >
-          Start New Visualization
-        </Button>
+        <Link to="/projects">
+          <Button size="lg" variant="ghost">
+            Saved Projects
+          </Button>
+        </Link>
       </div>
       <p className="mt-3 text-xs text-stone-400">
         This project and visualization are already saved to your account automatically.

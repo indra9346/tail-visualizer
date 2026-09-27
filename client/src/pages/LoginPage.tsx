@@ -147,7 +147,7 @@ export function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-stone-600">
-            {mode === "signin" ? "New to Attelier? " : "Already have an account? "}
+            {mode === "signin" ? "New to TileTry? " : "Already have an account? "}
             <button
               type="button"
               className="font-semibold text-clay-700 hover:underline"

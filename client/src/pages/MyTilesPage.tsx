@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -205,8 +206,25 @@ export function MyTilesPage() {
                 <p className="mt-1.5 text-xs text-stone-400">Leave empty if the tile suits any room.</p>
               </fieldset>
 
-              {formError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">{formError}</p>}
-              {justAdded && !formError && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">"{justAdded}" was added to your catalog.</p>}
+              {formError && (
+                <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} role="alert" className="rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                  {formError}
+                </motion.p>
+              )}
+              <AnimatePresence>
+                {justAdded && !formError && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -6, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    role="status"
+                    className="overflow-hidden rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"
+                  >
+                    "{justAdded}" was added to your catalog.
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
               <Button type="submit" size="lg" className="w-full" loading={saving}>
                 {saving ? "Saving…" : "Add tile"}
@@ -229,25 +247,40 @@ export function MyTilesPage() {
             ) : tiles.length === 0 ? (
               <EmptyState title="No tiles yet" description="Add your first tile with a photo using the form. It appears here straight away." />
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                {tiles.map((tile) => (
-                  <Card key={tile.id} className={`overflow-hidden ${tile.isActive ? "" : "opacity-60"}`}>
-                    <div className="aspect-square bg-stone-100">
-                      <img src={getPublicTileImageUrl(tile.storagePath)} alt={tile.name} className="h-full w-full object-cover" loading="lazy" />
-                    </div>
-                    <div className="space-y-1.5 p-3">
-                      <p className="font-display leading-tight text-stone-900">{tile.name}</p>
-                      <p className="text-xs text-stone-500">{[tile.brand, tile.material, tile.sizeMm && `${tile.sizeMm} mm`].filter(Boolean).join(" · ")}</p>
-                      <div className="flex items-center justify-between pt-1">
-                        <Badge tone={tile.isActive ? "success" : "neutral"}>{tile.isActive ? "Active" : "Hidden"}</Badge>
-                        <button type="button" onClick={() => toggle(tile)} className="text-xs font-medium text-clay-700 hover:underline">
-                          {tile.isActive ? "Hide" : "Show"}
-                        </button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+              <motion.div
+                className="grid grid-cols-2 gap-4 sm:grid-cols-3"
+                initial="hidden"
+                animate="show"
+                variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
+              >
+                <AnimatePresence>
+                  {tiles.map((tile) => (
+                    <motion.div
+                      key={tile.id}
+                      layout
+                      variants={{ hidden: { opacity: 0, y: 12, scale: 0.97 }, show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3, ease: "easeOut" } } }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className={tile.isActive ? "" : "opacity-60 transition-opacity duration-300"}
+                    >
+                      <Card className="overflow-hidden">
+                        <div className="aspect-square bg-stone-100">
+                          <img src={getPublicTileImageUrl(tile.storagePath)} alt={tile.name} className="h-full w-full object-cover" loading="lazy" />
+                        </div>
+                        <div className="space-y-1.5 p-3">
+                          <p className="font-display leading-tight text-stone-900">{tile.name}</p>
+                          <p className="text-xs text-stone-500">{[tile.brand, tile.material, tile.sizeMm && `${tile.sizeMm} mm`].filter(Boolean).join(" · ")}</p>
+                          <div className="flex items-center justify-between pt-1">
+                            <Badge tone={tile.isActive ? "success" : "neutral"}>{tile.isActive ? "Active" : "Hidden"}</Badge>
+                            <button type="button" onClick={() => toggle(tile)} className="text-xs font-medium text-clay-700 hover:underline">
+                              {tile.isActive ? "Hide" : "Show"}
+                            </button>
+                          </div>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
             )}
           </div>
         </div>

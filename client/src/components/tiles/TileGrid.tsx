@@ -1,8 +1,15 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import type { Tile } from "@/api/types";
 import { TileCard } from "./TileCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+
+/** Cards fade/lift in one after another — like tiles being laid across the grid. */
+const gridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.045 } },
+};
 
 export function TileGrid({
   tiles,
@@ -51,7 +58,12 @@ export function TileGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+    <motion.div
+      className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+      variants={gridVariants}
+      initial="hidden"
+      animate="show"
+    >
       {tiles.map((tile) => (
         <TileCard
           key={tile.id}
@@ -61,6 +73,6 @@ export function TileGrid({
           onSelect={onSelect}
         />
       ))}
-    </div>
+    </motion.div>
   );
 }

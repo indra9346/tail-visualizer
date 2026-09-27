@@ -30,8 +30,20 @@ export function TileCatalogPage() {
 
   return (
     <PageContainer>
-      <h1 className="font-display text-3xl text-stone-900">Tile Catalog</h1>
-      <p className="mt-2 text-stone-600">These are the tiles in your showroom catalog. Add or edit them under My Tiles.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-clay-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
+            Showroom Catalog
+          </span>
+          <h1 className="mt-2 font-display text-3xl text-stone-900 sm:text-4xl">Virtual Trial Room Catalog</h1>
+          <p className="mt-2 text-stone-600">
+            Browse real showroom tiles and try them instantly in your actual room photo.
+          </p>
+        </div>
+        <Link to="/upload">
+          <Button variant="outline">Upload Room Photo</Button>
+        </Link>
+      </div>
 
       <div className="mt-8">
         <TileFilters filters={filters} onChange={setFilters} />
@@ -44,14 +56,19 @@ export function TileCatalogPage() {
       </div>
 
       {selectedTile && (
-        <Card className="sticky bottom-4 mt-10 border-stone-900">
+        <Card className="sticky bottom-4 mt-10 border-stone-900 shadow-xl">
           <CardBody className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-stone-500">Selected tile</p>
-              <p className="font-display text-lg text-stone-900">{selectedTile.name}</p>
+            <div className="flex items-center gap-3">
+              <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
+              <div>
+                <p className="text-xs uppercase tracking-wider text-stone-500">Selected for Trial</p>
+                <p className="font-display text-lg font-semibold text-stone-900">{selectedTile.name}</p>
+              </div>
             </div>
             <Link to="/upload">
-              <Button size="lg">Upload a Room to Visualize This Tile</Button>
+              <Button size="lg" className="shadow-md">
+                TRY IN MY SPACE →
+              </Button>
             </Link>
           </CardBody>
         </Card>

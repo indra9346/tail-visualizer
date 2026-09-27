@@ -19,6 +19,7 @@ import { CreditsPage } from "@/pages/CreditsPage";
 import { PaymentsPage } from "@/pages/PaymentsPage";
 import { MyVisualizationsPage } from "@/pages/MyVisualizationsPage";
 import { AdminPage } from "@/pages/AdminPage";
+import { DemosPage } from "@/pages/DemosPage";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <div className="flex-1">
               <Routes>
                 <Route path="/" element={<LandingPage />} />
+                <Route path="/demos" element={<DemosPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
                 <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />

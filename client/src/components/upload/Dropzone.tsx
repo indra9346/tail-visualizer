@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { motion } from "framer-motion";
 import { SUPPORTED_IMAGE_TYPES } from "@/api/rooms";
 import { cn } from "@/lib/cn";
 
@@ -33,9 +34,21 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
 
   if (file && previewUrl) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="overflow-hidden rounded-2xl border border-stone-200 bg-white"
+      >
         <div className="aspect-[4/3] w-full overflow-hidden bg-stone-100">
-          <img src={previewUrl} alt="Preview of the room you selected to upload" className="h-full w-full object-cover" />
+          <motion.img
+            src={previewUrl}
+            alt="Preview of the room you selected to upload"
+            className="h-full w-full object-cover"
+            initial={{ scale: 1.06 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          />
         </div>
         <div className="flex items-center justify-between gap-3 p-4">
           <div className="min-w-0">
@@ -56,13 +69,13 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
             {error}
           </p>
         )}
-      </div>
+      </motion.div>
     );
   }
 
   return (
     <div>
-      <div
+      <motion.div
         role="button"
         tabIndex={0}
         aria-label="Upload a photo of your room"
@@ -76,13 +89,24 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
+        animate={{ scale: isDragging ? 1.015 : 1 }}
+        transition={{ duration: 0.15 }}
         className={cn(
           "flex aspect-[4/3] w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 text-center transition-colors",
-          isDragging ? "border-clay-500 bg-clay-50" : "border-stone-300 bg-stone-50 hover:border-stone-400",
+          isDragging ? "border-clay-500 bg-clay-50 shadow-lg" : "border-stone-300 bg-stone-50 hover:border-stone-400",
           disabled && "cursor-not-allowed opacity-60",
         )}
       >
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="text-stone-400">
+        <motion.svg
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          className="text-stone-400"
+          animate={isDragging ? { y: -4 } : { y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
           <path
             d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14"
             stroke="currentColor"
@@ -90,7 +114,7 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-        </svg>
+        </motion.svg>
         <div>
           <p className="text-sm font-medium text-stone-900">Drag and drop your room photo, or click to browse</p>
           <p className="mt-1 text-xs text-stone-500">
@@ -105,7 +129,7 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
           disabled={disabled}
           onChange={(e) => handleFiles(e.target.files)}
         />
-      </div>
+      </motion.div>
       {error && (
         <p className="mt-2 text-sm text-red-700" role="alert">
           {error}

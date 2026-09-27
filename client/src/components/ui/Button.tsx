@@ -1,10 +1,15 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
 
 type Variant = "primary" | "secondary" | "ghost" | "outline";
 type Size = "sm" | "md" | "lg";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+// motion.button's drag/animation event props conflict in type with the native DOM equivalents;
+// this component only ever uses whileTap (no drag gestures), so the plain DOM handlers are kept.
+type ConflictingMotionProps = "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration";
+
+interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, ConflictingMotionProps> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
@@ -28,9 +33,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   return (
-    <button
+    <motion.button
       ref={ref}
       disabled={disabled || loading}
+      whileTap={disabled || loading ? undefined : { scale: 0.97 }}
+      transition={{ duration: 0.12 }}
       className={cn(
         "inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-500",
@@ -49,6 +56,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         />
       )}
       {children}
-    </button>
+    </motion.button>
   );
 });

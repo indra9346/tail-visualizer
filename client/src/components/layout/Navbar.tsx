@@ -1,18 +1,25 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-const navItems = [
+const publicNavItems = [
   { to: "/", label: "Home", end: true },
+  { to: "/demos", label: "Live Demos" },
+  { to: "/tiles", label: "Tile Catalog" },
+];
+
+const authNavItems = [
+  { to: "/", label: "Home", end: true },
+  { to: "/demos", label: "Live Demos" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/projects", label: "Visualize" },
-  { to: "/my-tiles", label: "My Tiles" },
   { to: "/tiles", label: "Tile Catalog" },
+  { to: "/my-tiles", label: "My Tiles" },
   { to: "/my-visualizations", label: "My Visualizations" },
   { to: "/credits", label: "Credits" },
-  { to: "/payments", label: "Payments" },
 ];
 
 export function Navbar() {
@@ -20,31 +27,47 @@ export function Navbar() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const activeNavItems = user ? authNavItems : publicNavItems;
+
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between">
-        <NavLink to="/" className="flex items-center gap-2 font-display text-xl tracking-tight text-stone-900" onClick={() => setMobileOpen(false)}>
-          <span className="grid h-7 w-7 grid-cols-2 gap-0.5 rounded-md bg-stone-900 p-1" aria-hidden="true">
+        <NavLink to="/" className="flex items-center gap-2.5 font-display text-xl tracking-tight text-stone-900" onClick={() => setMobileOpen(false)}>
+          <span className="grid h-8 w-8 grid-cols-2 gap-0.5 rounded-lg bg-stone-900 p-1.5 shadow-sm" aria-hidden="true">
             <span className="rounded-[2px] bg-clay-300" /><span className="rounded-[2px] bg-clay-500" />
             <span className="rounded-[2px] bg-clay-500" /><span className="rounded-[2px] bg-clay-300" />
           </span>
-          Attelier
+          <div className="flex flex-col">
+            <span className="font-display text-lg font-semibold leading-none text-stone-950">TileTry</span>
+            <span className="text-[10px] font-sans font-medium uppercase tracking-wider text-clay-600">Virtual Trial Room</span>
+          </div>
         </NavLink>
 
         <nav className="hidden items-center gap-1 sm:flex" aria-label="Primary">
-          {navItems.map((item) => (
+          {activeNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100 hover:text-stone-900",
+                  "relative rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive ? "text-white" : "text-stone-600 hover:bg-stone-100 hover:text-stone-900",
                 )
               }
             >
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.span
+                      layoutId="navActivePill"
+                      className="absolute inset-0 rounded-lg bg-stone-900"
+                      transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="relative">{item.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -92,7 +115,7 @@ export function Navbar() {
       {mobileOpen && (
         <nav className="border-t border-stone-200 bg-stone-50 sm:hidden" aria-label="Primary mobile">
           <div className="container-page flex flex-col gap-1 py-3">
-            {navItems.map((item) => (
+            {activeNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
