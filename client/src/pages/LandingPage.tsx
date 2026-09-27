@@ -123,10 +123,31 @@ const COMPARISON_TILES = [
 export function LandingPage() {
   const [activeSpaceTab, setActiveSpaceTab] = useState<string>("bathrooms");
   const [selectedComparisonTile, setSelectedComparisonTile] = useState<string>("calacatta");
-  const [heroSliderPos, setHeroSliderPos] = useState<number>(50);
+  const [heroSliderPos, setHeroSliderPos] = useState<number>(78);
   const [heroDragging, setHeroDragging] = useState<boolean>(false);
   const [heroViewMode, setHeroViewMode] = useState<"slider" | "video">("slider");
+  const [heroVideoPlaying, setHeroVideoPlaying] = useState<boolean>(true);
+  const [heroVideoMuted, setHeroVideoMuted] = useState<boolean>(true);
+  const [heroVideoProgress, setHeroVideoProgress] = useState<number>(0);
   const heroSliderRef = useRef<HTMLDivElement | null>(null);
+  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const toggleHeroPlay = () => {
+    if (!heroVideoRef.current) return;
+    if (heroVideoPlaying) {
+      heroVideoRef.current.pause();
+      setHeroVideoPlaying(false);
+    } else {
+      heroVideoRef.current.play().catch(() => {});
+      setHeroVideoPlaying(true);
+    }
+  };
+
+  const toggleHeroMute = () => {
+    if (!heroVideoRef.current) return;
+    heroVideoRef.current.muted = !heroVideoMuted;
+    setHeroVideoMuted(!heroVideoMuted);
+  };
 
   const handleHeroPointerMove = useCallback((clientX: number) => {
     if (!heroSliderRef.current) return;
@@ -240,7 +261,15 @@ export function LandingPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setHeroViewMode("video")}
+                      onClick={() => {
+                        setHeroViewMode("video");
+                        setTimeout(() => {
+                          if (heroVideoRef.current) {
+                            heroVideoRef.current.play().catch(() => {});
+                            setHeroVideoPlaying(true);
+                          }
+                        }, 50);
+                      }}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                         heroViewMode === "video"
                           ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
@@ -256,7 +285,7 @@ export function LandingPage() {
                 </div>
 
                 {heroViewMode === "slider" ? (
-                  /* Interactive Split Slider matching Pic 3 */
+                  /* Interactive Split Slider matching user pic */
                   <div
                     ref={heroSliderRef}
                     className="relative aspect-[4/3] sm:aspect-video w-full touch-none select-none overflow-hidden cursor-ew-resize bg-black"
@@ -271,15 +300,15 @@ export function LandingPage() {
                     onPointerUp={() => setHeroDragging(false)}
                     onPointerCancel={() => setHeroDragging(false)}
                   >
-                    {/* Underneath image: Current Beige Tiles (Pic 3 Right side) */}
+                    {/* Underneath image: Current Beige Tiles (Pic Right side) */}
                     <img
                       src="/images/demo/washroom_before.jpg"
                       alt="Current Washroom Beige Wall Tiles"
-                      className="absolute inset-0 h-full w-full object-cover"
+                      className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
                       draggable={false}
                     />
 
-                    {/* Overlaid clipped image: Virtual Trial Marble Tiles (Pic 3 Left side) */}
+                    {/* Overlaid clipped image: Virtual Trial Marble Tiles (Pic Left side) */}
                     <div
                       className="absolute inset-0 h-full w-full overflow-hidden"
                       style={{ clipPath: `inset(0 ${100 - heroSliderPos}% 0 0)` }}
@@ -287,12 +316,12 @@ export function LandingPage() {
                       <img
                         src="/images/demo/washroom_after.jpg"
                         alt="Virtual Trial Marble Wall Retiling"
-                        className="absolute inset-0 h-full w-full object-cover"
+                        className="absolute inset-0 h-full w-full object-cover object-[center_35%]"
                         draggable={false}
                       />
                     </div>
 
-                    {/* Overlaid Badges on Image exactly as in Pic 3 */}
+                    {/* Overlaid Badges on Image exactly as in Pic */}
                     <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-stone-950/85 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300 backdrop-blur border border-white/10 shadow-lg">
                       ◀ VIRTUAL TRIAL: MARBLE
                     </div>
@@ -300,7 +329,7 @@ export function LandingPage() {
                       CURRENT: BEIGE ▶
                     </div>
 
-                    {/* Divider line and circular handle with <> icon as in Pic 3 */}
+                    {/* Divider line and circular handle with <> icon exactly as in Pic */}
                     <div
                       className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_12px_rgba(0,0,0,0.8)]"
                       style={{ left: `${heroSliderPos}%` }}
@@ -314,45 +343,109 @@ export function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Overlaid Bottom Info Bar as in Pic 3 */}
+                    {/* Overlaid Bottom Info Bar */}
                     <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-xl bg-stone-950/85 px-3.5 py-1.5 text-xs text-stone-300 backdrop-blur border border-white/10">
-                      <span className="font-semibold text-white flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      <span className="font-semibold text-white flex items-center gap-2 text-[11px] sm:text-xs">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         Fixed Camera • Exact Fixtures Preserved
                       </span>
                       <Link
                         to="/demos"
-                        className="pointer-events-auto font-semibold text-amber-300 hover:text-white transition underline"
+                        className="pointer-events-auto font-semibold text-amber-300 hover:text-white transition underline text-[11px] sm:text-xs"
                       >
                         Watch Full Demo →
                       </Link>
                     </div>
                   </div>
                 ) : (
-                  /* Video Player Loop Option */
-                  <div className="relative aspect-video w-full bg-black">
+                  /* 45s In-Situ Conversion Demo Video with Before & After Visuals */
+                  <div className="relative aspect-video w-full bg-black group overflow-hidden">
                     <video
-                      src="/videos/washroom_tile_trial_demo.mp4"
+                      ref={heroVideoRef}
+                      src="/videos/conversiondemo.mp4"
                       autoPlay
                       loop
-                      muted
+                      muted={heroVideoMuted}
                       playsInline
                       className="h-full w-full object-cover"
-                    />
-                    <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-stone-950/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-clay-300 backdrop-blur border border-white/10">
-                      ◀ Virtual Trial: Marble
+                      onTimeUpdate={() => {
+                        if (heroVideoRef.current && heroVideoRef.current.duration) {
+                          setHeroVideoProgress((heroVideoRef.current.currentTime / heroVideoRef.current.duration) * 100);
+                        }
+                      }}
+                    >
+                      <source src="/videos/conversiondemo.mp4" type="video/mp4" />
+                      <source src="/conversiondemo.mp4" type="video/mp4" />
+                      <source src="/videos/washroom_tile_trial_demo.mp4" type="video/mp4" />
+                    </video>
+
+                    {/* Clean Contextual Badge on Video */}
+                    <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-stone-950/80 px-2.5 py-1 text-[11px] font-medium tracking-wide text-stone-200 backdrop-blur border border-white/10 shadow">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block mr-1.5 animate-pulse" />
+                      45s Full Demonstration
                     </div>
-                    <div className="pointer-events-none absolute right-3 top-3 rounded-lg bg-stone-950/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-stone-300 backdrop-blur border border-white/10">
-                      Current: Beige ▶
+
+                    {/* Sleek Interactive Controls Overlay */}
+                    <div className="absolute inset-x-0 bottom-11 px-3 py-1 flex items-center justify-between pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 pointer-events-auto">
+                        <button
+                          type="button"
+                          onClick={toggleHeroPlay}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-950/80 text-white hover:bg-stone-900 border border-white/20 backdrop-blur transition"
+                          aria-label={heroVideoPlaying ? "Pause video" : "Play video"}
+                        >
+                          {heroVideoPlaying ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <rect x="6" y="4" width="4" height="16" rx="1" />
+                              <rect x="14" y="4" width="4" height="16" rx="1" />
+                            </svg>
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={toggleHeroMute}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-950/80 text-white hover:bg-stone-900 border border-white/20 backdrop-blur transition"
+                          aria-label={heroVideoMuted ? "Unmute audio" : "Mute audio"}
+                        >
+                          {heroVideoMuted ? (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+
+                      <span className="rounded-md bg-stone-950/70 px-2 py-0.5 text-[10px] font-mono text-stone-300 backdrop-blur border border-white/10">
+                        45s In-Situ Test
+                      </span>
                     </div>
-                    <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-xl bg-stone-950/85 px-3 py-1.5 text-xs text-stone-300 backdrop-blur border border-white/10">
-                      <span className="font-medium text-white flex items-center gap-1.5">
+
+                    {/* Progress Bar Line */}
+                    <div className="absolute inset-x-0 bottom-9 h-1 bg-white/20">
+                      <div
+                        className="h-full bg-amber-400 transition-all duration-150"
+                        style={{ width: `${heroVideoProgress}%` }}
+                      />
+                    </div>
+
+                    {/* Bottom Info Bar as in Pic 3 */}
+                    <div className="pointer-events-none absolute bottom-2 left-3 right-3 flex items-center justify-between rounded-xl bg-stone-950/85 px-3 py-1 text-xs text-stone-300 backdrop-blur border border-white/10">
+                      <span className="font-semibold text-white flex items-center gap-2 text-[11px] sm:text-xs">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         Fixed Camera • Exact Fixtures Preserved
                       </span>
                       <Link
                         to="/demos"
-                        className="pointer-events-auto font-semibold text-clay-300 hover:text-white transition underline"
+                        className="pointer-events-auto font-semibold text-amber-300 hover:text-white transition underline text-[11px] sm:text-xs"
                       >
                         Watch Full Demo →
                       </Link>

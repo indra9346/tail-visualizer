@@ -185,7 +185,7 @@ export function DemosPage() {
           <div className="relative aspect-video w-full overflow-hidden bg-black group">
             <video
               ref={videoRef}
-              src="/videos/washroom_tile_trial_demo.mp4"
+              src="/videos/conversiondemo.mp4"
               className="h-full w-full object-contain"
               autoPlay
               loop
@@ -196,17 +196,17 @@ export function DemosPage() {
                   setVideoTime(videoRef.current.currentTime);
                 }
               }}
-            />
+            >
+              <source src="/videos/conversiondemo.mp4" type="video/mp4" />
+              <source src="/conversiondemo.mp4" type="video/mp4" />
+              <source src="/videos/washroom_tile_trial_demo.mp4" type="video/mp4" />
+            </video>
 
-            {/* In-Video Badges / Overlays */}
+            {/* In-Video Badge matching walkthrough */}
             <div className="pointer-events-none absolute left-4 top-4 flex flex-col gap-2">
               <span className="rounded-lg bg-stone-950/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-clay-300 backdrop-blur border border-white/10 shadow-lg">
-                ◀ LEFT: Virtual Trial Room (Calacatta Slabs)
-              </span>
-            </div>
-            <div className="pointer-events-none absolute right-4 top-4 flex flex-col items-end gap-2">
-              <span className="rounded-lg bg-stone-950/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-stone-300 backdrop-blur border border-white/10 shadow-lg">
-                RIGHT: Original Space (Dated Beige) ▶
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block mr-1.5 animate-pulse" />
+                45s In-Situ Retiling Demonstration
               </span>
             </div>
 
