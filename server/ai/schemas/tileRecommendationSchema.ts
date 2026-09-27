@@ -1,6 +1,6 @@
 import { Type, type Schema } from "@google/genai";
 import { z } from "zod";
-import { SURFACE_TYPES } from "../types.js";
+import { ANALYSIS_SURFACES } from "../types.js";
 
 /**
  * Schema for the RAW ranking JSON Gemini returns. Note `tileId` is only
@@ -16,7 +16,7 @@ export const geminiTileRecommendationResponseSchema = z
         z
           .object({
             tileId: z.string().min(1),
-            surface: z.enum(SURFACE_TYPES),
+            surface: z.enum(ANALYSIS_SURFACES),
             rank: z.number().int().min(1),
             reason: z.string().min(1).max(500),
           })
@@ -37,7 +37,7 @@ export const geminiTileRecommendationJsonSchema: Schema = {
         type: Type.OBJECT,
         properties: {
           tileId: { type: Type.STRING },
-          surface: { type: Type.STRING, enum: SURFACE_TYPES as unknown as string[] },
+          surface: { type: Type.STRING, enum: ANALYSIS_SURFACES as unknown as string[] },
           rank: { type: Type.INTEGER },
           reason: { type: Type.STRING },
         },

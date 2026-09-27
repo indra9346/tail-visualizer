@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
-import type { RoomAnalysis, SurfaceType, TileCandidate } from "../types.js";
+import type { RoomAnalysis, RoomType, SurfaceType, TileCandidate } from "../types.js";
 
 /** Human description of each surface, used inside the prompt. Extend here to support new surface types. */
 export const SURFACE_PROMPT_LABELS: Record<SurfaceType, string> = {
   floor: "the floor",
   wall: "the walls",
+  backsplash: "the backsplash area (the wall zone between the counter and the wall cabinets or shelf)",
+  shower_wall: "the shower walls (the wall surfaces inside the shower or wet area)",
 };
 
 function describeSurfaces(surfaces: SurfaceType[]): string {
@@ -39,6 +41,7 @@ export function buildVisualizationPrompt(
   surfaces: SurfaceType[],
   requirements?: string | null,
   boundary: string = `REQ-${randomBytes(8).toString("hex")}`,
+  roomType?: RoomType,
 ): string {
   const surfaceList = describeSurfaces(surfaces);
   const requirementsBlock = requirements
@@ -56,6 +59,8 @@ None given. Use sensible defaults: apply the tile to the target surface only.`;
     tile.material ? `material: ${tile.material}` : null,
     tile.finish ? `finish: ${tile.finish}` : null,
     tile.colorFamily ? `colour family: ${tile.colorFamily}` : null,
+    tile.tileType ? `type: ${tile.tileType}` : null,
+    tile.pattern ? `pattern: ${tile.pattern}` : null,
     tile.sizeMm ? `real tile size: ${tile.sizeMm} mm` : null,
   ]
     .filter(Boolean)
@@ -69,7 +74,7 @@ You are given exactly two images, in this order:
 
 TILE FACTS: ${tileFacts}.
 
-Room context from an earlier analysis of the source photo: room type ${roomAnalysis.roomType}; construction state ${roomAnalysis.constructionState}; perspective ${roomAnalysis.perspective ?? "unknown"}; lighting ${roomAnalysis.lighting ?? "unknown"}; doors visible ${roomAnalysis.doorCount}; windows visible ${roomAnalysis.windowCount}; fixtures ${roomAnalysis.fixtures.join(", ") || "none noted"}.
+Room context from an earlier analysis of the source photo: room type ${roomType ?? roomAnalysis.roomType}; construction state ${roomAnalysis.constructionState}; perspective ${roomAnalysis.perspective ?? "unknown"}; lighting ${roomAnalysis.lighting ?? "unknown"}; doors visible ${roomAnalysis.doorCount}; windows visible ${roomAnalysis.windowCount}; fixtures ${roomAnalysis.fixtures.join(", ") || "none noted"}.
 
 3. TARGET SURFACE
 Apply the tile ONLY to: ${surfaceList}. Replace only that surface's existing material. Leave every other surface exactly as in the source photo.

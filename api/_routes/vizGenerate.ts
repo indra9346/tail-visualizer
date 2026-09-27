@@ -20,7 +20,7 @@ import { generateVisualization } from "../../server/ai/generateVisualization.js"
 import { aiConfig } from "../../server/ai/config.js";
 import { AiServiceError } from "../../server/ai/errors.js";
 import { Errors } from "../../server/lib/apiError.js";
-import type { SurfaceType } from "../../server/ai/types.js";
+import { tileSupportsSurface, type SurfaceType } from "../../server/ai/types.js";
 
 function surfacesMatch(a: SurfaceType[], b: SurfaceType[]): boolean {
   const sa = [...a].sort();
@@ -55,8 +55,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     throw Errors.tileInactive();
   }
   for (const surface of body.surfaces) {
-    const compatible = tile.category === surface || tile.category === "both";
-    if (!compatible) {
+    if (!tileSupportsSurface(tile.category, surface)) {
       throw Errors.tileSurfaceIncompatible(surface);
     }
   }
@@ -77,7 +76,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     const inFlight = await findInFlightVisualization(room.id, tile.id, body.surfaces);
     visualization =
       inFlight ??
-      (await createVisualization({ roomUploadId: room.id, userId: user.id, tileId: tile.id, surfaces: body.surfaces, requirements: body.requirements ?? null }));
+      (await createVisualization({ roomUploadId: room.id, userId: user.id, tileId: tile.id, surfaces: body.surfaces, requirements: body.requirements ?? null, roomType: body.roomType ?? analysis.roomType }));
   }
 
   // A retry may carry updated instructions; otherwise keep what was stored on the row.
@@ -104,6 +103,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       tile,
       surfaces: body.surfaces,
       requirements,
+      roomType: body.roomType ?? analysis.roomType,
       context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id },
     });
 

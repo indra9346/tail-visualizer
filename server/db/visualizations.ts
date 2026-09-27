@@ -15,6 +15,7 @@ export interface VisualizationRow {
   resultStoragePath: string | null;
   errorMessage: string | null;
   requirements: string | null;
+  roomType: string | null;
   createdAt: string;
   completedAt: string | null;
 }
@@ -29,6 +30,7 @@ interface RawVisualizationRow {
   result_storage_path: string | null;
   error_message: string | null;
   requirements: string | null;
+  room_type: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -44,13 +46,14 @@ function mapRow(row: RawVisualizationRow): VisualizationRow {
     resultStoragePath: row.result_storage_path,
     errorMessage: row.error_message,
     requirements: row.requirements,
+    roomType: row.room_type,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, created_at, completed_at";
+  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, created_at, completed_at";
 
 export async function createVisualization(input: {
   roomUploadId: string;
@@ -58,6 +61,7 @@ export async function createVisualization(input: {
   tileId: string;
   surfaces: SurfaceType[];
   requirements?: string | null;
+  roomType?: string | null;
 }): Promise<VisualizationRow> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
@@ -68,6 +72,7 @@ export async function createVisualization(input: {
       tile_id: input.tileId,
       applied_surfaces: input.surfaces,
       requirements: input.requirements ?? null,
+      room_type: input.roomType ?? null,
       status: "pending",
     })
     .select(SELECT_COLUMNS)

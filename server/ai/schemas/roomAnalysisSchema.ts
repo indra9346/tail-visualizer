@@ -1,6 +1,6 @@
 import { Type, type Schema } from "@google/genai";
 import { z } from "zod";
-import { CONSTRUCTION_STATES, LIGHTING_TYPES, PERSPECTIVE_TYPES, ROOM_TYPES, SURFACE_TYPES } from "../types.js";
+import { CONSTRUCTION_STATES, LIGHTING_TYPES, PERSPECTIVE_TYPES, ROOM_TYPES, ANALYSIS_SURFACES } from "../types.js";
 
 /**
  * Schema for the RAW JSON we ask Gemini to return. This intentionally
@@ -26,7 +26,7 @@ export const geminiRoomAnalysisResponseSchema = z
         conditionNotes: z.string().nullable(),
       }),
     }),
-    recommendedApplication: z.array(z.enum(SURFACE_TYPES)).max(2),
+    recommendedApplication: z.array(z.enum(ANALYSIS_SURFACES)).max(2),
     architecturalElements: z.object({
       doors: z.number().int().min(0),
       windows: z.number().int().min(0),
@@ -77,7 +77,7 @@ export const geminiRoomAnalysisJsonSchema: Schema = {
     },
     recommendedApplication: {
       type: Type.ARRAY,
-      items: { type: Type.STRING, enum: SURFACE_TYPES as unknown as string[] },
+      items: { type: Type.STRING, enum: ANALYSIS_SURFACES as unknown as string[] },
     },
     architecturalElements: {
       type: Type.OBJECT,

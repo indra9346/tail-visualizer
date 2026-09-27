@@ -9,12 +9,21 @@ import { randomUUID } from "node:crypto";
  * exercise the fixed business logic instead of re-implementing it.
  */
 type Row = Record<string, unknown>;
+type FakeError = { code: string; message: string } | null;
 
-class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: null; count?: number }> {
+/** Optional table rules the fake enforces like Postgres would. */
+export interface FakeRules {
+  /** table -> list of column sets that must be unique together (a duplicate insert/update yields error 23505). */
+  unique?: Record<string, string[][]>;
+  /** Return true to make deleting `row` from `table` fail with a foreign-key violation (23503). */
+  restrictDelete?: (table: string, row: Row) => boolean;
+}
+
+class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: FakeError; count?: number }> {
   private filters: ((r: Row) => boolean)[] = [];
   private orderSpec?: { col: string; asc: boolean };
   private limitN?: number;
-  private mode: "select" | "insert" | "update" = "select";
+  private mode: "select" | "insert" | "update" | "delete" = "select";
   private insertPayload?: Row | Row[];
   private updatePayload?: Row;
   private countMode = false;
@@ -22,6 +31,8 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: null; coun
   constructor(
     private getRows: () => Row[],
     private setRows: (rows: Row[]) => void,
+    private table: string = "",
+    private rules: FakeRules = {},
   ) {}
 
   select(_cols?: string, opts?: { count?: string; head?: boolean }) {
@@ -36,6 +47,10 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: null; coun
   update(payload: Row) {
     this.mode = "update";
     this.updatePayload = payload;
+    return this;
+  }
+  delete() {
+    this.mode = "delete";
     return this;
   }
   eq(col: string, val: unknown) {
@@ -69,50 +84,79 @@ class FakeQueryBuilder implements PromiseLike<{ data: unknown; error: null; coun
     return rows;
   }
 
-  private applyInsert() {
+  private violatesUnique(candidate: Row, ignoreId?: unknown): boolean {
+    return (this.rules.unique?.[this.table] ?? []).some((cols) =>
+      this.getRows().some((r) => r.id !== ignoreId && cols.every((c) => r[c] === candidate[c])),
+    );
+  }
+
+  private applyInsert(): { data: Row[]; error: FakeError } {
     const payload = Array.isArray(this.insertPayload) ? this.insertPayload : [this.insertPayload as Row];
     const inserted = payload.map((p) => ({ id: randomUUID(), created_at: new Date().toISOString(), ...p }));
+    for (const row of inserted) {
+      if (this.violatesUnique(row)) return { data: [], error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+    }
     this.setRows([...this.getRows(), ...inserted]);
-    return { data: inserted, error: null as null };
+    return { data: inserted, error: null };
   }
 
-  private applyUpdate() {
+  private applyUpdate(): { data: Row[]; error: FakeError } {
     const matchedIds = new Set(this.matched().map((r) => r.id));
+    for (const row of this.getRows().filter((r) => matchedIds.has(r.id))) {
+      if (this.violatesUnique({ ...row, ...this.updatePayload }, row.id)) {
+        return { data: [], error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+      }
+    }
     const next = this.getRows().map((r) => (matchedIds.has(r.id) ? { ...r, ...this.updatePayload } : r));
     this.setRows(next);
-    return { data: next.filter((r) => matchedIds.has(r.id)), error: null as null };
+    return { data: next.filter((r) => matchedIds.has(r.id)), error: null };
   }
 
-  async single() {
+  private applyDelete(): { data: Row[]; error: FakeError } {
+    const matched = this.matched();
+    if (this.rules.restrictDelete && matched.some((r) => this.rules.restrictDelete!(this.table, r))) {
+      return { data: [], error: { code: "23503", message: "violates foreign key constraint" } };
+    }
+    const ids = new Set(matched.map((r) => r.id));
+    this.setRows(this.getRows().filter((r) => !ids.has(r.id)));
+    return { data: matched, error: null };
+  }
+
+  async single(): Promise<{ data: Row | null; error: FakeError }> {
     if (this.mode === "insert") {
-      const { data } = this.applyInsert();
-      return { data: data[0] ?? null, error: null as null };
+      const { data, error } = this.applyInsert();
+      return { data: data[0] ?? null, error };
     }
     if (this.mode === "update") {
-      const { data } = this.applyUpdate();
-      return { data: data[0] ?? null, error: null as null };
+      const { data, error } = this.applyUpdate();
+      return { data: data[0] ?? null, error };
     }
-    return { data: this.matched()[0] ?? null, error: null as null };
+    if (this.mode === "delete") {
+      const { data, error } = this.applyDelete();
+      return { data: data[0] ?? null, error };
+    }
+    return { data: this.matched()[0] ?? null, error: null };
   }
 
   async maybeSingle() {
     return this.single();
   }
 
-  then<TResult1 = { data: unknown; error: null; count?: number }, TResult2 = never>(
-    onfulfilled?: ((value: { data: unknown; error: null; count?: number }) => TResult1 | PromiseLike<TResult1>) | null,
+  then<TResult1 = { data: unknown; error: FakeError; count?: number }, TResult2 = never>(
+    onfulfilled?: ((value: { data: unknown; error: FakeError; count?: number }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> {
-    let result: { data: unknown; error: null; count?: number };
+    let result: { data: unknown; error: FakeError; count?: number };
     if (this.mode === "insert") result = this.applyInsert();
     else if (this.mode === "update") result = this.applyUpdate();
+    else if (this.mode === "delete") result = this.applyDelete();
     else if (this.countMode) result = { data: null, error: null, count: this.matched().length };
     else result = { data: this.matched(), error: null };
     return Promise.resolve(result).then(onfulfilled, onrejected);
   }
 }
 
-export function createFakeTablesClient(initial: Record<string, Row[]> = {}) {
+export function createFakeTablesClient(initial: Record<string, Row[]> = {}, rules: FakeRules = {}) {
   const store = new Map<string, Row[]>(Object.entries(initial));
 
   return {
@@ -121,10 +165,15 @@ export function createFakeTablesClient(initial: Record<string, Row[]> = {}) {
       return new FakeQueryBuilder(
         () => store.get(table)!,
         (rows) => store.set(table, rows),
+        table,
+        rules,
       );
     },
     _dump(table: string): Row[] {
       return store.get(table) ?? [];
+    },
+    _seed(table: string, rows: Row[]): void {
+      store.set(table, rows);
     },
     _reset(): void {
       store.clear();

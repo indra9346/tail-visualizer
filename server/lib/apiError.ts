@@ -16,6 +16,7 @@ export type ApiErrorCode =
   | "ANALYSIS_REQUIRED"
   | "TILE_NOT_FOUND"
   | "TILE_INACTIVE"
+  | "TILE_IN_USE"
   | "TILE_SURFACE_INCOMPATIBLE"
   | "VISUALIZATION_NOT_FOUND"
   | "RETRY_LIMIT_EXCEEDED"
@@ -35,6 +36,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   ANALYSIS_REQUIRED: 409,
   TILE_NOT_FOUND: 404,
   TILE_INACTIVE: 409,
+  TILE_IN_USE: 409,
   TILE_SURFACE_INCOMPATIBLE: 422,
   VISUALIZATION_NOT_FOUND: 404,
   RETRY_LIMIT_EXCEEDED: 429,
@@ -75,6 +77,8 @@ export const Errors = {
     new ApiError("ANALYSIS_REQUIRED", "This room has not been analyzed yet. Analyze it before requesting recommendations or a visualization."),
   tileNotFound: () => new ApiError("TILE_NOT_FOUND", "Tile not found."),
   tileInactive: () => new ApiError("TILE_INACTIVE", "This tile is no longer available."),
+  tileInUse: () =>
+    new ApiError("TILE_IN_USE", "This tile is used by saved visualizations and cannot be deleted. Deactivate it instead to hide it from new visualizations."),
   tileSurfaceIncompatible: (surface: string) =>
     new ApiError("TILE_SURFACE_INCOMPATIBLE", `This tile cannot be applied to the "${surface}" surface.`),
   visualizationNotFound: () => new ApiError("VISUALIZATION_NOT_FOUND", "Visualization not found."),

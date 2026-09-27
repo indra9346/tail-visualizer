@@ -28,8 +28,29 @@ export const CONSTRUCTION_STATES = [
 ] as const;
 export type ConstructionState = (typeof CONSTRUCTION_STATES)[number];
 
-export const SURFACE_TYPES = ["floor", "wall"] as const;
+/**
+ * Surfaces a generation can target. Add a new surface here (plus a DB enum value,
+ * a prompt label in prompts/visualizationPrompt.ts and a UI label) to extend the
+ * engine to it; nothing else is room-specific.
+ */
+export const SURFACE_TYPES = ["floor", "wall", "backsplash", "shower_wall"] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
+
+/** Surfaces the room analysis (and tile recommendation) reason about. */
+export const ANALYSIS_SURFACES = ["floor", "wall"] as const;
+
+/** Which tile category a surface needs: everything except the floor is a vertical (wall-kind) surface. */
+export function surfaceKind(surface: SurfaceType): "floor" | "wall" {
+  return surface === "floor" ? "floor" : "wall";
+}
+
+/** True if a tile of `category` may be applied to `surface`. */
+export function tileSupportsSurface(category: TileCategory, surface: SurfaceType): boolean {
+  return category === "both" || category === surfaceKind(surface);
+}
+
+export const TILE_STOCK_STATUSES = ["in_stock", "low_stock", "out_of_stock", "made_to_order"] as const;
+export type TileStockStatus = (typeof TILE_STOCK_STATUSES)[number];
 
 export const TILE_CATEGORIES = ["floor", "wall", "both"] as const;
 export type TileCategory = (typeof TILE_CATEGORIES)[number];
@@ -89,6 +110,11 @@ export interface TileCandidate {
   suitableRooms: RoomType[];
   storagePath: string;
   isActive: boolean;
+  /** Optional catalog details (used in the prompt when present). */
+  description?: string | null;
+  tileType?: string | null;
+  pattern?: string | null;
+  stockStatus?: TileStockStatus;
 }
 
 // ---------- Tile recommendation (maps 1:1 to tile_recommendations table) ----------
@@ -110,6 +136,8 @@ export interface GenerateVisualizationInput {
   surfaces: SurfaceType[];
   /** Sanitized customer requirements (untrusted free text, or null/undefined for defaults). */
   requirements?: string | null;
+  /** Room type chosen by the showroom owner (overrides the analysis' guess in the prompt). */
+  roomType?: RoomType;
   /** Identifiers used only for logging/correlation — never for authorization decisions here. */
   context: {
     roomUploadId: string;

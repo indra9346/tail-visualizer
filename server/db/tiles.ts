@@ -1,7 +1,7 @@
 import { getSupabaseServerClient } from "../lib/supabaseServerClient.js";
 import { Errors } from "../lib/apiError.js";
 import { apiLogger } from "../lib/logger.js";
-import type { RoomType, SurfaceType, TileCandidate } from "../ai/types.js";
+import type { RoomType, SurfaceType, TileCandidate, TileStockStatus } from "../ai/types.js";
 
 /**
  * Strips PostgREST filter-grammar delimiter characters (`,`, `(`, `)`)
@@ -34,6 +34,10 @@ interface RawTileRow {
   suitable_rooms: RoomType[];
   is_active: boolean;
   owner_id: string | null;
+  description: string | null;
+  tile_type: string | null;
+  pattern: string | null;
+  stock_status: TileStockStatus;
   created_at: string;
 }
 
@@ -60,12 +64,16 @@ function mapRow(row: RawTileRow): TileRow {
     storagePath: row.storage_path,
     isActive: row.is_active,
     ownerId: row.owner_id,
+    description: row.description,
+    tileType: row.tile_type,
+    pattern: row.pattern,
+    stockStatus: row.stock_status,
     createdAt: row.created_at,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, sku, name, brand, category, material, finish, color_family, size_mm, price_per_sqft, currency, storage_path, suitable_rooms, is_active, owner_id, created_at";
+  "id, sku, name, brand, category, material, finish, color_family, size_mm, price_per_sqft, currency, storage_path, suitable_rooms, is_active, owner_id, description, tile_type, pattern, stock_status, created_at";
 
 export interface TileSearchFilters {
   category?: TileCandidate["category"];
@@ -170,6 +178,10 @@ export interface NewTileInput {
   currency: string;
   suitableRooms: RoomType[];
   storagePath: string;
+  description: string | null;
+  tileType: string | null;
+  pattern: string | null;
+  stockStatus: TileStockStatus;
 }
 
 /** All tiles owned by this showroom, including deactivated ones (for the management screen). */
@@ -202,6 +214,10 @@ export async function createTile(ownerId: string, input: NewTileInput): Promise<
       currency: input.currency,
       suitable_rooms: input.suitableRooms,
       storage_path: input.storagePath,
+      description: input.description,
+      tile_type: input.tileType,
+      pattern: input.pattern,
+      stock_status: input.stockStatus,
       is_active: true,
     })
     .select(SELECT_COLUMNS)
@@ -229,4 +245,77 @@ export async function setOwnedTileActive(ownerId: string, tileId: string, isActi
     throw Errors.internal("Failed to update the tile.");
   }
   return data ? mapRow(data) : null;
+}
+
+export interface TilePatch {
+  name?: string;
+  sku?: string;
+  brand?: string | null;
+  category?: TileCandidate["category"];
+  material?: string | null;
+  finish?: string | null;
+  colorFamily?: string | null;
+  sizeMm?: string | null;
+  description?: string | null;
+  tileType?: string | null;
+  pattern?: string | null;
+  stockStatus?: TileStockStatus;
+  pricePerSqft?: number | null;
+  currency?: string;
+  suitableRooms?: RoomType[];
+  isActive?: boolean;
+  storagePath?: string;
+}
+
+/** Loads one tile by id, only if the caller owns it (another showroom's tile is reported as absent). */
+export async function getOwnedTile(ownerId: string, tileId: string): Promise<TileRow | null> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("tiles").select(SELECT_COLUMNS).eq("id", tileId).eq("owner_id", ownerId).maybeSingle();
+  if (error) {
+    apiLogger.error("getOwnedTile failed", { operation: "getOwnedTile", errorCategory: error.code });
+    throw Errors.internal("Failed to load the tile.");
+  }
+  return data ? mapRow(data) : null;
+}
+
+/** Owner-scoped edit: only the fields present in `patch` change; the owner_id filter makes cross-showroom edits impossible. */
+export async function updateOwnedTile(ownerId: string, tileId: string, patch: TilePatch): Promise<TileRow | null> {
+  const columns: Record<string, unknown> = {};
+  const map: Array<[keyof TilePatch, string]> = [
+    ["name", "name"], ["sku", "sku"], ["brand", "brand"], ["category", "category"], ["material", "material"], ["finish", "finish"],
+    ["colorFamily", "color_family"], ["sizeMm", "size_mm"], ["description", "description"], ["tileType", "tile_type"], ["pattern", "pattern"],
+    ["stockStatus", "stock_status"], ["pricePerSqft", "price_per_sqft"], ["currency", "currency"], ["suitableRooms", "suitable_rooms"],
+    ["isActive", "is_active"], ["storagePath", "storage_path"],
+  ];
+  for (const [key, column] of map) if (patch[key] !== undefined) columns[column] = patch[key];
+  if (Object.keys(columns).length === 0) return getOwnedTile(ownerId, tileId);
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("tiles").update(columns).eq("id", tileId).eq("owner_id", ownerId).select(SELECT_COLUMNS).maybeSingle();
+  if (error) {
+    if (error.code === "23505") throw Errors.validation("You already have a tile with this SKU. Use a different SKU.");
+    apiLogger.error("updateOwnedTile failed", { operation: "updateOwnedTile", errorCategory: error.code });
+    throw Errors.internal("Failed to update the tile.");
+  }
+  return data ? mapRow(data) : null;
+}
+
+/**
+ * Owner-scoped delete. Refused (409 TILE_IN_USE) if any visualization or saved
+ * recommendation references the tile — the database also enforces this with
+ * ON DELETE RESTRICT — so history is never orphaned. Returns the removed row
+ * (for storage cleanup) or null if it was not found / not owned.
+ */
+export async function deleteOwnedTile(ownerId: string, tileId: string): Promise<TileRow | null> {
+  const existing = await getOwnedTile(ownerId, tileId);
+  if (!existing) return null;
+
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase.from("tiles").delete().eq("id", tileId).eq("owner_id", ownerId);
+  if (error) {
+    if (error.code === "23503") throw Errors.tileInUse(); // foreign_key_violation from ON DELETE RESTRICT
+    apiLogger.error("deleteOwnedTile failed", { operation: "deleteOwnedTile", errorCategory: error.code });
+    throw Errors.internal("Failed to delete the tile.");
+  }
+  return existing;
 }

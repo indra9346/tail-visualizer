@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ROOM_TYPES, SURFACE_TYPES, TILE_CATEGORIES } from "../ai/types.js";
+import { ROOM_TYPES, SURFACE_TYPES, TILE_CATEGORIES, TILE_STOCK_STATUSES } from "../ai/types.js";
 import { aiConfig } from "../ai/config.js";
 import { Errors } from "./apiError.js";
 
@@ -97,6 +97,8 @@ export const generateVisualizationBodySchema = z
     surfaces: z.array(z.enum(SURFACE_TYPES)).min(1).max(2),
     /** Optional natural-language design instructions (untrusted text; see sanitizeRequirements). */
     requirements: requirementsSchema.optional(),
+    /** What the showroom owner says the space is (defaults to the AI analysis). */
+    roomType: z.enum(ROOM_TYPES).optional(),
     /** Optional: retry an existing visualization instead of creating a new one. */
     visualizationId: uuidSchema.optional(),
   })
@@ -141,6 +143,10 @@ export const createTileBodySchema = z
       .optional()
       .transform((v) => v ?? null),
     currency: z.string().trim().length(3).default("INR"),
+    description: optionalText(1000),
+    tileType: optionalText(100),
+    pattern: optionalText(100),
+    stockStatus: z.enum(TILE_STOCK_STATUSES).default("in_stock"),
     suitableRooms: z.array(z.enum(ROOM_TYPES)).max(ROOM_TYPES.length).default([]),
     mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
     base64Data: z
@@ -149,5 +155,44 @@ export const createTileBodySchema = z
       .max(Math.ceil((aiConfig.image.maxTileImageBytes * 4) / 3) + 10_000, "Image payload is too large."),
   })
   .strict();
+
+/** For PATCH-style edits: absent = unchanged, empty string = clear the field. */
+const patchText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => (v.length > 0 ? v : null))
+    .optional();
+
+const MAX_TILE_BASE64 = Math.ceil((aiConfig.image.maxTileImageBytes * 4) / 3) + 10_000;
+
+/** Edit a tile the caller owns. Every field is optional; a new photo needs both mimeType and base64Data. */
+export const updateTileBodySchema = z
+  .object({
+    tileId: uuidSchema,
+    name: z.string().trim().min(1, "Tile name is required.").max(200).optional(),
+    sku: z.string().trim().min(1).max(60).optional(),
+    brand: patchText(100),
+    category: z.enum(TILE_CATEGORIES).optional(),
+    material: patchText(100),
+    finish: patchText(100),
+    colorFamily: patchText(100),
+    sizeMm: patchText(40),
+    description: patchText(1000),
+    tileType: patchText(100),
+    pattern: patchText(100),
+    stockStatus: z.enum(TILE_STOCK_STATUSES).optional(),
+    pricePerSqft: z.number().min(0).max(1_000_000).nullable().optional(),
+    currency: z.string().trim().length(3).optional(),
+    suitableRooms: z.array(z.enum(ROOM_TYPES)).max(ROOM_TYPES.length).optional(),
+    isActive: z.boolean().optional(),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
+    base64Data: z.string().min(1).max(MAX_TILE_BASE64, "Image payload is too large.").optional(),
+  })
+  .strict()
+  .refine((v) => (v.mimeType === undefined) === (v.base64Data === undefined), { message: "A new image needs both mimeType and base64Data." });
+
+export const deleteTileQuerySchema = z.object({ tileId: uuidSchema });
 
 export const setTileActiveBodySchema = z.object({ tileId: uuidSchema, isActive: z.boolean() }).strict();
