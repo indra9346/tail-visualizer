@@ -18,7 +18,9 @@ const serverAndApiFiles = [...walk(join(root, "server")), ...walk(join(root, "ap
 
 describe("secret handling", () => {
   test("GEMINI_API_KEY is read in exactly one file", () => {
-    const hits = serverAndApiFiles.filter((f) => readFileSync(f, "utf8").includes("GEMINI_API_KEY"));
+    // Reads of the env var (a mention inside a user-facing message, e.g. "same project as GEMINI_API_KEY", is not a read).
+    const readsKey = /process\.env(?:\.GEMINI_API_KEY|\[\s*["']GEMINI_API_KEY["']\s*\])/;
+    const hits = serverAndApiFiles.filter((f) => readsKey.test(readFileSync(f, "utf8")));
     expect(hits.map((h) => h.replace(root, ""))).toEqual(
       expect.arrayContaining([expect.stringContaining("geminiClient.ts")]),
     );

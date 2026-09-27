@@ -22,14 +22,6 @@ import { AiServiceError } from "../../server/ai/errors.js";
 import { Errors } from "../../server/lib/apiError.js";
 import type { SurfaceType } from "../../server/ai/types.js";
 
-/**
- * Explicit function duration (Vercel, Fluid compute). Sized for the
- * worst case: model call(s) bounded by the timeouts in server/ai/config.ts
- * (a single bounded retry => at most ~2x the per-call timeout) plus
- * storage transfer and image resizing. Must stay >= that worst case.
- */
-export const config = { maxDuration: 120 };
-
 function surfacesMatch(a: SurfaceType[], b: SurfaceType[]): boolean {
   const sa = [...a].sort();
   const sb = [...b].sort();

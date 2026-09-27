@@ -3,6 +3,50 @@
   "outputDirectory": "client/dist",
   "rewrites": [
     {
+      "source": "/api/projects/:id/rooms",
+      "destination": "/api/projects?op=rooms&id=:id"
+    },
+    {
+      "source": "/api/rooms/upload",
+      "destination": "/api/rooms?op=upload"
+    },
+    {
+      "source": "/api/rooms/:id/analyze",
+      "destination": "/api/rooms?op=analyze&id=:id"
+    },
+    {
+      "source": "/api/rooms/:id/analysis",
+      "destination": "/api/rooms?op=analysis&id=:id"
+    },
+    {
+      "source": "/api/rooms/:id",
+      "destination": "/api/rooms?op=get&id=:id"
+    },
+    {
+      "source": "/api/tiles/search",
+      "destination": "/api/tiles?op=search"
+    },
+    {
+      "source": "/api/tiles/recommend",
+      "destination": "/api/tiles?op=recommend"
+    },
+    {
+      "source": "/api/tiles/manage",
+      "destination": "/api/tiles?op=manage"
+    },
+    {
+      "source": "/api/visualizations/generate",
+      "destination": "/api/visualizations?op=generate"
+    },
+    {
+      "source": "/api/visualizations/room/:roomId",
+      "destination": "/api/visualizations?op=byRoom&roomId=:roomId"
+    },
+    {
+      "source": "/api/visualizations/:id",
+      "destination": "/api/visualizations?op=get&id=:id"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

@@ -11,14 +11,6 @@ import { recommendTiles } from "../../server/ai/recommendTiles.js";
 import { Errors } from "../../server/lib/apiError.js";
 
 /**
- * Explicit function duration (Vercel, Fluid compute). Sized for the
- * worst case: model call(s) bounded by the timeouts in server/ai/config.ts
- * (a single bounded retry => at most ~2x the per-call timeout) plus
- * storage transfer and image resizing. Must stay >= that worst case.
- */
-export const config = { maxDuration: 120 };
-
-/**
  * CRITICAL: does NOT call analyzeRoom(). If no analysis exists yet, this
  * fails explicitly (409 ANALYSIS_REQUIRED) rather than silently
  * triggering one — the workflow stays explicit and analysis stays a

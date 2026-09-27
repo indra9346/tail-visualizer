@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createHandler } from "../../../server/lib/httpHandler.js";
-import { authenticateRequest } from "../../../server/lib/auth.js";
-import { parseOrThrow, uuidSchema } from "../../../server/lib/validation.js";
-import { verifyRoomOwnership } from "../../../server/db/rooms.js";
-import { listVisualizationsForRoom } from "../../../server/db/visualizations.js";
-import { createSignedUrl } from "../../../server/storage/imageStorage.js";
-import { BUCKETS } from "../../../server/storage/buckets.js";
+import { createHandler } from "../../server/lib/httpHandler.js";
+import { authenticateRequest } from "../../server/lib/auth.js";
+import { parseOrThrow, uuidSchema } from "../../server/lib/validation.js";
+import { verifyRoomOwnership } from "../../server/db/rooms.js";
+import { listVisualizationsForRoom } from "../../server/db/visualizations.js";
+import { createSignedUrl } from "../../server/storage/imageStorage.js";
+import { BUCKETS } from "../../server/storage/buckets.js";
 
 /**
  * Supports "try another tile": the frontend lists prior visualizations

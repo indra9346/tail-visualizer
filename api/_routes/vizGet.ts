@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createHandler } from "../../../server/lib/httpHandler.js";
-import { authenticateRequest } from "../../../server/lib/auth.js";
-import { parseOrThrow, uuidSchema } from "../../../server/lib/validation.js";
-import { verifyVisualizationOwnership } from "../../../server/db/visualizations.js";
-import { getLatestJobForVisualization } from "../../../server/db/generationJobs.js";
-import { getTileById } from "../../../server/db/tiles.js";
-import { createSignedUrl } from "../../../server/storage/imageStorage.js";
-import { BUCKETS } from "../../../server/storage/buckets.js";
+import { createHandler } from "../../server/lib/httpHandler.js";
+import { authenticateRequest } from "../../server/lib/auth.js";
+import { parseOrThrow, uuidSchema } from "../../server/lib/validation.js";
+import { verifyVisualizationOwnership } from "../../server/db/visualizations.js";
+import { getLatestJobForVisualization } from "../../server/db/generationJobs.js";
+import { getTileById } from "../../server/db/tiles.js";
+import { createSignedUrl } from "../../server/storage/imageStorage.js";
+import { BUCKETS } from "../../server/storage/buckets.js";
 
 export default createHandler({ methods: ["GET"], operation: "getVisualization" }, async (req: VercelRequest, res: VercelResponse) => {
   const user = await authenticateRequest(req);

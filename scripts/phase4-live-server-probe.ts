@@ -5,18 +5,18 @@ import { getSupabaseServerClient } from "../server/lib/supabaseServerClient.js";
 import { makeReq, makeRes } from "../test/helpers/fakeHttp.js";
 
 const routes: [string, string, string, string?][] = [
-  ["GET","projects/index","../api/projects/index.js"],
-  ["POST","projects/index","../api/projects/index.js"],
-  ["GET","projects/[id]/rooms","../api/projects/[id]/rooms.js"],
-  ["POST","rooms/upload","../api/rooms/upload.js"],
-  ["GET","rooms/[id]","../api/rooms/[id]/index.js"],
-  ["POST","rooms/[id]/analyze","../api/rooms/[id]/analyze.js"],
-  ["GET","rooms/[id]/analysis","../api/rooms/[id]/analysis.js"],
-  ["GET","tiles/recommend","../api/tiles/recommend.js"],
-  ["GET","tiles/search","../api/tiles/search.js"],
-  ["POST","visualizations/generate","../api/visualizations/generate.js"],
-  ["GET","visualizations/[id]","../api/visualizations/[id]/index.js"],
-  ["GET","visualizations/room/[roomId]","../api/visualizations/room/[roomId].js"],
+  ["GET","projects/index","../api/_routes/projects.js"],
+  ["POST","projects/index","../api/_routes/projects.js"],
+  ["GET","projects/[id]/rooms","../api/_routes/projectRooms.js"],
+  ["POST","rooms/upload","../api/_routes/roomUpload.js"],
+  ["GET","rooms/[id]","../api/_routes/roomGet.js"],
+  ["POST","rooms/[id]/analyze","../api/_routes/roomAnalyze.js"],
+  ["GET","rooms/[id]/analysis","../api/_routes/roomAnalysis.js"],
+  ["GET","tiles/recommend","../api/_routes/tilesRecommend.js"],
+  ["GET","tiles/search","../api/_routes/tilesSearch.js"],
+  ["POST","visualizations/generate","../api/_routes/vizGenerate.js"],
+  ["GET","visualizations/[id]","../api/_routes/vizGet.js"],
+  ["GET","visualizations/room/[roomId]","../api/_routes/vizByRoom.js"],
 ];
 const fakeId = "00000000-0000-4000-8000-000000000000";
 const redact = (s: string) => s.replace(/[A-Za-z0-9_-]{25,}/g, "<r>");
@@ -55,7 +55,7 @@ async function main() {
     console.log(`${method.padEnd(4)} ${name.padEnd(30)} ${out.join(" ")}`);
   }
   console.log("non-401 responses:", bad);
-  const wm = await import("../api/projects/index.js");
+  const wm = await import("../api/_routes/projects.js");
   const r2 = makeRes(); await wm.default(makeReq({ method: "DELETE" }), r2);
   console.log("wrong method DELETE /projects:", r2.statusCode);
 }

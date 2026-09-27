@@ -56,19 +56,19 @@ async function main() {
   const cb = createClient(URL_, ANON, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${B.token}` } } });
 
   // ---- setup, all through the server/service-role path ----
-  const apA = await api("../api/projects/index.js", "POST", A.token, {}, { name: "A" });
-  const apB = await api("../api/projects/index.js", "POST", B.token, {}, { name: "B" });
+  const apA = await api("../api/_routes/projects.js", "POST", A.token, {}, { name: "A" });
+  const apB = await api("../api/_routes/projects.js", "POST", B.token, {}, { name: "B" });
   const projA = apA.json.project.id as string;
   const projB = apB.json.project.id as string;
   console.log(`setup: projects created via API -> ${apA.status}/${apB.status}`);
 
-  const upB = await api("../api/rooms/upload.js", "POST", B.token, {}, { projectId: projB, fileName: "b.png", mimeType: "image/png", base64Data: PNG.toString("base64") });
+  const upB = await api("../api/_routes/roomUpload.js", "POST", B.token, {}, { projectId: projB, fileName: "b.png", mimeType: "image/png", base64Data: PNG.toString("base64") });
   const bRoomId = upB.json.room.id as string;
   const bRoomPath = `${B.id}/${projB}/${bRoomId}.png`;
   await admin.storage.from("generated-visualizations").upload(`${B.id}/${projB}/b-viz.png`, PNG, { contentType: "image/png" });
   const t = await admin.from("tiles").insert({ sku: "LIVE-TEST-PHASE4-P", name: "probe", category: "both", storage_path: "catalog/none.png" }).select("id").single();
   tileId = t.data!.id;
-  const upA = await api("../api/rooms/upload.js", "POST", A.token, {}, { projectId: projA, fileName: "a.png", mimeType: "image/png", base64Data: PNG.toString("base64") });
+  const upA = await api("../api/_routes/roomUpload.js", "POST", A.token, {}, { projectId: projA, fileName: "a.png", mimeType: "image/png", base64Data: PNG.toString("base64") });
   const aRoomId = upA.json.room.id as string;
   const vRow = await admin.from("visualizations").insert({ room_upload_id: aRoomId, user_id: A.id, tile_id: tileId, applied_surfaces: ["floor"] }).select("id").single();
   const vId = vRow.data!.id as string;
@@ -115,16 +115,16 @@ async function main() {
   verdict("A lists B's folder", (lst.data?.length ?? 0) === 0, `${lst.data?.length ?? 0} items`);
   const rows = await ca.from("room_uploads").select("id").eq("id", bRoomId);
   verdict("A SELECTs B's room_uploads row", (rows.data?.length ?? 0) === 0, `${rows.data?.length ?? 0} rows`);
-  const apiRoom = await api("../api/rooms/[id]/index.js", "GET", A.token, { id: bRoomId });
+  const apiRoom = await api("../api/_routes/roomGet.js", "GET", A.token, { id: bRoomId });
   verdict("A calls GET /api/rooms/{B's room}", apiRoom.status === 404 && !/token=/.test(JSON.stringify(apiRoom.json)), `HTTP ${apiRoom.status}`);
   const bDirect = await cb.from("room_uploads").select("id").eq("id", aRoomId);
   verdict("B SELECTs A's room_uploads row", (bDirect.data?.length ?? 0) === 0, `${bDirect.data?.length ?? 0} rows`);
 
   console.log("\n== Legitimate use still works through the server (service-role) path ==");
-  const okRoom = await api("../api/rooms/[id]/index.js", "GET", A.token, { id: aRoomId });
+  const okRoom = await api("../api/_routes/roomGet.js", "GET", A.token, { id: aRoomId });
   const signedOk = /token=/.test(okRoom.json?.room?.imageUrl ?? "");
   console.log(`${okRoom.status === 200 && signedOk ? "WORKS      " : "BROKEN     "} | A GET /api/rooms/{own room} -> ${okRoom.status}, signed url=${signedOk}`);
-  const okList = await api("../api/projects/[id]/rooms.js", "GET", A.token, { id: projA });
+  const okList = await api("../api/_routes/projectRooms.js", "GET", A.token, { id: projA });
   console.log(`${okList.status === 200 && okList.json?.rooms?.length === 1 ? "WORKS      " : "BROKEN     "} | A GET /api/projects/{own}/rooms -> ${okList.status}, rooms=${okList.json?.rooms?.length}`);
   const ownRead = await ca.storage.from("room-images").download(own);
   console.log(`${!ownRead.error ? "WORKS      " : "BROKEN     "} | A reads OWN room image (owner-only SELECT policy) -> ${ownRead.error ? "denied" : "ok"}`);

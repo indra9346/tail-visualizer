@@ -46,7 +46,7 @@ jest.mock("../server/storage/imageStorage", () => ({
   deleteImageQuietly: (bucket: string, path: string) => deleteImageQuietlyMock(bucket, path),
 }));
 
-import handler from "../api/rooms/upload";
+import handler from "../api/_routes/roomUpload";
 
 function buildReq(overrides: Partial<{ projectId: string; fileName: string; mimeType: string; base64Data: string }> = {}) {
   return makeReq({
@@ -62,7 +62,7 @@ function buildReq(overrides: Partial<{ projectId: string; fileName: string; mime
   });
 }
 
-describe("POST /api/rooms/upload", () => {
+describe("POST /api/_routes/roomUpload", () => {
   beforeEach(() => {
     uploadImageMock.mockClear();
     deleteImageQuietlyMock.mockClear();

@@ -58,13 +58,13 @@ jest.mock("../server/db/recommendations", () => ({
 }));
 jest.mock("../server/ai/recommendTiles", () => ({ recommendTiles: (...args: unknown[]) => recommendTilesMock(...(args as [])) }));
 
-import handler from "../api/tiles/recommend";
+import handler from "../api/_routes/tilesRecommend";
 
 function buildReq() {
   return makeReq({ method: "GET", headers: { authorization: "Bearer x" }, query: { roomUploadId: ROOM_ID } });
 }
 
-describe("GET /api/tiles/recommend", () => {
+describe("GET /api/_routes/tilesRecommend", () => {
   beforeEach(() => {
     analysisImpl = async () => fakeAnalysis;
     hasRecommendationsImpl = async () => false;

@@ -66,7 +66,7 @@ jest.mock("../server/db/analyses", () => ({
 jest.mock("../server/ai/analyzeRoom", () => ({ analyzeRoom: analyzeRoomMock }));
 jest.mock("../server/storage/imageStorage", () => ({ downloadRoomImage: downloadRoomImageMock }));
 
-import handler from "../api/rooms/[id]/analyze";
+import handler from "../api/_routes/roomAnalyze";
 import { makeReq, makeRes } from "./helpers/fakeHttp";
 
 describe("room analysis reuse (idempotency)", () => {

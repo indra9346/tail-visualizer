@@ -1,21 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createHandler } from "../../../server/lib/httpHandler.js";
-import { authenticateRequest } from "../../../server/lib/auth.js";
-import { parseOrThrow, uuidSchema } from "../../../server/lib/validation.js";
-import { checkRateLimit, RateLimits } from "../../../server/lib/rateLimit.js";
-import { verifyRoomOwnership, updateRoomStatus } from "../../../server/db/rooms.js";
-import { getAnalysisByRoomUploadId, insertAnalysis } from "../../../server/db/analyses.js";
-import { downloadRoomImage } from "../../../server/storage/imageStorage.js";
-import { analyzeRoom } from "../../../server/ai/analyzeRoom.js";
-import { AiServiceError } from "../../../server/ai/errors.js";
-
-/**
- * Explicit function duration (Vercel, Fluid compute). Sized for the
- * worst case: model call(s) bounded by the timeouts in server/ai/config.ts
- * (a single bounded retry => at most ~2x the per-call timeout) plus
- * storage transfer and image resizing. Must stay >= that worst case.
- */
-export const config = { maxDuration: 120 };
+import { createHandler } from "../../server/lib/httpHandler.js";
+import { authenticateRequest } from "../../server/lib/auth.js";
+import { parseOrThrow, uuidSchema } from "../../server/lib/validation.js";
+import { checkRateLimit, RateLimits } from "../../server/lib/rateLimit.js";
+import { verifyRoomOwnership, updateRoomStatus } from "../../server/db/rooms.js";
+import { getAnalysisByRoomUploadId, insertAnalysis } from "../../server/db/analyses.js";
+import { downloadRoomImage } from "../../server/storage/imageStorage.js";
+import { analyzeRoom } from "../../server/ai/analyzeRoom.js";
+import { AiServiceError } from "../../server/ai/errors.js";
 
 /**
  * Idempotent by design: if room_analyses already has a row for this

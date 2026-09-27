@@ -62,11 +62,11 @@ jest.mock("../server/lib/rateLimit", () => ({
   },
 }));
 
-import getRoom from "../api/rooms/[id]/index";
-import analyzeRoute from "../api/rooms/[id]/analyze";
-import listProjectRooms from "../api/projects/[id]/rooms";
-import getViz from "../api/visualizations/[id]/index";
-import listVizForRoom from "../api/visualizations/room/[roomId]";
+import getRoom from "../api/_routes/roomGet";
+import analyzeRoute from "../api/_routes/roomAnalyze";
+import listProjectRooms from "../api/_routes/projectRooms";
+import getViz from "../api/_routes/vizGet";
+import listVizForRoom from "../api/_routes/vizByRoom";
 import { analyzeRoom } from "../server/ai/analyzeRoom";
 import { makeReq, makeRes } from "./helpers/fakeHttp";
 

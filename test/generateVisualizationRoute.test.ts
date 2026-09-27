@@ -3,7 +3,7 @@ import { createFakeTablesClient } from "./helpers/fakeTable";
 import { makeReq, makeRes } from "./helpers/fakeHttp";
 
 /**
- * Route-level regression suite for POST /api/visualizations/generate.
+ * Route-level regression suite for POST /api/_routes/vizGenerate.
  *
  * Deliberately mocks only the OUTER boundaries (auth, room/analysis/tile
  * lookups, storage, the Gemini-calling function) and leaves the REAL
@@ -137,13 +137,13 @@ jest.mock("../server/ai/generateVisualization", () => ({
   generateVisualization: () => generateVisualizationImpl(),
 }));
 
-import handler from "../api/visualizations/generate";
+import handler from "../api/_routes/vizGenerate";
 
 function buildReq(body: Record<string, unknown>) {
   return makeReq({ method: "POST", headers: { authorization: "Bearer x" }, body });
 }
 
-describe("POST /api/visualizations/generate", () => {
+describe("POST /api/_routes/vizGenerate", () => {
   beforeEach(() => {
     fakeClient._reset();
     currentUserId = USER_ID;
