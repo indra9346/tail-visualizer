@@ -108,6 +108,8 @@ export interface GenerateVisualizationInput {
   roomAnalysis: RoomAnalysis;
   tile: TileCandidate;
   surfaces: SurfaceType[];
+  /** Sanitized customer requirements (untrusted free text, or null/undefined for defaults). */
+  requirements?: string | null;
   /** Identifiers used only for logging/correlation — never for authorization decisions here. */
   context: {
     roomUploadId: string;

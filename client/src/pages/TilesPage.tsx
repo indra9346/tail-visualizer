@@ -11,6 +11,7 @@ import { getRoomAnalysis } from "@/api/rooms";
 import { getTileRecommendations, searchTiles, type TileSearchFilters } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
 import { friendlyErrorMessage } from "@/api/client";
+import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { useWorkflow } from "@/context/WorkflowContext";
 import type { RoomAnalysis, SurfaceType, Tile, TileRecommendation } from "@/api/types";
 
@@ -31,6 +32,7 @@ export function TilesPage() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [filters, setFilters] = useState<TileSearchFilters>({ page: 1, pageSize: 12 });
 
+  const [requirements, setRequirements] = useState("");
   const [generating, setGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -101,6 +103,7 @@ export function TilesPage() {
         roomUploadId: roomId,
         tileId: selectedTile.id,
         surfaces: selectedSurfaces,
+        ...(requirements.trim().length > 0 ? { requirements: requirements.trim() } : {}),
       });
       clearInterval(stageTimer);
       navigate(`/result/${visualization.id}`);
@@ -181,6 +184,12 @@ export function TilesPage() {
             </div>
           </section>
         </>
+      )}
+
+      {selectedTile && (
+        <section className="mt-10">
+          <RequirementsInput value={requirements} onChange={setRequirements} />
+        </section>
       )}
 
       {selectedTile && (

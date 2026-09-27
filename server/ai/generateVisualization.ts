@@ -32,7 +32,7 @@ function extractGeneratedImage(response: {
 async function attemptGeneration(input: GenerateVisualizationInput): Promise<GeneratedVisualizationResult> {
   const client = getGeminiClient();
   const model = aiConfig.models.visualization;
-  const promptText = buildVisualizationPrompt(input.roomAnalysis, input.tile, input.surfaces);
+  const promptText = buildVisualizationPrompt(input.roomAnalysis, input.tile, input.surfaces, input.requirements);
   const start = Date.now();
 
   let response;

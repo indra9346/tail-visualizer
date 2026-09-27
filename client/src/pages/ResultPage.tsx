@@ -166,6 +166,15 @@ export function ResultPage() {
         </Card>
       </div>
 
+      {visualization.requirements && (
+        <Card className="mt-6">
+          <CardBody>
+            <p className="text-xs uppercase tracking-wide text-stone-400">Your requirements</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-stone-700">{visualization.requirements}</p>
+          </CardBody>
+        </Card>
+      )}
+
       {downloadError && (
         <p className="mt-4 text-sm text-red-700" role="alert">
           {downloadError}

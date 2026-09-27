@@ -22,6 +22,8 @@ export async function generateVisualization(input: {
   roomUploadId: string;
   tileId: string;
   surfaces: SurfaceType[];
+  /** Optional natural-language design instructions (sanitized and length-checked by the server). */
+  requirements?: string;
   visualizationId?: string;
 }): Promise<GenerateVisualizationResponse["visualization"]> {
   const res = await apiPost<GenerateVisualizationResponse>("/api/visualizations/generate", input);

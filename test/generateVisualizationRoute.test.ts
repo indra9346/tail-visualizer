@@ -133,8 +133,12 @@ jest.mock("../server/storage/imageStorage", () => ({
   deleteImageQuietly: async () => undefined,
   createSignedUrl: async () => "https://example.test/signed",
 }));
+let lastGenerateInput: any = null;
 jest.mock("../server/ai/generateVisualization", () => ({
-  generateVisualization: () => generateVisualizationImpl(),
+  generateVisualization: (input: unknown) => {
+    lastGenerateInput = input;
+    return generateVisualizationImpl();
+  },
 }));
 
 import handler from "../api/_routes/vizGenerate";
@@ -318,6 +322,47 @@ describe("POST /api/_routes/vizGenerate", () => {
 
     const afterSecond = fakeClient._dump("visualizations");
     expect(afterSecond).toHaveLength(2); // a genuinely new request after success gets its own visualization
+  });
+
+  test("requirements flow through: stored on the visualization row AND passed to Gemini (sanitized)", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    lastGenerateInput = null;
+    generateVisualizationImpl = async () => ({ imageBuffer: Buffer.from("generated"), mimeType: "image/png", model: "m", finishReason: null, durationMs: 1 });
+
+    const text = "Use the selected tile on the floor.  Keep the existing toilet, sink and shower unchanged.";
+    const dirty = `  ${text.replace("  ", "   ")}${String.fromCharCode(0, 0x200b)}  `;
+    const res = makeRes();
+    await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"], requirements: dirty }), res);
+
+    expect(res.statusCode).toBe(200);
+    const expected = "Use the selected tile on the floor. Keep the existing toilet, sink and shower unchanged.";
+    expect(fakeClient._dump("visualizations")[0]!.requirements).toBe(expected);
+    expect(lastGenerateInput.requirements).toBe(expected);
+  });
+
+  test("no requirements -> stored as null and Gemini gets null (defaults)", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    lastGenerateInput = null;
+    generateVisualizationImpl = async () => ({ imageBuffer: Buffer.from("generated"), mimeType: "image/png", model: "m", finishReason: null, durationMs: 1 });
+
+    const res = makeRes();
+    await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"] }), res);
+    expect(res.statusCode).toBe(200);
+    expect(fakeClient._dump("visualizations")[0]!.requirements).toBeNull();
+    expect(lastGenerateInput.requirements).toBeNull();
+  });
+
+  test("over-long requirements are rejected with 400 before any work or Gemini call", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    lastGenerateInput = null;
+    const res = makeRes();
+    await handler(buildReq({ roomUploadId: ROOM_ID, tileId: tile.id, surfaces: ["floor"], requirements: "x".repeat(1600) }), res);
+    expect(res.statusCode).toBe(400);
+    expect(lastGenerateInput).toBeNull();
+    expect(fakeClient._dump("visualizations")).toHaveLength(0);
   });
 
   test("an explicit retry visualizationId that doesn't match the room/tile/surfaces is rejected", async () => {

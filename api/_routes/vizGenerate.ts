@@ -75,7 +75,15 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     }
   } else {
     const inFlight = await findInFlightVisualization(room.id, tile.id, body.surfaces);
-    visualization = inFlight ?? (await createVisualization({ roomUploadId: room.id, userId: user.id, tileId: tile.id, surfaces: body.surfaces }));
+    visualization =
+      inFlight ??
+      (await createVisualization({ roomUploadId: room.id, userId: user.id, tileId: tile.id, surfaces: body.surfaces, requirements: body.requirements ?? null }));
+  }
+
+  // A retry may carry updated instructions; otherwise keep what was stored on the row.
+  const requirements = body.requirements ?? visualization.requirements ?? null;
+  if (requirements !== visualization.requirements) {
+    await updateVisualizationStatus(visualization.id, { status: visualization.status, requirements });
   }
 
   // Left outside the try/catch below: if this throws (including
@@ -95,6 +103,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       roomAnalysis: analysis,
       tile,
       surfaces: body.surfaces,
+      requirements,
       context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id },
     });
 

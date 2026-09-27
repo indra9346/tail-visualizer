@@ -31,6 +31,7 @@ export default createHandler({ methods: ["GET"], operation: "getVisualization" }
       status: visualization.status,
       appliedSurfaces: visualization.appliedSurfaces,
       errorMessage: visualization.errorMessage,
+      requirements: visualization.requirements,
       createdAt: visualization.createdAt,
       completedAt: visualization.completedAt,
       resultImageUrl,

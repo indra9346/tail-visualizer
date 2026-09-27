@@ -45,11 +45,58 @@ export const tilesRecommendQuerySchema = z.object({
   roomUploadId: uuidSchema,
 });
 
+/** Maximum length of the customer's free-text requirements (characters, after sanitizing). */
+export const MAX_REQUIREMENTS_CHARS = 1500;
+
+/**
+ * Requirements are free text typed by a user and later placed inside an AI
+ * prompt, so they are treated as untrusted DATA: control characters are
+ * stripped, whitespace is normalized, and the length is capped. (The prompt
+ * builder additionally fences the text and states that it cannot change the
+ * system rules.) An empty result means "no requirements".
+ */
+// Code-point ranges removed from user text: C0/C1 controls (keeping tab, LF, CR), line/paragraph
+// separators, zero-width and bidi-override/isolate characters, and the BOM. Built from numbers so
+// the source contains no invisible characters.
+const STRIPPED_RANGES: Array<[number, number]> = [
+  [0x00, 0x08],
+  [0x0b, 0x0c],
+  [0x0e, 0x1f],
+  [0x7f, 0x9f],
+  [0x2028, 0x2029],
+  [0x200b, 0x200f],
+  [0x202a, 0x202e],
+  [0x2066, 0x2069],
+  [0xfeff, 0xfeff],
+];
+const STRIPPED_CHARS = new RegExp(
+  `[${STRIPPED_RANGES.map(([from, to]) => `${String.fromCharCode(from)}-${String.fromCharCode(to)}`).join("")}]`,
+  "g",
+);
+
+export function sanitizeRequirements(input: string): string {
+  return input
+    .replace(STRIPPED_CHARS, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export const requirementsSchema = z
+  .string()
+  .max(MAX_REQUIREMENTS_CHARS * 2, "Requirements are too long.")
+  .transform(sanitizeRequirements)
+  .refine((v) => v.length <= MAX_REQUIREMENTS_CHARS, `Requirements must be at most ${MAX_REQUIREMENTS_CHARS} characters.`)
+  .transform((v) => (v.length > 0 ? v : undefined));
+
 export const generateVisualizationBodySchema = z
   .object({
     roomUploadId: uuidSchema,
     tileId: uuidSchema,
     surfaces: z.array(z.enum(SURFACE_TYPES)).min(1).max(2),
+    /** Optional natural-language design instructions (untrusted text; see sanitizeRequirements). */
+    requirements: requirementsSchema.optional(),
     /** Optional: retry an existing visualization instead of creating a new one. */
     visualizationId: uuidSchema.optional(),
   })

@@ -14,6 +14,7 @@ export interface VisualizationRow {
   status: VisualizationStatus;
   resultStoragePath: string | null;
   errorMessage: string | null;
+  requirements: string | null;
   createdAt: string;
   completedAt: string | null;
 }
@@ -27,6 +28,7 @@ interface RawVisualizationRow {
   status: VisualizationStatus;
   result_storage_path: string | null;
   error_message: string | null;
+  requirements: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -41,19 +43,21 @@ function mapRow(row: RawVisualizationRow): VisualizationRow {
     status: row.status,
     resultStoragePath: row.result_storage_path,
     errorMessage: row.error_message,
+    requirements: row.requirements,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, created_at, completed_at";
+  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, created_at, completed_at";
 
 export async function createVisualization(input: {
   roomUploadId: string;
   userId: string;
   tileId: string;
   surfaces: SurfaceType[];
+  requirements?: string | null;
 }): Promise<VisualizationRow> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
@@ -63,6 +67,7 @@ export async function createVisualization(input: {
       user_id: input.userId,
       tile_id: input.tileId,
       applied_surfaces: input.surfaces,
+      requirements: input.requirements ?? null,
       status: "pending",
     })
     .select(SELECT_COLUMNS)
@@ -142,13 +147,14 @@ export async function findInFlightVisualization(
 
 export async function updateVisualizationStatus(
   visualizationId: string,
-  update: { status: VisualizationStatus; resultStoragePath?: string | null; errorMessage?: string | null; completedAt?: string | null },
+  update: { status: VisualizationStatus; resultStoragePath?: string | null; errorMessage?: string | null; completedAt?: string | null; requirements?: string | null },
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
   const patch: Record<string, unknown> = { status: update.status };
   if (update.resultStoragePath !== undefined) patch.result_storage_path = update.resultStoragePath;
   if (update.errorMessage !== undefined) patch.error_message = update.errorMessage;
   if (update.completedAt !== undefined) patch.completed_at = update.completedAt;
+  if (update.requirements !== undefined) patch.requirements = update.requirements;
 
   const { error } = await supabase.from("visualizations").update(patch).eq("id", visualizationId);
 
