@@ -5,6 +5,7 @@ import { TileGrid } from "@/components/tiles/TileGrid";
 import { TileFilters } from "@/components/tiles/TileFilters";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
+import { PageBanner } from "@/components/ui/PageBanner";
 import { searchTiles, type TileSearchFilters } from "@/api/tiles";
 import { useWorkflow } from "@/context/WorkflowContext";
 import type { Tile } from "@/api/types";
@@ -30,20 +31,26 @@ export function TileCatalogPage() {
 
   return (
     <PageContainer>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-clay-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
-            Showroom Catalog
-          </span>
-          <h1 className="mt-2 font-display text-3xl text-stone-900 sm:text-4xl">Virtual Trial Room Catalog</h1>
-          <p className="mt-2 text-stone-600">
-            Browse real showroom tiles and try them instantly in your actual room photo.
-          </p>
-        </div>
-        <Link to="/upload">
-          <Button variant="outline">Upload Room Photo</Button>
-        </Link>
-      </div>
+      <PageBanner
+        imageSrc="/images/banners/catalog_banner.jpg"
+        badge="Showroom Catalog • Verified Products"
+        title="Showroom Tile Collection"
+        subtitle="Explore genuine Italian marbles, porcelain slabs, handcrafted terracotta, and mosaics. Select any tile to launch an instant in-situ trial in your actual room."
+        actions={
+          <>
+            <Link to="/upload">
+              <Button size="lg" className="bg-clay-500 hover:bg-clay-400 text-stone-950 font-semibold shadow-md">
+                Try Tiles in Your Space →
+              </Button>
+            </Link>
+            <Link to="/demos">
+              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                Watch Live Video Demo
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="mt-8">
         <TileFilters filters={filters} onChange={setFilters} />

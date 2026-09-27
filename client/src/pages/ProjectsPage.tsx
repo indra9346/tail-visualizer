@@ -10,6 +10,8 @@ import { listProjects, listProjectRooms } from "@/api/projectsRooms";
 import { friendlyErrorMessage } from "@/api/client";
 import type { Project, RoomUpload } from "@/api/types";
 
+import { PageBanner } from "@/components/ui/PageBanner";
+
 export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [roomsByProject, setRoomsByProject] = useState<Record<string, RoomUpload[]>>({});
@@ -45,12 +47,26 @@ export function ProjectsPage() {
 
   return (
     <PageContainer>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-3xl text-stone-900">Your Projects</h1>
-        <Link to="/upload">
-          <Button>Visualize a New Room</Button>
-        </Link>
-      </div>
+      <PageBanner
+        imageSrc="/images/banners/projects_banner.jpg"
+        badge="Architectural Studio • Trial Rooms"
+        title="Your Trial Spaces & Projects"
+        subtitle="Manage your room captures, inspect active in-situ transformations, and test new showroom tiles directly in your actual space."
+        actions={
+          <>
+            <Link to="/upload">
+              <Button size="lg" className="bg-clay-500 hover:bg-clay-400 text-stone-950 font-semibold shadow-md">
+                Visualize a New Room →
+              </Button>
+            </Link>
+            <Link to="/tiles">
+              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                Browse Tile Catalog
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="mt-8 space-y-6">
         {error && <ErrorState message={error} onRetry={load} />}

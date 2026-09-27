@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { PageBanner } from "@/components/ui/PageBanner";
 import { createMyTile, listMyTiles, setMyTileActive } from "@/api/tiles";
 import { friendlyErrorMessage } from "@/api/client";
 import { validateRoomImageFile } from "@/api/rooms";
@@ -122,15 +124,31 @@ export function MyTilesPage() {
 
   return (
     <PageContainer>
-      <h1 className="font-display text-3xl text-stone-900">My Tiles</h1>
-      <p className="mt-2 max-w-2xl text-stone-600">
-        List the tiles your showroom sells. Only these tiles are used for recommendations and room previews, and no other showroom can see them.
-      </p>
+      <PageBanner
+        imageSrc="/images/banners/mytiles_banner.jpg"
+        badge="Craftsmanship • Showroom Inventory"
+        title="Curate Your Tile Inventory"
+        subtitle="List the tiles your showroom offers. These products are mapped to customer room trials for realistic in-situ visualizations."
+        actions={
+          <>
+            <Link to="/tiles">
+              <Button size="lg" className="bg-clay-500 hover:bg-clay-400 text-stone-950 font-semibold shadow-md">
+                View Public Catalog →
+              </Button>
+            </Link>
+            <Link to="/upload">
+              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                Try in a Room
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[420px_1fr]">
-        <Card className="h-fit">
+        <Card className="h-fit shadow-md border-stone-200">
           <CardBody>
-            <h2 className="font-display text-xl text-stone-900">Add a tile</h2>
+            <h2 className="font-display text-xl text-stone-900">Add a New Tile</h2>
             <form className="mt-5 space-y-4" onSubmit={onSubmit}>
               <div>
                 <span className={label}>Tile photo *</span>
@@ -145,57 +163,82 @@ export function MyTilesPage() {
               </div>
 
               <div>
-                <label htmlFor="t-name" className={label}>Name *</label>
-                <Input id="t-name" required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Grey Porcelain Floor Tile" />
+                <label className={label} htmlFor="name">
+                  Product name *
+                </label>
+                <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Calacatta Gold Slab" />
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="t-brand" className={label}>Brand</label>
-                  <Input id="t-brand" value={brand} onChange={(e) => setBrand(e.target.value)} />
+                  <label className={label} htmlFor="brand">
+                    Brand / Manufacturer
+                  </label>
+                  <Input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Kajaria, Somany" />
                 </div>
                 <div>
-                  <label htmlFor="t-sku" className={label}>SKU / code</label>
-                  <Input id="t-sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="auto if empty" />
+                  <label className={label} htmlFor="sku">
+                    SKU / Article #
+                  </label>
+                  <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. KJR-8012" />
                 </div>
               </div>
+
               <div>
-                <label htmlFor="t-cat" className={label}>Use on *</label>
-                <select id="t-cat" className="w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm" value={category} onChange={(e) => setCategory(e.target.value as TileCategory)}>
-                  <option value="floor">Floor</option>
-                  <option value="wall">Wall</option>
-                  <option value="both">Floor and wall</option>
-                </select>
+                <span className={label}>Category *</span>
+                <div className="flex gap-4">
+                  {(["floor", "wall", "both"] as TileCategory[]).map((cat) => (
+                    <label key={cat} className="flex items-center gap-2 text-sm text-stone-700 capitalize">
+                      <input type="radio" name="category" checked={category === cat} onChange={() => setCategory(cat)} />
+                      {cat}
+                    </label>
+                  ))}
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="t-mat" className={label}>Material</label>
-                  <Input id="t-mat" value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="porcelain" />
+                  <label className={label} htmlFor="material">
+                    Material
+                  </label>
+                  <Input id="material" value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Glazed Vitrified" />
                 </div>
                 <div>
-                  <label htmlFor="t-fin" className={label}>Finish</label>
-                  <Input id="t-fin" value={finish} onChange={(e) => setFinish(e.target.value)} placeholder="matte / glossy" />
-                </div>
-                <div>
-                  <label htmlFor="t-col" className={label}>Colour</label>
-                  <Input id="t-col" value={color} onChange={(e) => setColor(e.target.value)} placeholder="grey" />
-                </div>
-                <div>
-                  <label htmlFor="t-size" className={label}>Size (mm)</label>
-                  <Input id="t-size" value={size} onChange={(e) => setSize(e.target.value)} placeholder="600x600" />
+                  <label className={label} htmlFor="finish">
+                    Finish
+                  </label>
+                  <Input id="finish" value={finish} onChange={(e) => setFinish(e.target.value)} placeholder="e.g. High Gloss, Matte" />
                 </div>
               </div>
-              <div>
-                <label htmlFor="t-price" className={label}>Price per sq ft (INR)</label>
-                <Input id="t-price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={label} htmlFor="color">
+                    Color family
+                  </label>
+                  <Input id="color" value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. White" />
+                </div>
+                <div>
+                  <label className={label} htmlFor="size">
+                    Size
+                  </label>
+                  <Input id="size" value={size} onChange={(e) => setSize(e.target.value)} placeholder="e.g. 600x1200" />
+                </div>
+                <div>
+                  <label className={label} htmlFor="price">
+                    Price / sq ft
+                  </label>
+                  <Input id="price" type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g. 85" />
+                </div>
               </div>
+
               <fieldset>
-                <legend className={label}>Suitable rooms (optional)</legend>
-                <div className="flex flex-wrap gap-2">
+                <legend className={label}>Suitable spaces</legend>
+                <div className="grid grid-cols-2 gap-2">
                   {ROOMS.map((r) => (
-                    <label key={r.value} className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${rooms.includes(r.value) ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 text-stone-600"}`}>
+                    <label key={r.value} className="flex items-center gap-2 text-sm text-stone-700">
                       <input
                         type="checkbox"
-                        className="sr-only"
                         checked={rooms.includes(r.value)}
                         onChange={() => setRooms((prev) => (prev.includes(r.value) ? prev.filter((x) => x !== r.value) : [...prev, r.value]))}
                       />
@@ -227,14 +270,14 @@ export function MyTilesPage() {
               </AnimatePresence>
 
               <Button type="submit" size="lg" className="w-full" loading={saving}>
-                {saving ? "Saving…" : "Add tile"}
+                {saving ? "Saving to Catalog…" : "Add Tile to Showroom"}
               </Button>
             </form>
           </CardBody>
         </Card>
 
         <div>
-          <h2 className="font-display text-xl text-stone-900">Your catalog{tiles ? ` (${tiles.length})` : ""}</h2>
+          <h2 className="font-display text-xl text-stone-900">Your Showroom Catalog{tiles ? ` (${tiles.length})` : ""}</h2>
           <div className="mt-4">
             {loadError ? (
               <ErrorState message={loadError} onRetry={load} />
@@ -262,12 +305,12 @@ export function MyTilesPage() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       className={tile.isActive ? "" : "opacity-60 transition-opacity duration-300"}
                     >
-                      <Card className="overflow-hidden">
+                      <Card className="overflow-hidden shadow-soft hover:shadow-md transition">
                         <div className="aspect-square bg-stone-100">
                           <img src={getPublicTileImageUrl(tile.storagePath)} alt={tile.name} className="h-full w-full object-cover" loading="lazy" />
                         </div>
                         <div className="space-y-1.5 p-3">
-                          <p className="font-display leading-tight text-stone-900">{tile.name}</p>
+                          <p className="font-display leading-tight text-stone-900 font-semibold">{tile.name}</p>
                           <p className="text-xs text-stone-500">{[tile.brand, tile.material, tile.sizeMm && `${tile.sizeMm} mm`].filter(Boolean).join(" · ")}</p>
                           <div className="flex items-center justify-between pt-1">
                             <Badge tone={tile.isActive ? "success" : "neutral"}>{tile.isActive ? "Active" : "Hidden"}</Badge>

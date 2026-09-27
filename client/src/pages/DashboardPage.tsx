@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { PageBanner } from "@/components/ui/PageBanner";
 import { friendlyErrorMessage } from "@/api/client";
 import { getBillingSummary, getCreditTransactions, type BillingSummary, type CreditTransaction } from "@/api/billing";
 
@@ -70,12 +71,26 @@ export function DashboardPage() {
 
   return (
     <PageContainer className="max-w-5xl">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-3xl text-stone-900">Dashboard</h1>
-        <Link to="/credits">
-          <Button>Buy Credits</Button>
-        </Link>
-      </div>
+      <PageBanner
+        imageSrc="/images/banners/dashboard_banner.jpg"
+        badge="Control Center • Studio Overview"
+        title="Trial Room Dashboard"
+        subtitle="Track customer room scans, in-situ generation metrics, showroom credit balance, and transaction history."
+        actions={
+          <>
+            <Link to="/upload">
+              <Button size="lg" className="bg-clay-500 hover:bg-clay-400 text-stone-950 font-semibold shadow-md">
+                Launch New Trial →
+              </Button>
+            </Link>
+            <Link to="/credits">
+              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                Top Up Credits
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {!summary ? (
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -86,10 +101,10 @@ export function DashboardPage() {
       ) : (
         <>
           <section className="mt-8">
-            <Card className="border-stone-900">
+            <Card className="border-stone-900 shadow-md">
               <CardBody className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-stone-400">Current balance</p>
+                  <p className="text-xs uppercase tracking-wide text-stone-400">Available Trial Balance</p>
                   <p className="mt-1 font-display text-4xl text-stone-900">
                     <AnimatedNumber value={summary.balance} /> Credits
                   </p>
@@ -100,14 +115,14 @@ export function DashboardPage() {
                   )}
                 </div>
                 <Link to="/credits">
-                  <Button size="lg">Buy Credits</Button>
+                  <Button size="lg">Top Up Balance</Button>
                 </Link>
               </CardBody>
             </Card>
           </section>
 
           <section className="mt-8">
-            <h2 className="font-display text-lg text-stone-900">Usage</h2>
+            <h2 className="font-display text-lg text-stone-900">Usage Analytics</h2>
             <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
               <StatCard label="Used today" value={summary.used.today} />
               <StatCard label="Used this week" value={summary.used.week} />
@@ -117,7 +132,7 @@ export function DashboardPage() {
           </section>
 
           <section className="mt-8">
-            <h2 className="font-display text-lg text-stone-900">Generations</h2>
+            <h2 className="font-display text-lg text-stone-900">Trial Renderings</h2>
             <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
               <StatCard label="Total" value={summary.generations.total} />
               <StatCard label="Successful" value={summary.generations.completed} />
@@ -127,7 +142,7 @@ export function DashboardPage() {
           </section>
 
           <section className="mt-8">
-            <h2 className="font-display text-lg text-stone-900">Payments</h2>
+            <h2 className="font-display text-lg text-stone-900">Payments & Passes</h2>
             <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
               <StatCard label="Total paid" value={`₹${(summary.payments.paidPaise / 100).toLocaleString()}`} />
               <StatCard label="Successful" value={summary.payments.paid} />
@@ -138,12 +153,12 @@ export function DashboardPage() {
 
           <section className="mt-10">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg text-stone-900">Recent transactions</h2>
+              <h2 className="font-display text-lg text-stone-900">Recent Transactions</h2>
               <Link to="/credits" className="text-sm text-stone-500 underline hover:text-stone-900">
                 View all
               </Link>
             </div>
-            <Card className="mt-3 overflow-x-auto">
+            <Card className="mt-3 overflow-x-auto shadow-sm">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">

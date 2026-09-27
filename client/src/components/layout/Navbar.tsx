@@ -33,13 +33,14 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between">
         <NavLink to="/" className="flex items-center gap-2.5 font-display text-xl tracking-tight text-stone-900" onClick={() => setMobileOpen(false)}>
-          <span className="grid h-8 w-8 grid-cols-2 gap-0.5 rounded-lg bg-stone-900 p-1.5 shadow-sm" aria-hidden="true">
-            <span className="rounded-[2px] bg-clay-300" /><span className="rounded-[2px] bg-clay-500" />
-            <span className="rounded-[2px] bg-clay-500" /><span className="rounded-[2px] bg-clay-300" />
-          </span>
+          <img
+            src="/images/logo/tiletry_logo.jpg"
+            alt="TileTry Logo"
+            className="h-9 w-9 rounded-lg object-cover shadow-sm ring-1 ring-stone-900/10"
+          />
           <div className="flex flex-col">
-            <span className="font-display text-lg font-semibold leading-none text-stone-950">TileTry</span>
-            <span className="text-[10px] font-sans font-medium uppercase tracking-wider text-clay-600">Virtual Trial Room</span>
+            <span className="font-display text-lg font-bold leading-none text-stone-950">TileTry</span>
+            <span className="text-[10px] font-sans font-medium uppercase tracking-wider text-clay-700">Virtual Trial Room</span>
           </div>
         </NavLink>
 

@@ -5,10 +5,11 @@ export function Footer() {
     <footer className="border-t border-stone-200 bg-white py-10">
       <div className="container-page flex flex-col items-center justify-between gap-4 text-sm text-stone-500 sm:flex-row">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-6 w-6 grid-cols-2 gap-0.5 rounded-md bg-stone-900 p-1" aria-hidden="true">
-            <span className="rounded-[1.5px] bg-clay-300" /><span className="rounded-[1.5px] bg-clay-500" />
-            <span className="rounded-[1.5px] bg-clay-500" /><span className="rounded-[1.5px] bg-clay-300" />
-          </span>
+          <img
+            src="/images/logo/tiletry_logo.jpg"
+            alt="TileTry Logo"
+            className="h-7 w-7 rounded-md object-cover shadow-sm ring-1 ring-stone-900/10"
+          />
           <span className="font-display text-base font-semibold text-stone-900">TileTry</span>
           <span className="text-xs text-stone-400">| The Virtual Trial Room for Your Home</span>
         </div>

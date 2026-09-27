@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -7,18 +8,9 @@ import { Badge } from "@/components/ui/Badge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
+import { PageBanner } from "@/components/ui/PageBanner";
 import { friendlyErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
-
-/** Package cards count in one after another. */
-const packageGridVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
-};
-const packageCardVariants = {
-  hidden: { opacity: 0, y: 14, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: "easeOut" } },
-};
 import {
   createCheckout,
   getBillingSummary,
@@ -31,6 +23,16 @@ import {
   type CreditPackage,
   type CreditTransaction,
 } from "@/api/billing";
+
+/** Package cards count in one after another. */
+const packageGridVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+};
+const packageCardVariants = {
+  hidden: { opacity: 0, y: 14, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: "easeOut" } },
+};
 
 function formatINR(paise: number): string {
   return `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -67,9 +69,6 @@ export function CreditsPage() {
       await loadRazorpayCheckoutScript();
       const checkout = await createCheckout(pkg.id);
       const result = await openRazorpayCheckout(checkout, user?.email ?? undefined);
-      // The server independently re-verifies the signature below — this call is
-      // just so the UI can show the new balance right away instead of waiting
-      // for the webhook, which credits the SAME payment idempotently either way.
       await verifyCheckout(result);
       await refresh();
       setJustPurchased(`${pkg.credits + pkg.bonusCredits} credits added to your account.`);
@@ -91,15 +90,33 @@ export function CreditsPage() {
 
   return (
     <PageContainer className="max-w-5xl">
-      <h1 className="font-display text-3xl text-stone-900">Credits</h1>
-      <p className="mt-2 text-stone-600">Buy credits to generate tile visualizations. Payments are processed securely by Razorpay.</p>
+      <PageBanner
+        imageSrc="/images/banners/credits_banner.jpg"
+        badge="Studio Passes • Rendering Power"
+        title="Trial Room Studio Passes & Credits"
+        subtitle="Fuel your virtual trial room with credits for photorealistic in-situ room visualizations, instant multi-tile comparisons, and high-resolution exports."
+        actions={
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-stone-300">
+              Secured with 256-bit encryption by Razorpay
+            </span>
+          </div>
+        }
+      />
 
-      <Card className="mt-6 border-stone-900">
-        <CardBody>
-          <p className="text-xs uppercase tracking-wide text-stone-400">Current balance</p>
-          <p className="mt-1 font-display text-3xl text-stone-900">
-            {summary ? <AnimatedNumber value={summary.balance} /> : "—"} Credits
-          </p>
+      <Card className="border-stone-900 shadow-md">
+        <CardBody className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-stone-400">Available Balance</p>
+            <p className="mt-1 font-display text-4xl text-stone-900 font-bold">
+              {summary ? <AnimatedNumber value={summary.balance} /> : "—"} Credits
+            </p>
+          </div>
+          <Link to="/upload">
+            <Button size="lg" className="shadow-sm">
+              Use Credits in Trial Room →
+            </Button>
+          </Link>
         </CardBody>
       </Card>
 
@@ -125,7 +142,10 @@ export function CreditsPage() {
       )}
 
       <section className="mt-8">
-        <h2 className="font-display text-xl text-stone-900">Buy Credits</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-xl text-stone-900 font-semibold">Choose a Studio Pass</h2>
+          <span className="text-xs text-stone-500">Instant credit activation</span>
+        </div>
         {packages.length === 0 ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <Skeleton className="h-56" />
@@ -139,14 +159,14 @@ export function CreditsPage() {
               const perCredit = pkg.pricePaise / total;
               return (
                 <motion.div key={pkg.id} variants={packageCardVariants} whileHover={{ y: -4 }} transition={{ duration: 0.18 }}>
-                  <Card className="flex h-full flex-col transition-shadow hover:shadow-lg">
+                  <Card className="flex h-full flex-col transition-shadow hover:shadow-xl border-stone-200">
                     <CardBody className="flex flex-1 flex-col">
-                      <p className="font-display text-lg text-stone-900">{pkg.name}</p>
+                      <p className="font-display text-lg text-stone-900 font-semibold">{pkg.name}</p>
                       {pkg.description && <p className="mt-1 text-sm text-stone-500">{pkg.description}</p>}
-                      <p className="mt-4 font-display text-3xl text-stone-900">{formatINR(pkg.pricePaise)}</p>
+                      <p className="mt-4 font-display text-3xl text-stone-900 font-bold">{formatINR(pkg.pricePaise)}</p>
                       <p className="mt-1 text-sm text-stone-600">
                         {pkg.credits.toLocaleString()} credits
-                        {pkg.bonusCredits > 0 && <span className="ml-1 text-emerald-700">+ {pkg.bonusCredits} bonus</span>}
+                        {pkg.bonusCredits > 0 && <span className="ml-1 text-emerald-700 font-medium">+ {pkg.bonusCredits} bonus</span>}
                       </p>
                       <p className="mt-1 text-xs text-stone-400">≈ ₹{(perCredit / 100).toFixed(2)} per credit</p>
                       <div className="flex-1" />
@@ -160,12 +180,12 @@ export function CreditsPage() {
             })}
           </motion.div>
         )}
-        <p className="mt-3 text-xs text-stone-400">Prices shown are set by the showroom owner and may change.</p>
+        <p className="mt-3 text-xs text-stone-400">Payments are processed securely via Razorpay with all major cards, UPI, and net banking.</p>
       </section>
 
       <section className="mt-10">
-        <h2 className="font-display text-lg text-stone-900">Credit history</h2>
-        <Card className="mt-3 overflow-x-auto">
+        <h2 className="font-display text-lg text-stone-900 font-semibold">Credit Transaction History</h2>
+        <Card className="mt-3 overflow-x-auto shadow-sm">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">

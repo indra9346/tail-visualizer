@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { PageBanner } from "@/components/ui/PageBanner";
 import { validateRoomImageFile, uploadRoom } from "@/api/rooms";
 import { preprocessRoomImage } from "@/lib/imagePreprocess";
 import { createProject } from "@/api/projects";
@@ -57,7 +58,6 @@ export function UploadPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // Prepare (downsize) the photo BEFORE creating a project, so a failure here never leaves an empty project behind.
       const prepared = await preprocessRoomImage(file);
 
       const projectId =
@@ -75,16 +75,19 @@ export function UploadPage() {
   }
 
   return (
-    <PageContainer className="max-w-2xl">
-      <h1 className="font-display text-3xl text-stone-900">Upload Your Room</h1>
-      <p className="mt-2 text-stone-600">
-        A clear, well-lit photo that shows the whole room produces the best visualization results.
-      </p>
+    <PageContainer className="max-w-3xl">
+      <PageBanner
+        imageSrc="/images/banners/upload_banner.jpg"
+        badge="Step 01 • Capture Your Space"
+        title="Upload Your Room Photo"
+        subtitle="A clear, well-lit photo of your bathroom, kitchen, wall, or floor produces the most accurate photorealistic trial room results."
+        heightClass="h-48 sm:h-56"
+      />
 
-      <Card className="mt-8">
+      <Card className="mt-6 shadow-md border-stone-200">
         <CardBody className="space-y-6">
           <div>
-            <p className="mb-2 text-sm font-medium text-stone-700">Project</p>
+            <p className="mb-2 text-sm font-medium text-stone-700">Project Workspace</p>
             {projects === null ? (
               <p className="text-sm text-stone-400">Loading your projects…</p>
             ) : (
@@ -121,7 +124,7 @@ export function UploadPage() {
                 </label>
                 {projectMode === "new" && (
                   <Input
-                    placeholder="e.g. Kitchen Remodel"
+                    placeholder="e.g. Master Bathroom Renovation"
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
                     aria-label="New project name"
@@ -132,7 +135,7 @@ export function UploadPage() {
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-medium text-stone-700">Room photo</p>
+            <p className="mb-2 text-sm font-medium text-stone-700">Room photograph</p>
             <Dropzone
               file={file}
               onFileSelected={handleFileSelected}
@@ -144,12 +147,14 @@ export function UploadPage() {
               disabled={submitting}
             />
           </div>
-          <p className="-mt-4 text-xs leading-relaxed text-stone-500">For unfinished washrooms, kitchens, or puja spaces, upload a clear photo showing the whole room. Keep permanent plumbing, windows, and the camera view visible. The preview is a design concept, not a construction measurement.</p>
+          <p className="-mt-4 text-xs leading-relaxed text-stone-500">
+            For unfinished washrooms, kitchens, or puja spaces, upload a photo showing the target walls or floor. Keep permanent plumbing, doors, and windows in view for accurate in-situ perspective mapping.
+          </p>
 
           {submitError && <ErrorState message={submitError} onRetry={() => setSubmitError(null)} />}
 
           <Button className="w-full" size="lg" onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
-            {submitting ? "Uploading…" : "Continue"}
+            {submitting ? "Uploading & Initializing Trial…" : "Analyze Space & Proceed to Tiles →"}
           </Button>
         </CardBody>
       </Card>
