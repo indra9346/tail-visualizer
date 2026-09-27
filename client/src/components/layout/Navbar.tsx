@@ -30,17 +30,19 @@ export function Navbar() {
   const activeNavItems = user ? authNavItems : publicNavItems;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[#fdfbf7]/90 backdrop-blur-md">
       <div className="container-page flex h-16 items-center justify-between">
-        <NavLink to="/" className="flex items-center gap-2.5 font-display text-xl tracking-tight text-stone-900" onClick={() => setMobileOpen(false)}>
+        <NavLink to="/" className="flex items-center gap-3 py-1 group" onClick={() => setMobileOpen(false)}>
           <img
             src="/images/logo/tiletry_logo.jpg"
             alt="TileTry Logo"
-            className="h-9 w-9 rounded-lg object-cover shadow-sm ring-1 ring-stone-900/10"
+            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-stone-900/15 group-hover:scale-105 transition-transform"
           />
-          <div className="flex flex-col">
-            <span className="font-display text-lg font-bold leading-none text-stone-950">TileTry</span>
-            <span className="text-[10px] font-sans font-medium uppercase tracking-wider text-clay-700">Virtual Trial Room</span>
+          <div className="flex flex-col justify-center">
+            <span className="font-display text-xl font-bold tracking-tight text-stone-950 leading-snug">TileTry</span>
+            <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-clay-800 whitespace-nowrap leading-tight">
+              Virtual Trial Room
+            </span>
           </div>
         </NavLink>
 
@@ -114,7 +116,7 @@ export function Navbar() {
       </div>
 
       {mobileOpen && (
-        <nav className="border-t border-stone-200 bg-stone-50 sm:hidden" aria-label="Primary mobile">
+        <nav className="border-t border-stone-200/80 bg-[#fdfbf7]/95 backdrop-blur-md sm:hidden" aria-label="Primary mobile">
           <div className="container-page flex flex-col gap-1 py-3">
             {activeNavItems.map((item) => (
               <NavLink

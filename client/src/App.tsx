@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ConfigWarningBanner } from "@/components/layout/ConfigWarningBanner";
 import { Footer } from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { SmokeEffect } from "@/components/ui/SmokeEffect";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
@@ -26,10 +27,10 @@ export default function App() {
     <AuthProvider>
       <WorkflowProvider>
         <BrowserRouter>
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-screen flex-col relative">
             <ConfigWarningBanner />
             <Navbar />
-            <div className="flex-1">
+            <div className="flex-1 relative z-10">
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/demos" element={<DemosPage />} />
@@ -84,6 +85,7 @@ export default function App() {
               </Routes>
             </div>
             <Footer />
+            <SmokeEffect />
           </div>
         </BrowserRouter>
       </WorkflowProvider>

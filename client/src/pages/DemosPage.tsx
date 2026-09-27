@@ -125,9 +125,9 @@ export function DemosPage() {
   const currentScenario = DEMO_SCENARIOS.find((s) => s.id === selectedScenario) || DEMO_SCENARIOS[0];
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-24">
+    <div className="min-h-screen bg-transparent pb-24 text-stone-950">
       {/* Top Banner */}
-      <section className="border-b border-stone-200 bg-white py-12">
+      <section className="border-b border-stone-300/70 bg-[#faf4eb]/70 backdrop-blur-md py-12">
         <div className="container-page">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -364,8 +364,8 @@ export function DemosPage() {
               onClick={() => setSelectedScenario(scenario.id)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 selectedScenario === scenario.id
-                  ? "bg-stone-900 text-white shadow-md"
-                  : "bg-white text-stone-700 border border-stone-200 hover:bg-stone-100"
+                  ? "bg-stone-950 text-white shadow-md"
+                  : "bg-white/80 text-stone-800 border border-stone-300/80 hover:bg-white"
               }`}
             >
               {scenario.title}
@@ -375,7 +375,7 @@ export function DemosPage() {
 
         {/* Active Scenario Detail Card */}
         <div className="mt-8">
-          <Card className="overflow-hidden border-stone-200 shadow-lg">
+          <Card className="overflow-hidden border-stone-300/80 bg-white/85 shadow-lg backdrop-blur-sm">
             <CardBody className="p-8">
               <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
                 <div className="lg:col-span-5">
@@ -424,25 +424,25 @@ export function DemosPage() {
 
                 <div className="lg:col-span-7">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                      <div className="flex items-center justify-between text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">
+                    <div className="rounded-2xl border border-stone-300/80 bg-[#faf5ed]/90 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-xs font-semibold text-stone-600 uppercase tracking-wider mb-2">
                         <span>Current Space</span>
-                        <span className="rounded bg-stone-200 px-1.5 py-0.5 text-[10px]">Before</span>
+                        <span className="rounded bg-stone-200/90 px-1.5 py-0.5 text-[10px] text-stone-700 font-bold">Before</span>
                       </div>
-                      <div className="aspect-[4/3] rounded-xl bg-stone-200 overflow-hidden relative border border-stone-300 flex items-center justify-center text-stone-400 text-xs p-4 text-center">
+                      <div className="aspect-[4/3] rounded-xl bg-stone-100 overflow-hidden relative border border-stone-300/70 flex items-center justify-center text-stone-600 text-xs p-4 text-center font-medium">
                         <p>{currentScenario.originalDescription}</p>
                       </div>
-                      <p className="mt-3 text-xs text-stone-500">
+                      <p className="mt-3 text-xs text-stone-600">
                         High risk of mismatch if ordered without visual trial.
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-clay-200 bg-clay-50/50 p-4">
-                      <div className="flex items-center justify-between text-xs font-semibold text-clay-800 uppercase tracking-wider mb-2">
+                    <div className="rounded-2xl border border-clay-300/80 bg-white/90 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-xs font-semibold text-clay-950 uppercase tracking-wider mb-2">
                         <span>Virtual Preview</span>
-                        <span className="rounded bg-clay-200 px-1.5 py-0.5 text-[10px] text-clay-900 font-bold">TileTry</span>
+                        <span className="rounded bg-clay-200 px-1.5 py-0.5 text-[10px] text-clay-950 font-bold">TileTry</span>
                       </div>
-                      <div className="aspect-[4/3] rounded-xl bg-white overflow-hidden relative border border-clay-300 flex items-center justify-center text-stone-700 text-xs p-4 text-center shadow-inner">
+                      <div className="aspect-[4/3] rounded-xl bg-[#fdfbf7] overflow-hidden relative border border-clay-300 flex items-center justify-center text-stone-900 text-xs p-4 text-center shadow-inner">
                         <p className="font-medium text-stone-800">{currentScenario.transformedDescription}</p>
                       </div>
                       <p className="mt-3 text-xs text-clay-800 font-medium">
