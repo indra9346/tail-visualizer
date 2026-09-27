@@ -39,3 +39,8 @@ export async function getRoomVisualizations(roomUploadId: string): Promise<Visua
   const res = await apiGet<{ visualizations: Visualization[] }>(`/api/visualizations/room/${roomUploadId}`);
   return res.visualizations;
 }
+
+export async function listMyVisualizations(): Promise<Visualization[]> {
+  const res = await apiGet<{ visualizations: Visualization[] }>("/api/visualizations/history");
+  return res.visualizations;
+}

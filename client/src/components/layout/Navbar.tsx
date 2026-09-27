@@ -6,9 +6,13 @@ import { cn } from "@/lib/cn";
 
 const navItems = [
   { to: "/", label: "Home", end: true },
-  { to: "/projects", label: "Projects" },
-  { to: "/tiles", label: "Tiles" },
+  { to: "/dashboard", label: "Dashboard" },
+  { to: "/projects", label: "Visualize" },
   { to: "/my-tiles", label: "My Tiles" },
+  { to: "/tiles", label: "Tile Catalog" },
+  { to: "/my-visualizations", label: "My Visualizations" },
+  { to: "/credits", label: "Credits" },
+  { to: "/payments", label: "Payments" },
 ];
 
 export function Navbar() {

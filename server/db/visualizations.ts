@@ -188,3 +188,21 @@ export async function listVisualizationsForRoom(roomUploadId: string): Promise<V
 
   return (data ?? []).map(mapRow);
 }
+
+/** All visualizations owned by this user (for "My Visualizations" history), newest first. */
+export async function listVisualizationsForUser(userId: string, limit = 50): Promise<VisualizationRow[]> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("visualizations")
+    .select(SELECT_COLUMNS)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    apiLogger.error("listVisualizationsForUser failed", { operation: "listVisualizationsForUser", errorCategory: error.code });
+    throw Errors.internal("Failed to list your visualizations.");
+  }
+
+  return (data ?? []).map(mapRow);
+}

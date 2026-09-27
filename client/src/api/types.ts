@@ -84,6 +84,8 @@ export interface Visualization {
   tile?: Tile | null;
   errorMessage: string | null;
   requirements?: string | null;
+  roomType?: string | null;
+  creditsCharged?: number;
   createdAt: string;
   completedAt: string | null;
   resultImageUrl: string | null;

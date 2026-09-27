@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TileGrid } from "@/components/tiles/TileGrid";
 import { TileFilters } from "@/components/tiles/TileFilters";
@@ -10,7 +10,8 @@ import { ProgressSteps, type Step } from "@/components/ui/ProgressSteps";
 import { getRoomAnalysis } from "@/api/rooms";
 import { getTileRecommendations, searchTiles, type TileSearchFilters } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
-import { friendlyErrorMessage } from "@/api/client";
+import { getBillingSummary, getCreditPackages } from "@/api/billing";
+import { ApiClientError, friendlyErrorMessage } from "@/api/client";
 import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { useWorkflow } from "@/context/WorkflowContext";
 import type { RoomAnalysis, SurfaceType, Tile, TileRecommendation } from "@/api/types";
@@ -36,6 +37,20 @@ export function TilesPage() {
   const [generating, setGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
+
+  const [balance, setBalance] = useState<number | null>(null);
+  const [generationCost, setGenerationCost] = useState<number | null>(null);
+
+  useEffect(() => {
+    Promise.all([getBillingSummary(), getCreditPackages()])
+      .then(([summary, pkgs]) => {
+        setBalance(summary.balance);
+        setGenerationCost(pkgs.generationCreditCost);
+      })
+      .catch(() => {
+        /* non-fatal: the server still enforces the real balance check on Generate */
+      });
+  }, []);
 
   // Ensure we have the room's analysis (reused from context if present, otherwise a read-only fetch — never re-analyzes).
   useEffect(() => {
@@ -88,10 +103,20 @@ export function TilesPage() {
     if (next.length > 0) setSurfaces(next);
   }
 
+  const [insufficientCredits, setInsufficientCredits] = useState(false);
+
   async function handleGenerate() {
     if (!roomId || !selectedTile || selectedSurfaces.length === 0) return;
+    // Client-side check is a convenience only — the server independently re-checks
+    // and atomically reserves the real balance; a stale local number can never let
+    // a request through that the server would reject.
+    if (balance !== null && generationCost !== null && balance < generationCost) {
+      setInsufficientCredits(true);
+      return;
+    }
     setGenerating(true);
     setGenerationError(null);
+    setInsufficientCredits(false);
     setGenerationStage(0);
 
     const stageTimer = setInterval(() => {
@@ -109,7 +134,11 @@ export function TilesPage() {
       navigate(`/result/${visualization.id}`);
     } catch (err) {
       clearInterval(stageTimer);
-      setGenerationError(friendlyErrorMessage(err, "We couldn't generate the visualization this time. Please try again."));
+      if (err instanceof ApiClientError && err.code === "INSUFFICIENT_CREDITS") {
+        setInsufficientCredits(true);
+      } else {
+        setGenerationError(friendlyErrorMessage(err, "We couldn't generate the visualization this time. Please try again."));
+      }
       setGenerating(false);
     }
   }
@@ -192,12 +221,27 @@ export function TilesPage() {
         </section>
       )}
 
+      {insufficientCredits && (
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+          <p className="font-medium">You've used all available credits.</p>
+          <p className="mt-1">Buy credits to generate another visualization.</p>
+          <Link to="/credits" className="mt-3 inline-block rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800">
+            Buy Credits
+          </Link>
+        </div>
+      )}
+
       {selectedTile && (
         <Card className="sticky bottom-4 mt-10 border-stone-900">
           <CardBody className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm text-stone-500">Selected tile</p>
               <p className="font-display text-lg text-stone-900">{selectedTile.name}</p>
+              {generationCost !== null && (
+                <p className="mt-1 text-xs text-stone-400">
+                  Generation cost: {generationCost} credits{balance !== null && <> · Balance: {balance}</>}
+                </p>
+              )}
             </div>
 
             {selectedTile.category === "both" ? (
@@ -219,7 +263,11 @@ export function TilesPage() {
               </p>
             )}
 
-            <Button size="lg" onClick={handleGenerate} disabled={selectedSurfaces.length === 0}>
+            <Button
+              size="lg"
+              onClick={handleGenerate}
+              disabled={selectedSurfaces.length === 0 || (balance !== null && generationCost !== null && balance < generationCost)}
+            >
               Visualize This Tile
             </Button>
           </CardBody>

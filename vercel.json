@@ -43,6 +43,10 @@
       "destination": "/api/visualizations?op=byRoom&roomId=:roomId"
     },
     {
+      "source": "/api/visualizations/history",
+      "destination": "/api/visualizations?op=history"
+    },
+    {
       "source": "/api/visualizations/:id",
       "destination": "/api/visualizations?op=get&id=:id"
     },

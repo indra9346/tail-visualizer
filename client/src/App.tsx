@@ -14,6 +14,10 @@ import { TilesPage } from "@/pages/TilesPage";
 import { TileCatalogPage } from "@/pages/TileCatalogPage";
 import { MyTilesPage } from "@/pages/MyTilesPage";
 import { ResultPage } from "@/pages/ResultPage";
+import { DashboardPage } from "@/pages/DashboardPage";
+import { CreditsPage } from "@/pages/CreditsPage";
+import { PaymentsPage } from "@/pages/PaymentsPage";
+import { MyVisualizationsPage } from "@/pages/MyVisualizationsPage";
 
 export default function App() {
   return (
@@ -29,6 +33,10 @@ export default function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
                 <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
+                <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+                <Route path="/my-visualizations" element={<ProtectedRoute><MyVisualizationsPage /></ProtectedRoute>} />
                 <Route
                   path="/projects"
                   element={
