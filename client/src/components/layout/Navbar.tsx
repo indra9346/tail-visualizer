@@ -9,6 +9,10 @@ const publicNavItems = [
   { to: "/", label: "Home", end: true },
   { to: "/demos", label: "Live Demos" },
   { to: "/tiles", label: "Tile Catalog" },
+  // Publicly reachable (no sign-in required) — see App.tsx and
+  // MyVisualizationsPage.tsx: a signed-out visitor gets the public feed of
+  // visualizations their owners have explicitly made public.
+  { to: "/my-visualizations", label: "My Visualizations" },
 ];
 
 const authNavItems = [
