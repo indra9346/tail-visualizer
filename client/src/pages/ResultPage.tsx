@@ -94,33 +94,38 @@ export function ResultPage() {
 
   if (error) {
     return (
-      <PageContainer className="max-w-xl">
-        <ErrorState message={error} />
+      <PageContainer compact>
+        <div className="mx-auto w-full max-w-xl">
+          <ErrorState message={error} />
+        </div>
       </PageContainer>
     );
   }
 
   if (!visualization) {
     return (
-      <PageContainer className="max-w-4xl">
-        <Skeleton className="aspect-[4/3] w-full" />
+      <PageContainer compact>
+        <div className="mx-auto w-full max-w-3xl">
+          <Skeleton className="aspect-[4/3] w-full" />
+        </div>
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer className="max-w-4xl">
+    <PageContainer compact>
+    <div className="mx-auto w-full max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-clay-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-clay-800">
               Virtual Trial Room Preview
             </span>
-            <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700">
+            <span className="hidden rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700 sm:inline">
               In-Situ Transformation
             </span>
           </div>
-          <h1 className="mt-1.5 font-display text-3xl text-stone-900">Your Virtual Preview</h1>
+          <h1 className="mt-1.5 font-display text-2xl text-stone-900 sm:text-3xl">Your Virtual Preview</h1>
         </div>
         <AnimatePresence mode="wait">
           <motion.div
@@ -141,7 +146,7 @@ export function ResultPage() {
       </div>
 
       {visualization.status === "failed" && (
-        <div className="mt-6">
+        <div className="mt-4">
           <ErrorState message={visualization.errorMessage ?? "We couldn't generate this visualization."} />
         </div>
       )}
@@ -150,9 +155,9 @@ export function ResultPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-6 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-6"
+          className="mt-4 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-5"
         >
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900" />
+          <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900" />
           <motion.p
             className="text-sm text-stone-600"
             animate={{ opacity: [1, 0.5, 1] }}
@@ -165,7 +170,7 @@ export function ResultPage() {
 
       {visualization.status === "completed" && visualization.resultImageUrl && (
         <motion.div
-          className="mt-6"
+          className="mx-auto mt-4"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -179,39 +184,49 @@ export function ResultPage() {
             />
           ) : (
             // No original room photo to compare against (viewing someone
-            // else's public visualization) — show the result on its own.
-            <div className="overflow-hidden rounded-2xl bg-stone-100">
-              <img src={visualization.resultImageUrl} alt="Generated visualization result" className="w-full object-cover" />
+            // else's public visualization) — show the result on its own,
+            // sized to its own aspect ratio (object-contain: never cropped
+            // or stretched) and height-capped so a tall/portrait photo
+            // can't blow out the page on a short viewport.
+            <div className="flex justify-center overflow-hidden rounded-2xl bg-stone-100">
+              <img
+                src={visualization.resultImageUrl}
+                alt="Generated visualization result"
+                className="max-h-[60vh] w-auto max-w-full object-contain"
+              />
             </div>
           )}
         </motion.div>
       )}
 
       <motion.div
-        className="mt-8 grid gap-6 sm:grid-cols-2"
+        className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
       >
         <Card>
-          <CardBody className="flex items-center gap-4">
+          <CardBody className="flex items-center gap-3 py-4">
             {visualization.tile && (
               <img
                 src={getPublicTileImageUrl(visualization.tile.storagePath)}
                 alt={visualization.tile.name}
-                className="h-16 w-16 rounded-lg object-cover"
+                className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             )}
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-stone-400">Tile applied</p>
-              <p className="font-medium text-stone-900">{visualization.tile?.name ?? "—"}</p>
+              <p className="truncate font-medium text-stone-900">{visualization.tile?.name ?? "—"}</p>
             </div>
           </CardBody>
         </Card>
         <Card>
-          <CardBody>
+          <CardBody className="py-4">
             <p className="text-xs uppercase tracking-wide text-stone-400">Surfaces changed</p>
-            <div className="mt-1 flex gap-1.5">
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               {visualization.appliedSurfaces.map((s) => (
                 <Badge key={s} tone="clay">
                   {s === "floor" ? "Floor" : "Wall"}
@@ -220,61 +235,59 @@ export function ResultPage() {
             </div>
           </CardBody>
         </Card>
-      </motion.div>
-
-      {visualization.requirements && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.18, ease: "easeOut" }}>
-          <Card className="mt-6">
-            <CardBody>
+        {visualization.requirements && (
+          <Card className="sm:col-span-2 lg:col-span-1">
+            <CardBody className="py-4">
               <p className="text-xs uppercase tracking-wide text-stone-400">Your requirements</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-stone-700">{visualization.requirements}</p>
+              <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-sm text-stone-700">{visualization.requirements}</p>
             </CardBody>
           </Card>
-        </motion.div>
-      )}
+        )}
+      </motion.div>
 
       {downloadError && (
-        <p className="mt-4 text-sm text-red-700" role="alert">
+        <p className="mt-3 text-sm text-red-700" role="alert">
           {downloadError}
         </p>
       )}
 
-      <div className="mt-10 flex flex-wrap gap-3">
+      <div className="mt-6 flex flex-wrap gap-2.5">
         {visualization.status === "completed" && visualization.resultImageUrl && (
-          <Button size="lg" variant="secondary" onClick={handleDownload} loading={downloading}>
+          <Button size="md" variant="secondary" onClick={handleDownload} loading={downloading}>
             Save Visualization
           </Button>
         )}
         {visualization.isOwner && visualization.roomUploadId && (
-          <Button size="lg" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
+          <Button size="md" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
             Try Another Tile
           </Button>
         )}
         {visualization.isOwner && visualization.roomUploadId && (
-          <Button size="lg" variant="outline" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
+          <Button size="md" variant="outline" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
             Compare Another Tile
           </Button>
         )}
         <Link to="/tiles">
-          <Button size="lg" variant="outline">
+          <Button size="md" variant="outline">
             View Tile Catalog
           </Button>
         </Link>
         {visualization.isOwner && (
           <Link to="/projects">
-            <Button size="lg" variant="ghost">
+            <Button size="md" variant="ghost">
               Saved Projects
             </Button>
           </Link>
         )}
       </div>
       {visualization.isOwner ? (
-        <p className="mt-3 text-xs text-stone-400">
+        <p className="mt-2.5 text-xs text-stone-400">
           This project and visualization are already saved to your account automatically.
         </p>
       ) : (
-        <p className="mt-3 text-xs text-stone-400">This is a visualization its owner has chosen to make public.</p>
+        <p className="mt-2.5 text-xs text-stone-400">This is a visualization its owner has chosen to make public.</p>
       )}
+    </div>
     </PageContainer>
   );
 }
