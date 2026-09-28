@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -22,10 +22,14 @@ export function ResultPage() {
 
   const [visualization, setVisualization] = useState<Visualization | null>(null);
   const [room, setRoom] = useState<RoomUpload | null>(null);
+  const [viewerExpanded, setViewerExpanded] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toggleViewerExpanded = useCallback(() => {
+    setViewerExpanded((current) => !current);
+  }, []);
 
   useEffect(() => {
     if (!visualizationId) return;
@@ -63,6 +67,10 @@ export function ResultPage() {
       cancelled = true;
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
+  }, [visualizationId]);
+
+  useEffect(() => {
+    setViewerExpanded(true);
   }, [visualizationId]);
 
   async function handleDownload() {
@@ -180,6 +188,8 @@ export function ResultPage() {
             afterSrc={visualization.resultImageUrl}
             beforeAlt="Original room before visualization"
             afterAlt="Room finished with the selected tile"
+            expanded={viewerExpanded}
+            onToggleExpanded={toggleViewerExpanded}
           />
         </motion.div>
       )}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface BeforeAfterSliderProps {
   /** Optional. When omitted, the same viewer displays the result image alone. */
@@ -6,6 +7,8 @@ interface BeforeAfterSliderProps {
   afterSrc: string;
   beforeAlt?: string;
   afterAlt?: string;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
 }
 
 interface PanOffset {
@@ -32,11 +35,15 @@ export function BeforeAfterSlider({
   afterSrc,
   beforeAlt = "Before",
   afterAlt = "After",
+  expanded = false,
+  onToggleExpanded,
 }: BeforeAfterSliderProps) {
   const [position, setPosition] = useState(50);
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [pan, setPan] = useState<PanOffset>({ x: 0, y: 0 });
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const stageRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pointerModeRef = useRef<"compare" | "pan" | null>(null);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
@@ -48,6 +55,37 @@ export function BeforeAfterSlider({
     setPan({ x: 0, y: 0 });
     setAspectRatio(null);
   }, [beforeSrc, afterSrc]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setStageSize((current) =>
+        current.width === width && current.height === height ? current : { width, height },
+      );
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onToggleExpanded?.();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [expanded, onToggleExpanded]);
 
   const updateFromClientX = useCallback((clientX: number) => {
     const el = containerRef.current;
@@ -108,19 +146,36 @@ export function BeforeAfterSlider({
   };
 
   const imageTransform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
+  const imageAspectRatio = aspectRatio ?? 4 / 3;
+  const frameWidth = stageSize.width && stageSize.height
+    ? Math.min(stageSize.width, stageSize.height * imageAspectRatio)
+    : undefined;
+  const frameHeight = frameWidth ? frameWidth / imageAspectRatio : undefined;
   const imageStyle: React.CSSProperties = {
     transform: imageTransform,
     transformOrigin: "center center",
   };
 
-  return (
-    <div className="w-full select-none">
+  const stage = (
+      <div
+        ref={stageRef}
+        className={`relative flex w-full items-center justify-center ${
+          expanded
+            ? "min-h-0 flex-1 px-2 pb-3 sm:px-4 sm:pb-4"
+            : "overflow-hidden rounded-2xl bg-stone-100"
+        }`}
+        style={expanded ? undefined : { height: "min(72dvh, calc(100dvh - 230px))" }}
+      >
       <div
         ref={containerRef}
-        className={`relative mx-auto w-full overflow-hidden rounded-2xl bg-stone-100 ${
+        className={`relative max-w-full overflow-hidden rounded-2xl bg-stone-100 ${
           zoom > MIN_ZOOM ? "cursor-grab touch-none active:cursor-grabbing" : showComparison ? "cursor-col-resize touch-none" : ""
         }`}
-        style={{ aspectRatio: aspectRatio ? String(aspectRatio) : "4 / 3", maxHeight: "calc(100dvh - 230px)" }}
+        style={{
+          aspectRatio: String(imageAspectRatio),
+          width: frameWidth ? `${frameWidth}px` : "100%",
+          height: frameHeight ? `${frameHeight}px` : undefined,
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endPointerInteraction}
@@ -191,7 +246,7 @@ export function BeforeAfterSlider({
 
         <div
           data-zoom-controls
-          className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-xl border border-white/15 bg-stone-950/75 p-1 text-white shadow-lg backdrop-blur"
+          className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-xl border border-white/15 bg-stone-950/80 p-1 text-white shadow-lg backdrop-blur"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <button
@@ -228,9 +283,69 @@ export function BeforeAfterSlider({
           >
             Reset
           </button>
+          {onToggleExpanded && !expanded && (
+            <>
+              <span className="mx-0.5 h-6 w-px bg-white/25" aria-hidden="true" />
+              <button
+                type="button"
+                aria-label={expanded ? "Minimize viewer" : "Expand viewer"}
+                title={expanded ? "Minimize viewer" : "Expand viewer"}
+                onClick={onToggleExpanded}
+                className="rounded-lg px-2.5 py-2 text-xs font-medium transition-colors hover:bg-white/15"
+              >
+                {expanded ? "Minimize" : "Expand"}
+              </button>
+            </>
+          )}
         </div>
       </div>
+      </div>
+  );
 
+  if (expanded) {
+    return createPortal(
+      <div className="fixed inset-0 z-[100] flex flex-col bg-stone-950 text-white">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 sm:h-16 sm:px-6">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold sm:text-base">Your Virtual Preview</p>
+            <p className="hidden text-xs text-stone-400 sm:block">
+              {showComparison ? "Drag the divider to compare · Zoom to inspect details" : "Zoom to inspect details"}
+            </p>
+          </div>
+          {onToggleExpanded && (
+            <button
+              type="button"
+              aria-label="Minimize viewer"
+              onClick={onToggleExpanded}
+              className="shrink-0 rounded-lg border border-white/20 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10"
+            >
+              Minimize
+            </button>
+          )}
+        </header>
+        {stage}
+        {showComparison && (
+          <label className="shrink-0 px-4 pb-3 sm:px-6 sm:pb-4">
+            <span className="sr-only">Comparison slider position</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={position}
+              onChange={(event) => setPosition(Number(event.target.value))}
+              className="w-full accent-white"
+              aria-label="Drag to compare the before and after images"
+            />
+          </label>
+        )}
+      </div>,
+      document.body,
+    );
+  }
+
+  return (
+    <div className="w-full select-none">
+      {stage}
       {showComparison && (
         <label className="mt-4 block">
           <span className="sr-only">Comparison slider position</span>
