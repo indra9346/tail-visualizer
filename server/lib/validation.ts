@@ -197,6 +197,8 @@ export const deleteTileQuerySchema = z.object({ tileId: uuidSchema });
 
 export const setTileActiveBodySchema = z.object({ tileId: uuidSchema, isActive: z.boolean() }).strict();
 
+export const setVisualizationVisibilityBodySchema = z.object({ isPublic: z.boolean() }).strict();
+
 // ---------- billing ----------
 
 export const createCheckoutBodySchema = z.object({ packageId: z.string().trim().min(1).max(60) }).strict();

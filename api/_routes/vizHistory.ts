@@ -21,6 +21,7 @@ export default createHandler({ methods: ["GET"], operation: "listMyVisualization
       requirements: v.requirements,
       roomType: v.roomType,
       creditsCharged: v.creditsCharged,
+      isPublic: v.isPublic,
       createdAt: v.createdAt,
       completedAt: v.completedAt,
       resultImageUrl: v.resultStoragePath ? await createSignedUrl(BUCKETS.generatedVisualizations, v.resultStoragePath, user.id) : null,

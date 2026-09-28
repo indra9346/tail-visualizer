@@ -74,14 +74,9 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/result/:visualizationId"
-                  element={
-                    <ProtectedRoute>
-                      <ResultPage />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* Unprotected: the API itself decides access (owner, or anonymous
+                    if the visualization was made public) — see vizGet.ts. */}
+                <Route path="/result/:visualizationId" element={<ResultPage />} />
               </Routes>
             </div>
             <Footer />

@@ -33,10 +33,23 @@ jest.mock("../server/lib/supabaseServerClient", () => ({
 }));
 jest.mock("../server/lib/auth", () => ({
   authenticateRequest: async () => ({ id: USER, email: null }),
+  authenticateRequestOptional: async () => ({ id: USER, email: null }),
 }));
 
 let room = { id: ROOM_ID, projectId: "p1", userId: USER, storagePath: `${VICTIM}/p1/secret.jpg`, mimeType: "image/jpeg", fileSizeBytes: 1, status: "uploaded", errorMessage: null, createdAt: "x" };
-let viz = { id: VIZ_ID, roomUploadId: ROOM_ID, userId: USER, tileId: "t", appliedSurfaces: ["floor"], status: "completed", resultStoragePath: `${VICTIM}/p1/secret-viz.jpg` as string | null, errorMessage: null, createdAt: "x", completedAt: "x" };
+let viz = {
+  id: VIZ_ID,
+  roomUploadId: ROOM_ID,
+  userId: USER,
+  tileId: "t",
+  appliedSurfaces: ["floor"],
+  status: "completed",
+  resultStoragePath: `${VICTIM}/p1/secret-viz.jpg` as string | null,
+  errorMessage: null,
+  isPublic: false,
+  createdAt: "x",
+  completedAt: "x",
+};
 
 jest.mock("../server/db/rooms", () => ({
   verifyRoomOwnership: async () => room,
@@ -46,6 +59,7 @@ jest.mock("../server/db/rooms", () => ({
 jest.mock("../server/db/projects", () => ({ verifyProjectOwnership: async () => undefined }));
 jest.mock("../server/db/visualizations", () => ({
   verifyVisualizationOwnership: async () => viz,
+  getVisualizationById: async () => viz,
   listVisualizationsForRoom: async () => [viz],
 }));
 jest.mock("../server/db/generationJobs", () => ({ getLatestJobForVisualization: async () => null }));

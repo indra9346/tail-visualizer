@@ -86,6 +86,10 @@ export interface Visualization {
   requirements?: string | null;
   roomType?: string | null;
   creditsCharged?: number;
+  /** Owner-controlled: true if visible on the signed-out public feed. Absent on some list shapes (always true there, by construction). */
+  isPublic?: boolean;
+  /** Only present on the single-visualization GET (result page): whether the current caller is its owner. */
+  isOwner?: boolean;
   createdAt: string;
   completedAt: string | null;
   resultImageUrl: string | null;

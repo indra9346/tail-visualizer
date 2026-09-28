@@ -3,12 +3,11 @@ import { Link } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { friendlyErrorMessage } from "@/api/client";
-import { listMyVisualizations } from "@/api/visualizations";
+import { listMyVisualizations, listPublicVisualizations, setVisualizationVisibility } from "@/api/visualizations";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
 import { useAuth } from "@/context/AuthContext";
 import type { Visualization } from "@/api/types";
@@ -22,17 +21,44 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> 
 
 const SURFACE_LABELS: Record<string, string> = { floor: "Floor", wall: "Wall", backsplash: "Backsplash", shower_wall: "Shower wall" };
 
+/**
+ * Real, database-backed "My Visualizations":
+ *  - Signed out: the public feed — every visualization any owner has
+ *    explicitly marked public (GET /api/visualizations/public, no auth).
+ *  - Signed in: the caller's own history, public and private alike (GET
+ *    /api/visualizations/history, owner-scoped), with a toggle to control
+ *    which of their own results are visible on the public feed above.
+ * Never demo/curated data — see the privacy model in migration 0011 and
+ * server/db/visualizations.ts.
+ */
 export function MyVisualizationsPage() {
   const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<Visualization[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    listMyVisualizations()
+    if (authLoading) return;
+    setItems(null);
+    setError(null);
+    const load = user ? listMyVisualizations() : listPublicVisualizations();
+    load
       .then(setItems)
-      .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load your visualizations.")));
+      .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load visualizations.")));
   }, [authLoading, user]);
+
+  async function toggleVisibility(v: Visualization) {
+    const nextIsPublic = !v.isPublic;
+    setTogglingId(v.id);
+    try {
+      await setVisualizationVisibility(v.id, nextIsPublic);
+      setItems((prev) => prev?.map((item) => (item.id === v.id ? { ...item, isPublic: nextIsPublic } : item)) ?? prev);
+    } catch (err) {
+      setError(friendlyErrorMessage(err, "We couldn't update that visualization's visibility."));
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   if (authLoading) {
     return (
@@ -44,30 +70,7 @@ export function MyVisualizationsPage() {
     );
   }
 
-  // Viewable without an account — but the visualizations themselves are
-  // per-user data, so an unauthenticated visitor gets an inline sign-in
-  // prompt here instead of being redirected away from the page.
-  if (!user) {
-    return (
-      <PageContainer className="max-w-6xl">
-        <h1 className="font-display text-3xl text-stone-900">My Visualizations</h1>
-        <p className="mt-2 text-stone-600">Every visualization you've generated, with its status and credit cost.</p>
-        <div className="mt-8">
-          <EmptyState
-            title="Sign in to see your visualizations"
-            description="Your past visualizations are saved to your account. Sign in to view them here."
-            action={
-              <Link to="/login" state={{ from: { pathname: "/my-visualizations" } }}>
-                <Button size="sm">Sign in</Button>
-              </Link>
-            }
-          />
-        </div>
-      </PageContainer>
-    );
-  }
-
-  if (error) {
+  if (error && items === null) {
     return (
       <PageContainer className="max-w-6xl">
         <ErrorState message={error} />
@@ -78,7 +81,25 @@ export function MyVisualizationsPage() {
   return (
     <PageContainer className="max-w-6xl">
       <h1 className="font-display text-3xl text-stone-900">My Visualizations</h1>
-      <p className="mt-2 text-stone-600">Every visualization you've generated, with its status and credit cost.</p>
+      <p className="mt-2 text-stone-600">
+        {user
+          ? "Every visualization you've generated, with its status and credit cost. Mark one public to show it on the feed everyone sees before signing in."
+          : "Real visualizations generated on TileTry that their owners have chosen to make public."}
+      </p>
+      {!user && (
+        <p className="mt-1 text-sm text-stone-500">
+          <Link to="/login" state={{ from: { pathname: "/my-visualizations" } }} className="font-medium text-stone-900 underline">
+            Sign in
+          </Link>{" "}
+          to see your own private history too.
+        </p>
+      )}
+
+      {error && items !== null && (
+        <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          {error}
+        </p>
+      )}
 
       <div className="mt-8">
         {items === null ? (
@@ -89,11 +110,15 @@ export function MyVisualizationsPage() {
           </div>
         ) : items.length === 0 ? (
           <EmptyState
-            title="No visualizations yet"
-            description="Upload a room and generate your first tile visualization."
+            title={user ? "No visualizations yet" : "No public visualizations yet"}
+            description={
+              user
+                ? "Upload a room and generate your first tile visualization."
+                : "No one has made a visualization public yet. Sign in and try one yourself."
+            }
             action={
-              <Link to="/upload" className="text-sm font-medium text-stone-900 underline">
-                Start a visualization
+              <Link to={user ? "/upload" : "/login"} className="text-sm font-medium text-stone-900 underline">
+                {user ? "Start a visualization" : "Sign in"}
               </Link>
             }
           />
@@ -130,11 +155,25 @@ export function MyVisualizationsPage() {
                   </div>
                   {v.requirements && <p className="mt-2 line-clamp-2 text-xs text-stone-500">{v.requirements}</p>}
                   <p className="mt-3 text-xs text-stone-400">{new Date(v.createdAt).toLocaleString()}</p>
-                  {v.status === "completed" && (
-                    <Link to={`/result/${v.id}`} className="mt-3 block text-sm font-medium text-stone-900 underline">
-                      View result
-                    </Link>
-                  )}
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    {v.status === "completed" ? (
+                      <Link to={`/result/${v.id}`} className="text-sm font-medium text-stone-900 underline">
+                        View result
+                      </Link>
+                    ) : (
+                      <span />
+                    )}
+                    {user && (
+                      <button
+                        type="button"
+                        disabled={togglingId === v.id}
+                        onClick={() => toggleVisibility(v)}
+                        className="text-xs font-medium text-clay-700 hover:underline disabled:opacity-50"
+                      >
+                        {togglingId === v.id ? "Updating…" : v.isPublic ? "Make private" : "Make public"}
+                      </button>
+                    )}
+                  </div>
                 </CardBody>
               </Card>
             ))}

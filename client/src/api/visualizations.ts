@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, apiSend } from "./client";
 import type { SurfaceType, Visualization } from "./types";
 
 interface GenerateVisualizationResponse {
@@ -43,4 +43,19 @@ export async function getRoomVisualizations(roomUploadId: string): Promise<Visua
 export async function listMyVisualizations(): Promise<Visualization[]> {
   const res = await apiGet<{ visualizations: Visualization[] }>("/api/visualizations/history");
   return res.visualizations;
+}
+
+/**
+ * Public "My Visualizations" feed — real, database-backed visualizations
+ * their owners have explicitly made public. No authentication required or
+ * sent. See api/_routes/vizPublic.ts.
+ */
+export async function listPublicVisualizations(): Promise<Visualization[]> {
+  const res = await apiGet<{ visualizations: Visualization[] }>("/api/visualizations/public");
+  return res.visualizations;
+}
+
+/** Owner-only: mark one of the caller's own visualizations public or private again. */
+export async function setVisualizationVisibility(visualizationId: string, isPublic: boolean): Promise<void> {
+  await apiSend<{ visualization: { id: string; isPublic: boolean } }>("PATCH", `/api/visualizations/${visualizationId}/visibility`, { isPublic });
 }

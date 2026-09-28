@@ -37,9 +37,17 @@ export function ResultPage() {
         if (cancelled) return;
         setVisualization(viz);
 
+        // The original room photo stays private to its owner even when the
+        // visualization itself is public — a signed-out visitor (or anyone
+        // other than the owner) simply won't get it back, and that's fine:
+        // the page falls back to showing the result image alone below.
         if (viz.roomUploadId) {
-          const roomData = await getRoom(viz.roomUploadId);
-          if (!cancelled) setRoom(roomData);
+          try {
+            const roomData = await getRoom(viz.roomUploadId);
+            if (!cancelled) setRoom(roomData);
+          } catch {
+            if (!cancelled) setRoom(null);
+          }
         }
 
         if (viz.status === "pending" || viz.status === "generating") {
@@ -155,19 +163,27 @@ export function ResultPage() {
         </motion.div>
       )}
 
-      {visualization.status === "completed" && visualization.resultImageUrl && room?.imageUrl && (
+      {visualization.status === "completed" && visualization.resultImageUrl && (
         <motion.div
           className="mt-6"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <BeforeAfterSlider
-            beforeSrc={room.imageUrl}
-            afterSrc={visualization.resultImageUrl}
-            beforeAlt="Original room before visualization"
-            afterAlt="Room finished with the selected tile"
-          />
+          {room?.imageUrl ? (
+            <BeforeAfterSlider
+              beforeSrc={room.imageUrl}
+              afterSrc={visualization.resultImageUrl}
+              beforeAlt="Original room before visualization"
+              afterAlt="Room finished with the selected tile"
+            />
+          ) : (
+            // No original room photo to compare against (viewing someone
+            // else's public visualization) — show the result on its own.
+            <div className="overflow-hidden rounded-2xl bg-stone-100">
+              <img src={visualization.resultImageUrl} alt="Generated visualization result" className="w-full object-cover" />
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -229,12 +245,12 @@ export function ResultPage() {
             Save Visualization
           </Button>
         )}
-        {visualization.roomUploadId && (
+        {visualization.isOwner && visualization.roomUploadId && (
           <Button size="lg" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
             Try Another Tile
           </Button>
         )}
-        {visualization.roomUploadId && (
+        {visualization.isOwner && visualization.roomUploadId && (
           <Button size="lg" variant="outline" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
             Compare Another Tile
           </Button>
@@ -244,15 +260,21 @@ export function ResultPage() {
             View Tile Catalog
           </Button>
         </Link>
-        <Link to="/projects">
-          <Button size="lg" variant="ghost">
-            Saved Projects
-          </Button>
-        </Link>
+        {visualization.isOwner && (
+          <Link to="/projects">
+            <Button size="lg" variant="ghost">
+              Saved Projects
+            </Button>
+          </Link>
+        )}
       </div>
-      <p className="mt-3 text-xs text-stone-400">
-        This project and visualization are already saved to your account automatically.
-      </p>
+      {visualization.isOwner ? (
+        <p className="mt-3 text-xs text-stone-400">
+          This project and visualization are already saved to your account automatically.
+        </p>
+      ) : (
+        <p className="mt-3 text-xs text-stone-400">This is a visualization its owner has chosen to make public.</p>
+      )}
     </PageContainer>
   );
 }

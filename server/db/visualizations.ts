@@ -17,6 +17,8 @@ export interface VisualizationRow {
   requirements: string | null;
   roomType: string | null;
   creditsCharged: number;
+  /** Owner-controlled: false (default) = visible only to the owner; true = also visible to anonymous callers. See migration 0011. */
+  isPublic: boolean;
   createdAt: string;
   completedAt: string | null;
 }
@@ -33,6 +35,7 @@ interface RawVisualizationRow {
   requirements: string | null;
   room_type: string | null;
   credits_charged: number;
+  is_public: boolean;
   created_at: string;
   completed_at: string | null;
 }
@@ -50,13 +53,14 @@ function mapRow(row: RawVisualizationRow): VisualizationRow {
     requirements: row.requirements,
     roomType: row.room_type,
     creditsCharged: row.credits_charged,
+    isPublic: row.is_public,
     createdAt: row.created_at,
     completedAt: row.completed_at,
   };
 }
 
 const SELECT_COLUMNS =
-  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, credits_charged, created_at, completed_at";
+  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, credits_charged, is_public, created_at, completed_at";
 
 export async function createVisualization(input: {
   roomUploadId: string;
@@ -103,6 +107,65 @@ export async function verifyVisualizationOwnership(visualizationId: string, user
   }
 
   return mapRow(data);
+}
+
+/**
+ * Fetches a visualization by id with NO ownership check — the caller
+ * decides what's allowed to see it (an owner, or anyone if isPublic).
+ * Never use this to answer an authorization question by itself.
+ */
+export async function getVisualizationById(visualizationId: string): Promise<VisualizationRow | null> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("visualizations").select(SELECT_COLUMNS).eq("id", visualizationId).maybeSingle();
+
+  if (error) {
+    apiLogger.error("getVisualizationById query failed", { operation: "getVisualizationById", errorCategory: error.code });
+    throw Errors.internal("Failed to load visualization.");
+  }
+
+  return data ? mapRow(data) : null;
+}
+
+/**
+ * Owner-only: flips a visualization's public/private flag. Ownership is
+ * enforced in the same query (`.eq("user_id", userId)`), so a mismatched
+ * id/owner pair silently updates zero rows rather than someone else's row.
+ */
+export async function setVisualizationVisibility(visualizationId: string, userId: string, isPublic: boolean): Promise<VisualizationRow> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("visualizations")
+    .update({ is_public: isPublic })
+    .eq("id", visualizationId)
+    .eq("user_id", userId)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    apiLogger.error("setVisualizationVisibility failed", { operation: "setVisualizationVisibility", errorCategory: error.code });
+    throw Errors.internal("Failed to update visualization visibility.");
+  }
+
+  if (!data) throw Errors.visualizationNotFound();
+  return mapRow(data);
+}
+
+/** Every visualization explicitly marked public by its owner, newest first — the only thing an unauthenticated caller may ever list. */
+export async function listPublicVisualizations(limit = 100): Promise<VisualizationRow[]> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("visualizations")
+    .select(SELECT_COLUMNS)
+    .eq("is_public", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    apiLogger.error("listPublicVisualizations failed", { operation: "listPublicVisualizations", errorCategory: error.code });
+    throw Errors.internal("Failed to list public visualizations.");
+  }
+
+  return (data ?? []).map(mapRow);
 }
 
 /**
