@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { TilePattern } from "@/components/ui/TilePattern";
 
+/**
+ * Self-serve account creation is disabled for now (frontend-only toggle —
+ * the sign-up flow itself, including confirmation-email handling below,
+ * is fully implemented and ready to re-enable by flipping this to true).
+ */
+const SIGNUP_ENABLED = false;
+
 const perks = [
   "Upload a photo of your unfinished room",
   "Browse genuine tiles from verified showroom catalogs",
@@ -175,21 +182,23 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-stone-600">
-            {mode === "signin" ? "New to TileTry? " : "Already have an account? "}
-            <button
-              type="button"
-              className="font-semibold text-clay-700 hover:underline"
-              onClick={() => {
-                setMode(mode === "signin" ? "signup" : "signin");
-                setError(null);
-                setInfo(null);
-                setAwaitingConfirmation(false);
-              }}
-            >
-              {mode === "signin" ? "Create an account" : "Sign in"}
-            </button>
-          </p>
+          {SIGNUP_ENABLED && (
+            <p className="mt-6 text-center text-sm text-stone-600">
+              {mode === "signin" ? "New to TileTry? " : "Already have an account? "}
+              <button
+                type="button"
+                className="font-semibold text-clay-700 hover:underline"
+                onClick={() => {
+                  setMode(mode === "signin" ? "signup" : "signin");
+                  setError(null);
+                  setInfo(null);
+                  setAwaitingConfirmation(false);
+                }}
+              >
+                {mode === "signin" ? "Create an account" : "Sign in"}
+              </button>
+            </p>
+          )}
 
           <div className="mt-8 border-t border-stone-200 pt-6 text-center">
             <Link to="/" className="text-xs text-stone-500 hover:text-stone-900 transition">

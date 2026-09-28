@@ -40,7 +40,7 @@ export default function App() {
                 <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                 <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
                 <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-                <Route path="/my-visualizations" element={<ProtectedRoute><MyVisualizationsPage /></ProtectedRoute>} />
+                <Route path="/my-visualizations" element={<MyVisualizationsPage />} />
                 <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
                 <Route
                   path="/projects"
