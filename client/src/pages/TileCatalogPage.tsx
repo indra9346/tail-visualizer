@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TileGrid } from "@/components/tiles/TileGrid";
@@ -6,6 +6,8 @@ import { TileFilters } from "@/components/tiles/TileFilters";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { PageBanner } from "@/components/ui/PageBanner";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { friendlyErrorMessage } from "@/api/client";
 import { searchTiles, type TileSearchFilters } from "@/api/tiles";
 import { useWorkflow } from "@/context/WorkflowContext";
 import type { Tile } from "@/api/types";
@@ -16,18 +18,27 @@ export function TileCatalogPage() {
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [filters, setFilters] = useState<TileSearchFilters>({ page: 1, pageSize: 20 });
 
-  useEffect(() => {
+  const loadTiles = useCallback(async () => {
     setLoading(true);
-    searchTiles(filters)
-      .then((res) => {
-        setTiles(res.tiles);
-        setTotal(res.total);
-      })
-      .catch(() => setTiles([]))
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const res = await searchTiles(filters);
+      setTiles(res.tiles);
+      setTotal(res.total);
+    } catch (err) {
+      setError(friendlyErrorMessage(err, "We couldn't load the tile catalog."));
+    } finally {
+      setLoading(false);
+    }
   }, [filters]);
+
+  useEffect(() => {
+    void loadTiles();
+  }, [loadTiles, reloadKey]);
 
   return (
     <PageContainer>
@@ -56,11 +67,19 @@ export function TileCatalogPage() {
         <TileFilters filters={filters} onChange={setFilters} />
       </div>
 
-      <p className="mt-4 text-sm text-stone-400">{loading ? "Loading…" : `${total} tile${total === 1 ? "" : "s"} found`}</p>
+      {error ? (
+        <div className="mt-6">
+          <ErrorState message={error} onRetry={() => setReloadKey((key) => key + 1)} />
+        </div>
+      ) : (
+        <>
+          <p className="mt-4 text-sm text-stone-400">{loading ? "Loading…" : `${total} tile${total === 1 ? "" : "s"} found`}</p>
 
-      <div className="mt-4">
-        <TileGrid tiles={tiles} selectedTileId={selectedTile?.id} onSelect={selectTile} loading={loading} />
-      </div>
+          <div className="mt-4">
+            <TileGrid tiles={tiles} selectedTileId={selectedTile?.id} onSelect={selectTile} loading={loading} />
+          </div>
+        </>
+      )}
 
       {selectedTile && (
         <Card className="sticky bottom-4 mt-10 border-stone-900 shadow-xl">

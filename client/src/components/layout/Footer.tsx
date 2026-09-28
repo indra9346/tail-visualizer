@@ -15,9 +15,10 @@ export function Footer() {
         </div>
 
         <div className="flex items-center gap-6 text-xs text-stone-600">
-          <Link to="/demos" className="transition hover:text-stone-900">Live Demos</Link>
-          <Link to="/tiles" className="transition hover:text-stone-900">Tile Catalog</Link>
-          <Link to="/upload" className="transition hover:text-stone-900">Try Your Space</Link>
+          <Link to="/demos" className="transition hover:text-stone-900">Demos</Link>
+          <Link to="/tiles" className="transition hover:text-stone-900">Catalog</Link>
+          <Link to="/my-visualizations" className="transition hover:text-stone-900">Designs</Link>
+          <Link to="/upload" className="transition hover:text-stone-900">Visualize</Link>
         </div>
 
         <span className="text-xs text-stone-400">&copy; {new Date().getFullYear()} TileTry. All rights reserved.</span>
