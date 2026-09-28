@@ -3,14 +3,12 @@ import { Link } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { friendlyErrorMessage } from "@/api/client";
-import { listMyVisualizations } from "@/api/visualizations";
+import { listPublicVisualizations } from "@/api/visualizations";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
-import { useAuth } from "@/context/AuthContext";
 import type { Visualization } from "@/api/types";
 
 const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
@@ -23,49 +21,16 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> 
 const SURFACE_LABELS: Record<string, string> = { floor: "Floor", wall: "Wall", backsplash: "Backsplash", shower_wall: "Shower wall" };
 
 export function MyVisualizationsPage() {
-  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<Visualization[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || !user) return;
-    listMyVisualizations()
+    // Public gallery, by explicit product decision: every visualization
+    // ever generated, across every account, visible with no sign-in.
+    listPublicVisualizations()
       .then(setItems)
-      .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load your visualizations.")));
-  }, [authLoading, user]);
-
-  if (authLoading) {
-    return (
-      <PageContainer className="max-w-6xl">
-        <div className="flex min-h-[40vh] items-center justify-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900" aria-label="Loading" />
-        </div>
-      </PageContainer>
-    );
-  }
-
-  // Viewable without an account — but the visualizations themselves are
-  // per-user data, so an unauthenticated visitor gets an inline sign-in
-  // prompt here instead of being redirected away from the page.
-  if (!user) {
-    return (
-      <PageContainer className="max-w-6xl">
-        <h1 className="font-display text-3xl text-stone-900">My Visualizations</h1>
-        <p className="mt-2 text-stone-600">Every visualization you've generated, with its status and credit cost.</p>
-        <div className="mt-8">
-          <EmptyState
-            title="Sign in to see your visualizations"
-            description="Your past visualizations are saved to your account. Sign in to view them here."
-            action={
-              <Link to="/login" state={{ from: { pathname: "/my-visualizations" } }}>
-                <Button size="sm">Sign in</Button>
-              </Link>
-            }
-          />
-        </div>
-      </PageContainer>
-    );
-  }
+      .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load visualizations.")));
+  }, []);
 
   if (error) {
     return (
@@ -78,7 +43,9 @@ export function MyVisualizationsPage() {
   return (
     <PageContainer className="max-w-6xl">
       <h1 className="font-display text-3xl text-stone-900">My Visualizations</h1>
-      <p className="mt-2 text-stone-600">Every visualization you've generated, with its status and credit cost.</p>
+      <p className="mt-2 text-stone-600">
+        A public showcase of every visualization generated on TileTry so far — no sign-in required to browse.
+      </p>
 
       <div className="mt-8">
         {items === null ? (

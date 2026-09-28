@@ -47,6 +47,10 @@
       "destination": "/api/visualizations?op=history"
     },
     {
+      "source": "/api/visualizations/public",
+      "destination": "/api/visualizations?op=public"
+    },
+    {
       "source": "/api/visualizations/:id",
       "destination": "/api/visualizations?op=get&id=:id"
     },

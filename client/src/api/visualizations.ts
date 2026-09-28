@@ -44,3 +44,9 @@ export async function listMyVisualizations(): Promise<Visualization[]> {
   const res = await apiGet<{ visualizations: Visualization[] }>("/api/visualizations/history");
   return res.visualizations;
 }
+
+/** Public, unauthenticated gallery of every visualization across every account — see api/_routes/vizPublic.ts. */
+export async function listPublicVisualizations(): Promise<Visualization[]> {
+  const res = await apiGet<{ visualizations: Visualization[] }>("/api/visualizations/public");
+  return res.visualizations;
+}
