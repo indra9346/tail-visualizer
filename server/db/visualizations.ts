@@ -189,29 +189,6 @@ export async function listVisualizationsForRoom(roomUploadId: string): Promise<V
   return (data ?? []).map(mapRow);
 }
 
-/**
- * Every visualization across every account, newest first — powers the
- * public "My Visualizations" gallery, which by explicit product decision
- * shows all generated visualizations to any visitor without sign-in.
- * Unlike listVisualizationsForUser, this is NOT scoped to a caller — never
- * reuse it for anything that should stay owner-only.
- */
-export async function listAllVisualizations(limit = 100): Promise<VisualizationRow[]> {
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("visualizations")
-    .select(SELECT_COLUMNS)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    apiLogger.error("listAllVisualizations failed", { operation: "listAllVisualizations", errorCategory: error.code });
-    throw Errors.internal("Failed to list visualizations.");
-  }
-
-  return (data ?? []).map(mapRow);
-}
-
 /** All visualizations owned by this user (for "My Visualizations" history), newest first. */
 export async function listVisualizationsForUser(userId: string, limit = 50): Promise<VisualizationRow[]> {
   const supabase = getSupabaseServerClient();
