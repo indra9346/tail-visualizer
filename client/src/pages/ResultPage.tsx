@@ -113,8 +113,8 @@ export function ResultPage() {
   }
 
   return (
-    <PageContainer compact>
-    <div className="mx-auto w-full max-w-3xl">
+    <PageContainer compact className="!max-w-none">
+    <div className="w-full">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -175,27 +175,12 @@ export function ResultPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          {room?.imageUrl ? (
-            <BeforeAfterSlider
-              beforeSrc={room.imageUrl}
-              afterSrc={visualization.resultImageUrl}
-              beforeAlt="Original room before visualization"
-              afterAlt="Room finished with the selected tile"
-            />
-          ) : (
-            // No original room photo to compare against (viewing someone
-            // else's public visualization) — show the result on its own,
-            // sized to its own aspect ratio (object-contain: never cropped
-            // or stretched) and height-capped so a tall/portrait photo
-            // can't blow out the page on a short viewport.
-            <div className="flex justify-center overflow-hidden rounded-2xl bg-stone-100">
-              <img
-                src={visualization.resultImageUrl}
-                alt="Generated visualization result"
-                className="max-h-[60vh] w-auto max-w-full object-contain"
-              />
-            </div>
-          )}
+          <BeforeAfterSlider
+            beforeSrc={room?.imageUrl ?? undefined}
+            afterSrc={visualization.resultImageUrl}
+            beforeAlt="Original room before visualization"
+            afterAlt="Room finished with the selected tile"
+          />
         </motion.div>
       )}
 
