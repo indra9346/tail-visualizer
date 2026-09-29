@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { TilePattern } from "@/components/ui/TilePattern";
+import { SDSLogo } from "@/components/ui/SDSLogo";
 
 /**
  * Self-serve account creation is disabled for now (frontend-only toggle —
@@ -79,16 +80,8 @@ export function LoginPage() {
         <TilePattern className="absolute inset-0 h-full w-full opacity-25" />
         <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-900/70 to-transparent" />
         <div className="relative flex h-full flex-col justify-between p-12 text-white">
-          <div className="flex items-center gap-3">
-            <img
-              src="/images/logo/tiletry_logo.jpg"
-              alt="TileTry Logo"
-              className="h-12 w-12 rounded-2xl object-cover shadow-lg ring-2 ring-white/20"
-            />
-            <div>
-              <p className="font-display text-2xl font-bold leading-none text-white">TileTry</p>
-              <p className="text-xs uppercase tracking-widest text-clay-300">Virtual Trial Room</p>
-            </div>
+          <div className="flex items-center">
+            <SDSLogo size="lg" variant="light" subtitle="Virtual Trial Room" />
           </div>
 
           <div className="mb-8">
@@ -109,7 +102,7 @@ export function LoginPage() {
           </div>
 
           <p className="text-xs text-stone-400">
-            &copy; {new Date().getFullYear()} TileTry. All rights reserved.
+            &copy; {new Date().getFullYear()} SDS TILES & CERAMICS. All rights reserved.
           </p>
         </div>
       </div>
@@ -121,16 +114,8 @@ export function LoginPage() {
           transition={{ duration: 0.3 }}
           className="w-full max-w-md"
         >
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img
-              src="/images/logo/tiletry_logo.jpg"
-              alt="TileTry Logo"
-              className="h-10 w-10 rounded-xl object-cover shadow-sm ring-1 ring-stone-900/10"
-            />
-            <div>
-              <p className="font-display text-xl font-bold leading-none text-stone-950">TileTry</p>
-              <p className="text-[10px] font-sans font-semibold uppercase tracking-wider text-clay-700">Virtual Trial Room</p>
-            </div>
+          <div className="mb-8 lg:hidden">
+            <SDSLogo size="md" variant="dark" subtitle="Virtual Trial Room" />
           </div>
 
           <h1 className="font-display text-3xl font-bold text-stone-900 sm:text-4xl">{mode === "signin" ? "Welcome Back" : "Create Your Account"}</h1>
@@ -184,7 +169,7 @@ export function LoginPage() {
 
           {SIGNUP_ENABLED && (
             <p className="mt-6 text-center text-sm text-stone-600">
-              {mode === "signin" ? "New to TileTry? " : "Already have an account? "}
+              {mode === "signin" ? "New to SDS TILES & CERAMICS? " : "Already have an account? "}
               <button
                 type="button"
                 className="font-semibold text-clay-700 hover:underline"
@@ -202,7 +187,7 @@ export function LoginPage() {
 
           <div className="mt-8 border-t border-stone-200 pt-6 text-center">
             <Link to="/" className="text-xs text-stone-500 hover:text-stone-900 transition">
-              ← Back to TileTry Home
+              ← Back to SDS TILES & CERAMICS Home
             </Link>
           </div>
         </motion.div>

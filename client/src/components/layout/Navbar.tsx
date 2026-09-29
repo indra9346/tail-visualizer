@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { SDSLogo } from "@/components/ui/SDSLogo";
 import { cn } from "@/lib/cn";
 
 interface NavItem {
@@ -188,18 +189,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[#fdfbf7]/90 backdrop-blur-md">
       <div className="container-page flex h-16 items-center justify-between">
-        <NavLink to="/" className="flex items-center gap-3 py-1 group" onClick={() => setMobileOpen(false)}>
-          <img
-            src="/images/logo/tiletry_logo.jpg"
-            alt="TileTry Logo"
-            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-stone-900/15 group-hover:scale-105 transition-transform"
-          />
-          <div className="flex flex-col justify-center">
-            <span className="font-display text-xl font-bold tracking-tight text-stone-950 leading-snug">TileTry</span>
-            <span className="text-[10px] font-sans font-bold uppercase tracking-widest text-clay-800 whitespace-nowrap leading-tight">
-              Virtual Trial Room
-            </span>
-          </div>
+        <NavLink to="/" className="flex items-center py-1 group" onClick={() => setMobileOpen(false)}>
+          <SDSLogo size="md" variant="dark" />
         </NavLink>
 
         <button

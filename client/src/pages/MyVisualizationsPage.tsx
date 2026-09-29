@@ -84,7 +84,7 @@ export function MyVisualizationsPage() {
       <p className="mt-2 text-stone-600">
         {user
           ? "Every visualization you've generated, with its status and credit cost. Mark one public to show it on the feed everyone sees before signing in."
-          : "Real visualizations generated on TileTry that their owners have chosen to make public."}
+          : "Real visualizations generated on SDS TILES & CERAMICS that their owners have chosen to make public."}
       </p>
       {!user && (
         <p className="mt-1 text-sm text-stone-500">

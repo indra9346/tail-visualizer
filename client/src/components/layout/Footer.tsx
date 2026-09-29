@@ -1,17 +1,12 @@
 import { Link } from "react-router-dom";
+import { SDSLogo } from "@/components/ui/SDSLogo";
 
 export function Footer() {
   return (
     <footer className="border-t border-stone-300/70 bg-[#fdfbf7]/85 backdrop-blur-md py-10">
       <div className="container-page flex flex-col items-center justify-between gap-4 text-sm text-stone-500 sm:flex-row">
-        <div className="flex items-center gap-2.5">
-          <img
-            src="/images/logo/tiletry_logo.jpg"
-            alt="TileTry Logo"
-            className="h-7 w-7 rounded-md object-cover shadow-sm ring-1 ring-stone-900/10"
-          />
-          <span className="font-display text-base font-semibold text-stone-900">TileTry</span>
-          <span className="text-xs text-stone-400">| The Virtual Trial Room for Your Home</span>
+        <div className="flex items-center gap-3">
+          <SDSLogo size="sm" variant="dark" subtitle="Virtual Trial Room" />
         </div>
 
         <div className="flex items-center gap-6 text-xs text-stone-600">
@@ -21,7 +16,7 @@ export function Footer() {
           <Link to="/upload" className="transition hover:text-stone-900">Visualize</Link>
         </div>
 
-        <span className="text-xs text-stone-400">&copy; {new Date().getFullYear()} TileTry. All rights reserved.</span>
+        <span className="text-xs text-stone-400">&copy; {new Date().getFullYear()} SDS TILES & CERAMICS. All rights reserved.</span>
       </div>
       <div className="container-page mt-5 border-t border-stone-100 pt-4 text-center text-[11px] text-stone-400">
         Realistic visualization preview. Actual lighting conditions, tile batch variations, and grout installation can affect physical finished results.

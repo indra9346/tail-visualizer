@@ -352,7 +352,7 @@ export function DemosPage() {
             A Trial Room For Every Surface in Your Home
           </h2>
           <p className="mt-3 text-stone-600">
-            From compact bathroom renovations to full villa exterior cladding, see how TileTry handles diverse surfaces with pinpoint accuracy.
+            From compact bathroom renovations to full villa exterior cladding, see how SDS TILES & CERAMICS handles diverse surfaces with pinpoint accuracy.
           </p>
         </div>
 
@@ -440,7 +440,7 @@ export function DemosPage() {
                     <div className="rounded-2xl border border-clay-300/80 bg-white/90 p-4 shadow-sm">
                       <div className="flex items-center justify-between text-xs font-semibold text-clay-950 uppercase tracking-wider mb-2">
                         <span>Virtual Preview</span>
-                        <span className="rounded bg-clay-200 px-1.5 py-0.5 text-[10px] text-clay-950 font-bold">TileTry</span>
+                        <span className="rounded bg-clay-200 px-1.5 py-0.5 text-[10px] text-clay-950 font-bold">SDS TILES & CERAMICS</span>
                       </div>
                       <div className="aspect-[4/3] rounded-xl bg-[#fdfbf7] overflow-hidden relative border border-clay-300 flex items-center justify-center text-stone-900 text-xs p-4 text-center shadow-inner">
                         <p className="font-medium text-stone-800">{currentScenario.transformedDescription}</p>
@@ -457,7 +457,7 @@ export function DemosPage() {
         </div>
       </section>
 
-      {/* Comparison: Traditional vs TileTry */}
+      {/* Comparison: Traditional vs SDS TILES & CERAMICS */}
       <section className="container-page mt-24">
         <div className="overflow-hidden rounded-3xl bg-stone-900 p-8 sm:p-12 text-white">
           <div className="max-w-2xl">
@@ -499,7 +499,7 @@ export function DemosPage() {
 
             <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-6">
               <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
-                <span>✓</span> TileTry Virtual Trial Room
+                <span>✓</span> SDS TILES & CERAMICS Virtual Trial Room
               </div>
               <ul className="mt-4 space-y-3 text-xs sm:text-sm text-stone-200">
                 <li className="flex items-start gap-2">
