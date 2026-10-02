@@ -1,42 +1,63 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { TileGrid } from "@/components/tiles/TileGrid";
-import { TileFilters } from "@/components/tiles/TileFilters";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ProgressSteps, type Step } from "@/components/ui/ProgressSteps";
-import { getRoomAnalysis } from "@/api/rooms";
-import { getTileRecommendations, searchTiles, type TileSearchFilters } from "@/api/tiles";
+import { AreaCard } from "@/components/design/AreaCard";
+import { TilePickerModal } from "@/components/design/TilePickerModal";
+import { RequirementsInput } from "@/components/visualization/RequirementsInput";
+import { getRoom, getRoomAnalysis } from "@/api/rooms";
+import { getTileRecommendations } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
 import { getBillingSummary, getCreditPackages } from "@/api/billing";
 import { ApiClientError, friendlyErrorMessage } from "@/api/client";
-import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { useWorkflow } from "@/context/WorkflowContext";
-import type { RoomAnalysis, SurfaceType, Tile, TileRecommendation } from "@/api/types";
+import { SURFACES, SURFACE_ORDER } from "@/lib/designPatterns";
+import {
+  MAX_AREAS,
+  chosenTiles,
+  distinctTileCount,
+  loadDraft,
+  newArea,
+  saveDraft,
+  tileFitsSurface,
+  toPayload,
+  validateDraft,
+  type DraftArea,
+} from "@/lib/designDraft";
+import type { RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
-const GENERATION_STAGES = ["Preparing your room", "Applying selected tile", "Rendering realistic lighting", "Finalizing visualization"];
+const GENERATION_STAGES = ["Preparing your room", "Placing each tile in its area", "Laying out your patterns", "Rendering realistic lighting", "Finalizing visualization"];
+
+/** First unused preset name for a surface, so a second wall area doesn't collide with "All walls". */
+function nextLocation(surface: SurfaceType, areas: DraftArea[]): string {
+  const used = new Set(areas.filter((a) => a.surface === surface).map((a) => a.location.trim().toLowerCase()));
+  const presets = SURFACES[surface].locations;
+  return presets.find((p) => !used.has(p.toLowerCase())) ?? "";
+}
 
 export function TilesPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  const { analysis: cachedAnalysis, selectedTile, selectedSurfaces, selectTile, setSurfaces, setAnalysis } = useWorkflow();
+  const { analysis: cachedAnalysis, selectedTile, setAnalysis } = useWorkflow();
 
   const [analysis, setLocalAnalysis] = useState<RoomAnalysis | null>(cachedAnalysis);
   const [analysisLoading, setAnalysisLoading] = useState(!cachedAnalysis);
+  const [roomImage, setRoomImage] = useState<string | null>(null);
 
-  const [recommendations, setRecommendations] = useState<TileRecommendation[] | null>(null);
-  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
-
-  const [catalogTiles, setCatalogTiles] = useState<Tile[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [filters, setFilters] = useState<TileSearchFilters>({ page: 1, pageSize: 12 });
+  const [areas, setAreas] = useState<DraftArea[] | null>(null);
+  const [picker, setPicker] = useState<{ areaKey: string; slot: number } | null>(null);
+  const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
+  const [reasons, setReasons] = useState<Record<string, string>>({});
 
   const [requirements, setRequirements] = useState("");
+  const [showIssues, setShowIssues] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generationStage, setGenerationStage] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [insufficientCredits, setInsufficientCredits] = useState(false);
 
   const [balance, setBalance] = useState<number | null>(null);
   const [generationCost, setGenerationCost] = useState<number | null>(null);
@@ -52,7 +73,7 @@ export function TilesPage() {
       });
   }, []);
 
-  // Ensure we have the room's analysis (reused from context if present, otherwise a read-only fetch — never re-analyzes).
+  // The room's analysis is reused (never re-run): from context if present, otherwise a read-only fetch.
   useEffect(() => {
     if (!roomId || cachedAnalysis) return;
     let cancelled = false;
@@ -73,44 +94,78 @@ export function TilesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId]);
 
+  // The customer's photo stays on screen so the owner can see which wall is which while designing.
+  useEffect(() => {
+    if (!roomId) return;
+    getRoom(roomId)
+      .then((room) => setRoomImage(room.imageUrl ?? null))
+      .catch(() => setRoomImage(null));
+  }, [roomId]);
+
   useEffect(() => {
     if (!roomId || !analysis) return;
-    setRecommendationsLoading(true);
     getTileRecommendations(roomId)
-      .then((res) => setRecommendations(res.recommendations))
-      .catch(() => setRecommendations([]))
-      .finally(() => setRecommendationsLoading(false));
+      .then((res) => {
+        setRecommendedIds(new Set(res.recommendations.map((r) => r.tileId)));
+        setReasons(Object.fromEntries(res.recommendations.map((r) => [r.tileId, r.reason])));
+      })
+      .catch(() => {
+        /* recommendations are a convenience; the full catalog is always available */
+      });
   }, [roomId, analysis]);
 
+  // Starting design: the draft from a refresh, else one area per surface the analysis found worth tiling.
   useEffect(() => {
-    setCatalogLoading(true);
-    searchTiles(filters)
-      .then((res) => setCatalogTiles(res.tiles))
-      .catch(() => setCatalogTiles([]))
-      .finally(() => setCatalogLoading(false));
-  }, [filters]);
+    if (!roomId || !analysis || areas !== null) return;
+    const draft = loadDraft(roomId);
+    if (draft && draft.length > 0) {
+      setAreas(draft);
+      return;
+    }
+    const surfaces: SurfaceType[] = analysis.recommendedSurfaces.length > 0 ? analysis.recommendedSurfaces : ["wall"];
+    const seeded = surfaces.map((s) => newArea(s));
+    // A tile picked on the catalog page ("Try in my space") goes straight into the first area it fits.
+    if (selectedTile && selectedTile.isActive) {
+      const target = seeded.find((a) => tileFitsSurface(selectedTile, a.surface));
+      if (target) target.slots[0] = selectedTile;
+    }
+    setAreas(seeded);
+  }, [roomId, analysis, areas, selectedTile]);
 
-  function handleSelect(tile: Tile) {
-    selectTile(tile);
+  useEffect(() => {
+    if (roomId && areas) saveDraft(roomId, areas);
+  }, [roomId, areas]);
+
+  const issues = useMemo(() => validateDraft(areas ?? []), [areas]);
+  const ready = areas !== null && Object.keys(issues).length === 0;
+  const tileTotal = areas ? distinctTileCount(areas) : 0;
+  const lowCredits = balance !== null && generationCost !== null && balance < generationCost;
+
+  const updateArea = useCallback((key: string, next: DraftArea) => setAreas((prev) => prev?.map((a) => (a.key === key ? next : a)) ?? prev), []);
+
+  function addArea(surface: SurfaceType) {
+    setAreas((prev) => {
+      const list = prev ?? [];
+      return list.length >= MAX_AREAS ? list : [...list, newArea(surface, nextLocation(surface, list))];
+    });
   }
 
-  function toggleSurface(surface: SurfaceType) {
-    if (!selectedTile) return;
-    if (selectedTile.category !== "both") return; // only "both" tiles allow a real choice
-    const next = selectedSurfaces.includes(surface)
-      ? selectedSurfaces.filter((s) => s !== surface)
-      : [...selectedSurfaces, surface];
-    if (next.length > 0) setSurfaces(next);
+  function pickTile(tile: Tile) {
+    if (!picker) return;
+    setAreas((prev) =>
+      prev?.map((a) => (a.key === picker.areaKey ? { ...a, slots: a.slots.map((t, i) => (i === picker.slot ? tile : t)) } : a)) ?? prev,
+    );
+    setPicker(null);
   }
-
-  const [insufficientCredits, setInsufficientCredits] = useState(false);
 
   async function handleGenerate() {
-    if (!roomId || !selectedTile || selectedSurfaces.length === 0) return;
-    // Client-side check is a convenience only — the server independently re-checks
-    // and atomically reserves the real balance; a stale local number can never let
-    // a request through that the server would reject.
-    if (balance !== null && generationCost !== null && balance < generationCost) {
+    if (!roomId || !areas) return;
+    if (!ready) {
+      setShowIssues(true);
+      return;
+    }
+    // A convenience check only: the server re-checks and atomically reserves the real balance.
+    if (lowCredits) {
       setInsufficientCredits(true);
       return;
     }
@@ -118,35 +173,23 @@ export function TilesPage() {
     setGenerationError(null);
     setInsufficientCredits(false);
     setGenerationStage(0);
-
-    const stageTimer = setInterval(() => {
-      setGenerationStage((s) => Math.min(s + 1, GENERATION_STAGES.length - 1));
-    }, 3000);
+    const stageTimer = setInterval(() => setGenerationStage((s) => Math.min(s + 1, GENERATION_STAGES.length - 1)), 3500);
 
     try {
       const visualization = await generateVisualization({
         roomUploadId: roomId,
-        tileId: selectedTile.id,
-        surfaces: selectedSurfaces,
+        design: toPayload(areas),
         ...(requirements.trim().length > 0 ? { requirements: requirements.trim() } : {}),
       });
       clearInterval(stageTimer);
       navigate(`/result/${visualization.id}`);
     } catch (err) {
       clearInterval(stageTimer);
-      if (err instanceof ApiClientError && err.code === "INSUFFICIENT_CREDITS") {
-        setInsufficientCredits(true);
-      } else {
-        setGenerationError(friendlyErrorMessage(err, "We couldn't generate the visualization this time. Please try again."));
-      }
+      if (err instanceof ApiClientError && err.code === "INSUFFICIENT_CREDITS") setInsufficientCredits(true);
+      else setGenerationError(friendlyErrorMessage(err, "We couldn't generate the visualization this time. Please try again."));
       setGenerating(false);
     }
   }
-
-  const recommendedTiles = recommendations?.map((r) => r.tile) ?? [];
-  const reasonsByTileId = Object.fromEntries((recommendations ?? []).map((r) => [r.tileId, r.reason]));
-  const recommendedIds = new Set(recommendedTiles.map((t) => t.id));
-  const catalogOnly = catalogTiles.filter((t) => !recommendedIds.has(t.id));
 
   if (generating) {
     const steps: Step[] = GENERATION_STAGES.map((label, i): Step => ({
@@ -156,7 +199,7 @@ export function TilesPage() {
     return (
       <PageContainer className="max-w-xl">
         <h1 className="font-display text-3xl text-stone-900">Generating your visualization</h1>
-        <p className="mt-2 text-stone-600">This usually takes under a minute.</p>
+        <p className="mt-2 text-stone-600">Combining {tileTotal} tile{tileTotal === 1 ? "" : "s"} across {areas?.length ?? 0} area{areas?.length === 1 ? "" : "s"}. This usually takes under a minute.</p>
         <div className="mt-8 rounded-2xl border border-stone-200 bg-white p-8">
           <ProgressSteps steps={steps} />
         </div>
@@ -164,13 +207,15 @@ export function TilesPage() {
     );
   }
 
+  const pickerArea = picker && areas ? areas.find((a) => a.key === picker.areaKey) : undefined;
+
   return (
     <PageContainer>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl text-stone-900">Choose a Tile</h1>
-          <p className="mt-2 text-stone-600">Every tile shown is a real product from our catalog.</p>
-        </div>
+      <div>
+        <h1 className="font-display text-3xl text-stone-900">Design Studio</h1>
+        <p className="mt-2 max-w-3xl text-stone-600">
+          Decide, area by area, which tiles go where. Combine several tiles on one wall with a pattern, then preview the whole room.
+        </p>
       </div>
 
       {generationError && (
@@ -179,51 +224,67 @@ export function TilesPage() {
         </div>
       )}
 
-      {analysisLoading ? (
+      {analysisLoading || areas === null ? (
         <p className="mt-8 text-stone-400">Loading room details…</p>
       ) : (
-        <>
-          <section className="mt-8">
-            <h2 className="font-display text-xl text-stone-900">Recommended for your room</h2>
-            <div className="mt-4">
-              <TileGrid
-                tiles={recommendedTiles}
-                reasons={reasonsByTileId}
-                selectedTileId={selectedTile?.id}
-                onSelect={handleSelect}
-                loading={recommendationsLoading}
-                emptyTitle="No recommendations yet"
-                emptyDescription={
-                  catalogTiles.length === 0 && !catalogLoading
-                    ? "You haven't added any tiles to your catalog yet — add one to get recommendations and to visualize with it."
-                    : "We couldn't find a strong match in the catalog for this room. Browse the full catalog below instead."
-                }
-                showAddTileCta={catalogTiles.length === 0 && !catalogLoading}
-              />
-            </div>
-          </section>
+        <div className="mt-8 grid gap-8 lg:grid-cols-[320px_1fr]">
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <Card className="overflow-hidden">
+              {roomImage ? (
+                <img src={roomImage} alt="The customer's room photo you are designing" className="max-h-72 w-full object-cover lg:max-h-none" />
+              ) : (
+                <div className="flex h-40 items-center justify-center bg-stone-100 text-sm text-stone-400">Room photo</div>
+              )}
+              <CardBody className="space-y-2 text-sm text-stone-600">
+                <p className="font-medium text-stone-900">Your room</p>
+                <p>Name each area using what you see in this photo, e.g. "Wall behind basin" or "Left wall (window side)".</p>
+                {analysis && analysis.warnings.length > 0 && (
+                  <ul className="list-inside list-disc text-xs text-amber-800">
+                    {analysis.warnings.slice(0, 3).map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+              </CardBody>
+            </Card>
+          </aside>
 
-          <section className="mt-12">
-            <h2 className="font-display text-xl text-stone-900">Browse the full catalog</h2>
-            <div className="mt-4">
-              <TileFilters filters={filters} onChange={setFilters} />
-            </div>
-            <div className="mt-4">
-              <TileGrid
-                tiles={catalogOnly}
-                selectedTileId={selectedTile?.id}
-                onSelect={handleSelect}
-                loading={catalogLoading}
+          <div className="space-y-5">
+            {areas.map((area, i) => (
+              <AreaCard
+                key={area.key}
+                index={i}
+                area={area}
+                issues={showIssues ? (issues[area.key] ?? []) : []}
+                onChange={(next) => updateArea(area.key, next)}
+                onRemove={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}
+                onPickTile={(slot) => setPicker({ areaKey: area.key, slot })}
               />
-            </div>
-          </section>
-        </>
-      )}
+            ))}
 
-      {selectedTile && (
-        <section className="mt-10">
-          <RequirementsInput value={requirements} onChange={setRequirements} />
-        </section>
+            {areas.length < MAX_AREAS && (
+              <div className="rounded-2xl border border-dashed border-stone-300 p-4">
+                <p className="mb-2.5 text-sm font-medium text-stone-700">Add another area</p>
+                <div className="flex flex-wrap gap-2">
+                  {SURFACE_ORDER.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => addArea(s)}
+                      className="rounded-full border border-stone-300 px-3.5 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:border-stone-900 hover:bg-stone-900 hover:text-white"
+                    >
+                      + {SURFACES[s].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {areas.length === 0 && showIssues && <p className="text-sm text-amber-800">{issues["_"]?.[0]}</p>}
+            {showIssues && issues["_"] && areas.length > 0 && <p className="text-sm text-amber-800">{issues["_"][0]}</p>}
+
+            <RequirementsInput value={requirements} onChange={setRequirements} />
+          </div>
+        </div>
       )}
 
       {insufficientCredits && (
@@ -236,48 +297,40 @@ export function TilesPage() {
         </div>
       )}
 
-      {selectedTile && (
-        <Card className="sticky bottom-4 mt-10 border-stone-900">
+      {areas !== null && (
+        <Card className="sticky bottom-4 z-10 mt-10 border-stone-900 shadow-xl">
           <CardBody className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-stone-500">Selected tile</p>
-              <p className="font-display text-lg text-stone-900">{selectedTile.name}</p>
+              <p className="font-display text-lg text-stone-900">
+                {areas.length} area{areas.length === 1 ? "" : "s"} · {tileTotal} tile{tileTotal === 1 ? "" : "s"}
+              </p>
+              <p className="text-xs text-stone-500">
+                {ready
+                  ? areas.map((a) => `${a.location}: ${chosenTiles(a).map((t) => t.name).join(" + ")}`).join("  |  ").slice(0, 140)
+                  : "Choose the required tiles for every area to continue."}
+              </p>
               {generationCost !== null && (
                 <p className="mt-1 text-xs text-stone-400">
                   Generation cost: {generationCost} credits{balance !== null && <> · Balance: {balance}</>}
                 </p>
               )}
             </div>
-
-            {selectedTile.category === "both" ? (
-              <div className="flex items-center gap-3" role="group" aria-label="Choose surfaces">
-                {(["floor", "wall"] as SurfaceType[]).map((surface) => (
-                  <label key={surface} className="flex items-center gap-2 text-sm text-stone-700">
-                    <input
-                      type="checkbox"
-                      checked={selectedSurfaces.includes(surface)}
-                      onChange={() => toggleSurface(surface)}
-                    />
-                    {surface === "floor" ? "Floor" : "Wall"}
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-stone-500">
-                Applies to: <span className="font-medium text-stone-900">{selectedTile.category === "floor" ? "Floor" : "Wall"}</span>
-              </p>
-            )}
-
-            <Button
-              size="lg"
-              onClick={handleGenerate}
-              disabled={selectedSurfaces.length === 0 || (balance !== null && generationCost !== null && balance < generationCost)}
-            >
-              Visualize This Tile
+            <Button size="lg" onClick={handleGenerate} disabled={lowCredits && ready}>
+              Preview This Design
             </Button>
           </CardBody>
         </Card>
       )}
+
+      <TilePickerModal
+        open={picker !== null && pickerArea !== undefined}
+        onClose={() => setPicker(null)}
+        surface={pickerArea?.surface ?? "wall"}
+        slotLabel={pickerArea ? `${pickerArea.location || SURFACES[pickerArea.surface].label}` : ""}
+        recommendedIds={recommendedIds}
+        reasons={reasons}
+        onPick={pickTile}
+      />
     </PageContainer>
   );
 }

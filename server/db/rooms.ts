@@ -124,3 +124,25 @@ export async function updateRoomStatus(
     throw Errors.internal("Failed to update room status.");
   }
 }
+
+/**
+ * Owner-scoped delete of one room upload. Cascades to its analysis, saved tile
+ * recommendations, visualizations and generation jobs (ON DELETE CASCADE).
+ * Returns the removed row so the caller can delete the stored photo, or null
+ * if it was not found / not owned.
+ */
+export async function deleteOwnedRoom(roomUploadId: string, userId: string): Promise<RoomUploadRow | null> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("room_uploads")
+    .delete()
+    .eq("id", roomUploadId)
+    .eq("user_id", userId)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+  if (error) {
+    apiLogger.error("deleteOwnedRoom failed", { operation: "deleteOwnedRoom", errorCategory: error.code });
+    throw Errors.internal("Failed to delete the room.");
+  }
+  return data ? mapRow(data) : null;
+}

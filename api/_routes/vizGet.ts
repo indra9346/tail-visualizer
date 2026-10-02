@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createHandler } from "../../server/lib/httpHandler.js";
-import { authenticateRequestOptional } from "../../server/lib/auth.js";
+import { authenticateRequest, authenticateRequestOptional } from "../../server/lib/auth.js";
 import { Errors } from "../../server/lib/apiError.js";
 import { parseOrThrow, uuidSchema } from "../../server/lib/validation.js";
-import { getVisualizationById } from "../../server/db/visualizations.js";
+import { getVisualizationById, deleteOwnedVisualization } from "../../server/db/visualizations.js";
+import { removeOwnedImagesQuietly } from "../../server/storage/cleanup.js";
 import { getLatestJobForVisualization } from "../../server/db/generationJobs.js";
 import { getTileById } from "../../server/db/tiles.js";
 import { createSignedUrl } from "../../server/storage/imageStorage.js";
@@ -15,9 +16,19 @@ import { BUCKETS } from "../../server/storage/buckets.js";
 // visualization viewed by anyone else (including a signed-in stranger)
 // reports the same "not found" as a nonexistent id, never a distinct
 // "forbidden", so existence of a private row is never leaked either way.
-export default createHandler({ methods: ["GET"], operation: "getVisualization" }, async (req: VercelRequest, res: VercelResponse) => {
-  const caller = await authenticateRequestOptional(req);
+export default createHandler({ methods: ["GET", "DELETE"], operation: "getVisualization" }, async (req: VercelRequest, res: VercelResponse) => {
   const visualizationId = parseOrThrow(uuidSchema, req.query.id);
+
+  if (req.method === "DELETE") {
+    const owner = await authenticateRequest(req);
+    const removed = await deleteOwnedVisualization(visualizationId, owner.id);
+    if (!removed) throw Errors.visualizationNotFound();
+    await removeOwnedImagesQuietly(BUCKETS.generatedVisualizations, [removed.resultStoragePath], owner.id);
+    res.status(200).json({ deleted: true, visualizationId });
+    return;
+  }
+
+  const caller = await authenticateRequestOptional(req);
 
   const visualization = await getVisualizationById(visualizationId);
   const isOwner = !!caller && caller.id === visualization?.userId;
@@ -31,6 +42,10 @@ export default createHandler({ methods: ["GET"], operation: "getVisualization" }
     getLatestJobForVisualization(visualization.id),
     getTileById(visualization.tileId),
   ]);
+
+  // Tiles used by a multi-area design (every id was validated against the owner's catalog at generation time).
+  const designTileIds = [...new Set(visualization.design?.areas.flatMap((a) => a.tileIds) ?? [])];
+  const designTiles = (await Promise.all(designTileIds.map((id) => getTileById(id)))).filter((t) => t !== null);
 
   // Always signed with the row's OWN owner id (not the caller's — a public
   // view may have no caller at all), since createSignedUrl requires proof
@@ -53,6 +68,8 @@ export default createHandler({ methods: ["GET"], operation: "getVisualization" }
       completedAt: visualization.completedAt,
       resultImageUrl,
       tile,
+      design: visualization.design,
+      designTiles,
       latestAttempt: latestJob ? { attemptNumber: latestJob.attemptNumber, status: latestJob.status } : null,
     },
   });

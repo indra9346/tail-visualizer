@@ -7,17 +7,32 @@ export function ProjectCard({
   project,
   rooms,
   loadingRooms,
+  onDeleteProject,
+  onDeleteRoom,
 }: {
   project: Project;
   rooms: RoomUpload[] | undefined;
   loadingRooms: boolean;
+  onDeleteProject?: (project: Project) => void;
+  onDeleteRoom?: (room: RoomUpload) => void;
 }) {
   return (
     <Card>
       <CardBody>
         <div className="flex items-center justify-between">
           <h3 className="font-display text-xl text-stone-900">{project.name}</h3>
-          <span className="text-xs text-stone-400">Created {new Date(project.createdAt).toLocaleDateString()}</span>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-stone-400">Created {new Date(project.createdAt).toLocaleDateString()}</span>
+            {onDeleteProject && (
+              <button
+                type="button"
+                onClick={() => onDeleteProject(project)}
+                className="rounded-lg px-2.5 py-1.5 text-sm text-stone-500 hover:bg-red-50 hover:text-red-700"
+              >
+                Delete project
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="mt-4">
@@ -32,7 +47,7 @@ export function ProjectCard({
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {rooms.map((room) => (
-                <RoomCard key={room.id} room={room} />
+                <RoomCard key={room.id} room={room} onDelete={onDeleteRoom} />
               ))}
             </div>
           )}

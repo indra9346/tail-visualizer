@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { getVisualization } from "@/api/visualizations";
+import { getVisualization, deleteVisualization } from "@/api/visualizations";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { PATTERNS, SURFACES } from "@/lib/designPatterns";
 import { getRoom } from "@/api/rooms";
 import { friendlyErrorMessage } from "@/api/client";
 import { useWorkflow } from "@/context/WorkflowContext";
@@ -26,6 +28,7 @@ export function ResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleViewerExpanded = useCallback(() => {
     setViewerExpanded((current) => !current);
@@ -200,36 +203,73 @@ export function ResultPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
       >
-        <Card>
-          <CardBody className="flex items-center gap-3 py-4">
-            {visualization.tile && (
-              <img
-                src={getPublicTileImageUrl(visualization.tile.storagePath)}
-                alt={visualization.tile.name}
-                className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            )}
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-wide text-stone-400">Tile applied</p>
-              <p className="truncate font-medium text-stone-900">{visualization.tile?.name ?? "—"}</p>
-            </div>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody className="py-4">
-            <p className="text-xs uppercase tracking-wide text-stone-400">Surfaces changed</p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {visualization.appliedSurfaces.map((s) => (
-                <Badge key={s} tone="clay">
-                  {s === "floor" ? "Floor" : "Wall"}
-                </Badge>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
+        {visualization.design && visualization.design.areas.length > 0 ? (
+          visualization.design.areas.map((area, i) => {
+            const tiles = area.tileIds.map((id) => visualization.designTiles?.find((t) => t.id === id));
+            const surface = SURFACES[area.surface];
+            return (
+              <Card key={`${area.surface}-${area.location}-${i}`}>
+                <CardBody className="py-4">
+                  <p className="text-xs uppercase tracking-wide text-stone-400">
+                    {surface?.label ?? area.surface} · {PATTERNS[area.pattern]?.label ?? area.pattern}
+                  </p>
+                  <p className="mt-0.5 truncate font-medium text-stone-900">{area.location}</p>
+                  {area.patternNote && <p className="truncate text-xs text-stone-500">{area.patternNote}</p>}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {tiles.map((tile, j) =>
+                      tile ? (
+                        <div key={tile.id + j} className="flex items-center gap-2">
+                          <img
+                            src={getPublicTileImageUrl(tile.storagePath)}
+                            alt={tile.name}
+                            className="h-9 w-9 shrink-0 rounded-md object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                          <span className="max-w-[9rem] truncate text-sm text-stone-700">{tile.name}</span>
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
+            );
+          })
+        ) : (
+          <>
+            <Card>
+              <CardBody className="flex items-center gap-3 py-4">
+                {visualization.tile && (
+                  <img
+                    src={getPublicTileImageUrl(visualization.tile.storagePath)}
+                    alt={visualization.tile.name}
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wide text-stone-400">Tile applied</p>
+                  <p className="truncate font-medium text-stone-900">{visualization.tile?.name ?? "—"}</p>
+                </div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="py-4">
+                <p className="text-xs uppercase tracking-wide text-stone-400">Surfaces changed</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {visualization.appliedSurfaces.map((s) => (
+                    <Badge key={s} tone="clay">
+                      {SURFACES[s]?.label ?? s}
+                    </Badge>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          </>
+        )}
         {visualization.requirements && (
           <Card className="sm:col-span-2 lg:col-span-1">
             <CardBody className="py-4">
@@ -254,12 +294,12 @@ export function ResultPage() {
         )}
         {visualization.isOwner && visualization.roomUploadId && (
           <Button size="md" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
-            Try Another Tile
+            Edit Design / Try Another
           </Button>
         )}
-        {visualization.isOwner && visualization.roomUploadId && (
-          <Button size="md" variant="outline" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
-            Compare Another Tile
+        {visualization.isOwner && (
+          <Button size="md" variant="ghost" className="text-red-700 hover:bg-red-50" onClick={() => setConfirmingDelete(true)}>
+            Delete
           </Button>
         )}
         <Link to="/tiles">
@@ -283,6 +323,20 @@ export function ResultPage() {
         <p className="mt-2.5 text-xs text-stone-400">This is a visualization its owner has chosen to make public.</p>
       )}
     </div>
+    <ConfirmDialog
+      open={confirmingDelete}
+      title="Delete visualization?"
+      message="Delete this visualization and its generated image?"
+      onConfirm={async () => {
+        try {
+          await deleteVisualization(visualization.id);
+        } catch (err) {
+          throw new Error(friendlyErrorMessage(err, "We couldn't delete that visualization. Please try again."));
+        }
+        navigate("/my-visualizations");
+      }}
+      onClose={() => setConfirmingDelete(false)}
+    />
     </PageContainer>
   );
 }

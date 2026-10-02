@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, apiSend } from "./client";
 import type { RoomAnalysis, RoomUpload } from "./types";
 import { preprocessRoomImage } from "@/lib/imagePreprocess";
 import { MAX_SOURCE_IMAGE_BYTES, validateImageFileMeta } from "@/lib/imageSizing";
@@ -70,4 +70,9 @@ export async function getRoomAnalysis(roomId: string): Promise<RoomAnalysis | nu
     }
     throw err;
   }
+}
+
+/** Owner-only: permanently deletes a room photo with its analysis and every visualization made from it. */
+export async function deleteRoom(roomId: string): Promise<void> {
+  await apiSend<{ deleted: boolean }>("DELETE", `/api/rooms/${roomId}`);
 }

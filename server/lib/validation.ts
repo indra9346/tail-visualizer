@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ROOM_TYPES, SURFACE_TYPES, TILE_CATEGORIES, TILE_STOCK_STATUSES } from "../ai/types.js";
 import { aiConfig } from "../ai/config.js";
+import { DESIGN_PATTERNS, PATTERN_SPECS } from "../ai/designPatterns.js";
 import { Errors } from "./apiError.js";
 
 // Base64 text is ~4/3 the size of the decoded bytes; add generous margin
@@ -90,11 +91,70 @@ export const requirementsSchema = z
   .refine((v) => v.length <= MAX_REQUIREMENTS_CHARS, `Requirements must be at most ${MAX_REQUIREMENTS_CHARS} characters.`)
   .transform((v) => (v.length > 0 ? v : undefined));
 
+// Area labels and pattern notes are short plain-text names. The allowlist has no
+// newlines, quotes, brackets or other prompt-structuring characters, so a label can never
+// break out of the quoted line it is placed on in the generation prompt.
+const LABEL_CHARSET = /^[\p{L}\p{N} .,'&()/+-]+$/u;
+function labelSchema(max: number) {
+  return z
+    .string()
+    .transform((v) => v.replace(/\s+/g, " ").trim())
+    .refine((v) => v.length >= 1 && v.length <= max, `Must be 1 to ${max} characters.`)
+    .refine((v) => LABEL_CHARSET.test(v) && !/-{3,}/.test(v), "Use letters, numbers and simple punctuation only.");
+}
+
+export const MAX_DESIGN_AREAS = 6;
+export const MAX_TILES_PER_AREA = 4;
+export const MAX_DISTINCT_TILES = 8;
+
+export const designAreaSchema = z
+  .object({
+    surface: z.enum(SURFACE_TYPES),
+    location: labelSchema(80),
+    pattern: z.enum(DESIGN_PATTERNS).default("single"),
+    patternNote: labelSchema(160).optional(),
+    tileIds: z.array(uuidSchema).min(1).max(MAX_TILES_PER_AREA),
+  })
+  .strict()
+  .superRefine((area, ctx) => {
+    const spec = PATTERN_SPECS[area.pattern];
+    if (area.tileIds.length < spec.min || area.tileIds.length > spec.max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tileIds"],
+        message: `"${spec.label}" needs ${spec.min === spec.max ? spec.min : `${spec.min} to ${spec.max}`} tile(s) for "${area.location}".`,
+      });
+    }
+  });
+
+export const designSchema = z
+  .object({ areas: z.array(designAreaSchema).min(1).max(MAX_DESIGN_AREAS) })
+  .strict()
+  .superRefine((design, ctx) => {
+    const seen = new Set<string>();
+    for (const [i, area] of design.areas.entries()) {
+      const key = `${area.surface}|${area.location.toLowerCase()}`;
+      if (seen.has(key)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas", i, "location"], message: "Two areas have the same surface and location." });
+      }
+      seen.add(key);
+    }
+    const distinct = new Set(design.areas.flatMap((a) => a.tileIds));
+    if (distinct.size > MAX_DISTINCT_TILES) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas"], message: `A design can use at most ${MAX_DISTINCT_TILES} different tiles.` });
+    }
+  });
+
+export type DesignInput = z.infer<typeof designSchema>;
+
 export const generateVisualizationBodySchema = z
   .object({
     roomUploadId: uuidSchema,
-    tileId: uuidSchema,
-    surfaces: z.array(z.enum(SURFACE_TYPES)).min(1).max(2),
+    /** Multi-area design: per-area tiles + layout pattern. Preferred. */
+    design: designSchema.optional(),
+    /** Legacy single-tile shape: one tile applied to each listed surface. Converted to a design server-side. */
+    tileId: uuidSchema.optional(),
+    surfaces: z.array(z.enum(SURFACE_TYPES)).min(1).max(MAX_DESIGN_AREAS).optional(),
     /** Optional natural-language design instructions (untrusted text; see sanitizeRequirements). */
     requirements: requirementsSchema.optional(),
     /** What the showroom owner says the space is (defaults to the AI analysis). */
@@ -102,7 +162,15 @@ export const generateVisualizationBodySchema = z
     /** Optional: retry an existing visualization instead of creating a new one. */
     visualizationId: uuidSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    const legacy = body.tileId !== undefined || body.surfaces !== undefined;
+    if (body.design && legacy) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["design"], message: "Send either design or tileId + surfaces, not both." });
+    } else if (!body.design && !(body.tileId && body.surfaces)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["design"], message: "A design (or tileId + surfaces) is required." });
+    }
+  });
 
 /**
  * Parses and validates, throwing a safe 400 ApiError (not a raw ZodError)

@@ -5,7 +5,7 @@ import { parseOrThrow, generateVisualizationBodySchema } from "../../server/lib/
 import { checkRateLimit, RateLimits } from "../../server/lib/rateLimit.js";
 import { verifyRoomOwnership } from "../../server/db/rooms.js";
 import { getAnalysisByRoomUploadId } from "../../server/db/analyses.js";
-import { getTileById } from "../../server/db/tiles.js";
+import { getTileById, type TileRow } from "../../server/db/tiles.js";
 import {
   createVisualization,
   findInFlightVisualization,
@@ -20,7 +20,8 @@ import { generateVisualization } from "../../server/ai/generateVisualization.js"
 import { aiConfig } from "../../server/ai/config.js";
 import { AiServiceError } from "../../server/ai/errors.js";
 import { Errors } from "../../server/lib/apiError.js";
-import { tileSupportsSurface, type SurfaceType } from "../../server/ai/types.js";
+import { designHash, designSurfaces, designTileIds, normalizeDesign } from "../../server/lib/design.js";
+import { tileSupportsSurface, type DesignAreaInput, type SurfaceType } from "../../server/ai/types.js";
 import { billingConfig } from "../../server/billing/config.js";
 import { holdCreditsForGeneration, commitCreditHold, releaseCreditHold, releaseStaleHoldsQuietly } from "../../server/db/billing.js";
 
@@ -48,17 +49,27 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     throw Errors.analysisRequired();
   }
 
-  const tile = await getTileById(body.tileId);
-  // A showroom may only visualize its own tiles; another owner's tile is reported as not found.
-  if (!tile || tile.ownerId !== user.id) {
-    throw Errors.tileNotFound();
+  const design = normalizeDesign(body);
+  const hash = designHash(design);
+  const tileIds = designTileIds(design);
+  const surfaces = designSurfaces(design);
+  const primaryTileId = design.areas[0]!.tileIds[0]!;
+
+  // Every tile in the design is re-read from the database: a showroom may only use
+  // its own active tiles, and each tile must suit the surface of every area it is in.
+  const tiles = await Promise.all(tileIds.map((id) => getTileById(id)));
+  const tilesById = new Map<string, TileRow>();
+  for (const [i, tile] of tiles.entries()) {
+    // Another showroom's tile is reported as not found, never as "forbidden".
+    if (!tile || tile.ownerId !== user.id) throw Errors.tileNotFound();
+    if (!tile.isActive) throw Errors.tileInactive();
+    tilesById.set(tileIds[i]!, tile);
   }
-  if (!tile.isActive) {
-    throw Errors.tileInactive();
-  }
-  for (const surface of body.surfaces) {
-    if (!tileSupportsSurface(tile.category, surface)) {
-      throw Errors.tileSurfaceIncompatible(surface);
+  for (const area of design.areas) {
+    for (const id of area.tileIds) {
+      if (!tileSupportsSurface(tilesById.get(id)!.category, area.surface)) {
+        throw Errors.tileSurfaceIncompatible(area.surface);
+      }
     }
   }
 
@@ -67,18 +78,27 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
   let visualization: VisualizationRow;
   if (body.visualizationId) {
     visualization = await verifyVisualizationOwnership(body.visualizationId, user.id);
-    if (
-      visualization.roomUploadId !== room.id ||
-      visualization.tileId !== tile.id ||
-      !surfacesMatch(visualization.appliedSurfaces, body.surfaces)
-    ) {
-      throw Errors.validation("visualizationId does not match the provided roomUploadId/tileId/surfaces.");
+    const sameDesign = visualization.designHash
+      ? visualization.designHash === hash
+      : visualization.tileId === primaryTileId && surfacesMatch(visualization.appliedSurfaces, surfaces);
+    if (visualization.roomUploadId !== room.id || !sameDesign) {
+      throw Errors.validation("visualizationId does not match the provided roomUploadId and design.");
     }
   } else {
-    const inFlight = await findInFlightVisualization(room.id, tile.id, body.surfaces);
+    const inFlight = await findInFlightVisualization(room.id, primaryTileId, surfaces, hash);
     visualization =
       inFlight ??
-      (await createVisualization({ roomUploadId: room.id, userId: user.id, tileId: tile.id, surfaces: body.surfaces, requirements: body.requirements ?? null, roomType: body.roomType ?? analysis.roomType }));
+      (await createVisualization({
+        roomUploadId: room.id,
+        userId: user.id,
+        tileId: primaryTileId,
+        surfaces,
+        design,
+        designHash: hash,
+        tileIds,
+        requirements: body.requirements ?? null,
+        roomType: body.roomType ?? analysis.roomType,
+      }));
   }
 
   // A retry may carry updated instructions; otherwise keep what was stored on the row.
@@ -113,14 +133,24 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     await markJobProcessing(job.id, aiConfig.models.visualization);
     await updateVisualizationStatus(visualization.id, { status: "generating" });
 
-    const [roomImage, tileImage] = await Promise.all([downloadRoomImage(room.storagePath, user.id), downloadTileImage(tile.storagePath)]);
+    const [roomImage, ...tileDownloads] = await Promise.all([
+      downloadRoomImage(room.storagePath, user.id),
+      ...tileIds.map((id) => downloadTileImage(tilesById.get(id)!.storagePath)),
+    ]);
+    const tileImages = tileIds.map((id, i) => ({ tileId: id, image: tileDownloads[i]! }));
+    const areas: DesignAreaInput[] = design.areas.map((a) => ({
+      surface: a.surface,
+      location: a.location,
+      pattern: a.pattern,
+      patternNote: a.patternNote,
+      tiles: a.tileIds.map((id) => tilesById.get(id)!),
+    }));
 
     const result = await generateVisualization({
       roomImage,
-      tileImage,
+      tileImages,
       roomAnalysis: analysis,
-      tile,
-      surfaces: body.surfaces,
+      areas,
       requirements,
       roomType: body.roomType ?? analysis.roomType,
       context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id },
@@ -154,8 +184,8 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       visualization: {
         id: visualization.id,
         status: "completed",
-        tileId: tile.id,
-        surfaces: body.surfaces,
+        tileId: primaryTileId,
+        surfaces,
         resultImageUrl: signedUrl,
         attemptNumber: job.attemptNumber,
         creditsCharged: billingConfig.generationCreditCost,

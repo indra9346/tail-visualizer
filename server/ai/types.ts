@@ -7,6 +7,8 @@
  * This file has zero dependency on Supabase or any HTTP framework.
  */
 
+import type { DesignPattern } from "./designPatterns.js";
+
 // ---------- Enums (must stay in sync with the SQL migration) ----------
 
 export const ROOM_TYPES = [
@@ -33,15 +35,15 @@ export type ConstructionState = (typeof CONSTRUCTION_STATES)[number];
  * a prompt label in prompts/visualizationPrompt.ts and a UI label) to extend the
  * engine to it; nothing else is room-specific.
  */
-export const SURFACE_TYPES = ["floor", "wall", "backsplash", "shower_wall"] as const;
+export const SURFACE_TYPES = ["floor", "wall", "backsplash", "shower_wall", "step_tread", "step_riser"] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
 
 /** Surfaces the room analysis (and tile recommendation) reason about. */
 export const ANALYSIS_SURFACES = ["floor", "wall"] as const;
 
-/** Which tile category a surface needs: everything except the floor is a vertical (wall-kind) surface. */
+/** Which tile category a surface needs: floors and stair treads take floor tiles; every other surface is vertical (wall-kind). */
 export function surfaceKind(surface: SurfaceType): "floor" | "wall" {
-  return surface === "floor" ? "floor" : "wall";
+  return surface === "floor" || surface === "step_tread" ? "floor" : "wall";
 }
 
 /** True if a tile of `category` may be applied to `surface`. */
@@ -128,12 +130,24 @@ export interface TileRecommendation {
 
 // ---------- Visualization generation ----------
 
+/** One area of the room (e.g. "back wall") with the ordered tiles and the layout pattern chosen for it. */
+export interface DesignAreaInput {
+  surface: SurfaceType;
+  /** Short sanitized label naming the area (untrusted text, restricted charset). */
+  location: string;
+  pattern: DesignPattern;
+  /** Optional sanitized note refining the pattern (e.g. "dado up to 4 ft"). */
+  patternNote?: string | null;
+  /** Ordered: position i fills role i of the pattern. */
+  tiles: TileCandidate[];
+}
+
 export interface GenerateVisualizationInput {
   roomImage: ImageInput;
-  tileImage: ImageInput;
+  /** One reference photo per DISTINCT tile used anywhere in the design. */
+  tileImages: Array<{ tileId: string; image: ImageInput }>;
   roomAnalysis: RoomAnalysis;
-  tile: TileCandidate;
-  surfaces: SurfaceType[];
+  areas: DesignAreaInput[];
   /** Sanitized customer requirements (untrusted free text, or null/undefined for defaults). */
   requirements?: string | null;
   /** Room type chosen by the showroom owner (overrides the analysis' guess in the prompt). */

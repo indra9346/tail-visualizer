@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { friendlyErrorMessage } from "@/api/client";
 import { listMyVisualizations, listPublicVisualizations, setVisualizationVisibility } from "@/api/visualizations";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { deleteVisualization } from "@/api/visualizations";
 import { useAuth } from "@/context/AuthContext";
 import type { Visualization } from "@/api/types";
 
@@ -36,6 +38,7 @@ export function MyVisualizationsPage() {
   const [items, setItems] = useState<Visualization[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Visualization | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -46,6 +49,16 @@ export function MyVisualizationsPage() {
       .then(setItems)
       .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load visualizations.")));
   }, [authLoading, user]);
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    try {
+      await deleteVisualization(pendingDelete.id);
+      setItems((prev) => prev?.filter((item) => item.id !== pendingDelete.id) ?? prev);
+    } catch (err) {
+      throw new Error(friendlyErrorMessage(err, "We couldn't delete that visualization. Please try again."));
+    }
+  }
 
   async function toggleVisibility(v: Visualization) {
     const nextIsPublic = !v.isPublic;
@@ -166,6 +179,15 @@ export function MyVisualizationsPage() {
                     {user && (
                       <button
                         type="button"
+                        onClick={() => setPendingDelete(v)}
+                        className="text-xs font-medium text-red-700 hover:underline"
+                      >
+                        Delete
+                      </button>
+                    )}
+                    {user && (
+                      <button
+                        type="button"
                         disabled={togglingId === v.id}
                         onClick={() => toggleVisibility(v)}
                         className="text-xs font-medium text-clay-700 hover:underline disabled:opacity-50"
@@ -180,6 +202,13 @@ export function MyVisualizationsPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete visualization?"
+        message="Delete this visualization and its generated image?"
+        onConfirm={confirmDelete}
+        onClose={() => setPendingDelete(null)}
+      />
     </PageContainer>
   );
 }

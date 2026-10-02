@@ -111,7 +111,7 @@ describe("buildVisualizationPrompt", () => {
 
   test("includes every block the workflow requires", () => {
     const p = buildVisualizationPrompt(analysis, tile, ["floor", "wall"], SAMPLE, B);
-    for (const needle of ["SOURCE PHOTO", "TILE REFERENCE", "TARGET SURFACE", "CUSTOMER REQUIREMENTS", "PRESERVATION", "REALISM", "the floor and the walls", "Carrara White Marble", "600x1200", "NOT text-to-image"]) {
+    for (const needle of ["SOURCE PHOTO", "TILE REFERENCE", "TARGET AREAS", "CUSTOMER REQUIREMENTS", "PRESERVATION", "REALISM", "the floor", "the walls", "Carrara White Marble", "600x1200", "NOT text-to-image"]) {
       expect(p).toContain(needle);
     }
   });

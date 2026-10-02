@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiSend } from "./client";
-import type { SurfaceType, Visualization } from "./types";
+import type { Design, SurfaceType, Visualization } from "./types";
 
 interface GenerateVisualizationResponse {
   visualization: {
@@ -20,8 +20,8 @@ interface GenerateVisualizationResponse {
  */
 export async function generateVisualization(input: {
   roomUploadId: string;
-  tileId: string;
-  surfaces: SurfaceType[];
+  /** Per-area tiles and layout patterns. The server re-reads every tile from the catalog. */
+  design: { areas: Array<{ surface: SurfaceType; location: string; pattern: string; patternNote?: string; tileIds: string[] }> };
   /** Optional natural-language design instructions (sanitized and length-checked by the server). */
   requirements?: string;
   visualizationId?: string;
@@ -59,3 +59,10 @@ export async function listPublicVisualizations(): Promise<Visualization[]> {
 export async function setVisualizationVisibility(visualizationId: string, isPublic: boolean): Promise<void> {
   await apiSend<{ visualization: { id: string; isPublic: boolean } }>("PATCH", `/api/visualizations/${visualizationId}/visibility`, { isPublic });
 }
+
+/** Owner-only: permanently deletes one visualization and its generated image. */
+export async function deleteVisualization(visualizationId: string): Promise<void> {
+  await apiSend<{ deleted: boolean }>("DELETE", `/api/visualizations/${visualizationId}`);
+}
+
+export type { Design };

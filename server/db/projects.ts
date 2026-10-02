@@ -69,3 +69,14 @@ export async function verifyProjectOwnership(projectId: string, userId: string):
 
   return mapRow(data);
 }
+
+/** Owner-scoped delete of a project; cascades to all its rooms and everything under them. */
+export async function deleteOwnedProject(projectId: string, userId: string): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("projects").delete().eq("id", projectId).eq("user_id", userId).select("id").maybeSingle();
+  if (error) {
+    apiLogger.error("deleteOwnedProject failed", { operation: "deleteOwnedProject", errorCategory: error.code });
+    throw Errors.internal("Failed to delete the project.");
+  }
+  return Boolean(data);
+}

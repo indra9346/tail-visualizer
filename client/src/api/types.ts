@@ -6,7 +6,7 @@
 
 export type RoomType = "kitchen" | "bedroom" | "bathroom" | "living_room" | "dining_room" | "balcony" | "corridor" | "other";
 export type ConstructionState = "unfinished" | "under_construction" | "finished_needs_renovation";
-export type SurfaceType = "floor" | "wall";
+export type SurfaceType = "floor" | "wall" | "backsplash" | "shower_wall" | "step_tread" | "step_riser";
 export type TileCategory = "floor" | "wall" | "both";
 export type LightingType = "natural" | "artificial" | "mixed" | "low_light";
 export type PerspectiveType = "straight_on" | "angled" | "wide_angle";
@@ -75,6 +75,32 @@ export interface TileRecommendation {
   tile: Tile;
 }
 
+export type DesignPatternId =
+  | "single"
+  | "checkerboard"
+  | "horizontal_bands"
+  | "vertical_stripes"
+  | "dado"
+  | "highlighter_strip"
+  | "border_frame"
+  | "feature_panel"
+  | "herringbone"
+  | "diagonal"
+  | "random_mix";
+
+/** One area of the room with the ordered tiles and layout chosen for it (as stored by the server). */
+export interface DesignArea {
+  surface: SurfaceType;
+  location: string;
+  pattern: DesignPatternId;
+  patternNote: string | null;
+  tileIds: string[];
+}
+
+export interface Design {
+  areas: DesignArea[];
+}
+
 export interface Visualization {
   id: string;
   roomUploadId?: string;
@@ -82,6 +108,10 @@ export interface Visualization {
   appliedSurfaces: SurfaceType[];
   tileId?: string;
   tile?: Tile | null;
+  /** Per-area tiles and layouts; null for visualizations made before the Design Studio. */
+  design?: Design | null;
+  /** The tiles referenced by `design`, so the result page can show names and photos. */
+  designTiles?: Tile[];
   errorMessage: string | null;
   requirements?: string | null;
   roomType?: string | null;

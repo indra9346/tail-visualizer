@@ -2,7 +2,7 @@ import { aiConfig } from "./config.js";
 import { classifyGeminiError, getGeminiClient } from "./geminiClient.js";
 import { GeminiEmptyResponseError, GeminiRateLimitError, GeminiUpstreamError, VisualizationGenerationError } from "./errors.js";
 import { aiLogger } from "./logger.js";
-import { buildVisualizationPrompt } from "./prompts/visualizationPrompt.js";
+import { buildDesignPrompt, distinctTileIds } from "./prompts/visualizationPrompt.js";
 import { withTimeout } from "./timeout.js";
 import { validateRoomImage, validateTileImage } from "./imageValidation.js";
 import { prepareImageForModel } from "./prepareImageForModel.js";
@@ -32,7 +32,9 @@ function extractGeneratedImage(response: {
 async function attemptGeneration(input: GenerateVisualizationInput): Promise<GeneratedVisualizationResult> {
   const client = getGeminiClient();
   const model = aiConfig.models.visualization;
-  const promptText = buildVisualizationPrompt(input.roomAnalysis, input.tile, input.surfaces, input.requirements, undefined, input.roomType);
+  // The prompt letters tiles in first-use order; attach the reference photos in that same order.
+  const orderedImages = distinctTileIds(input.areas).map((id) => input.tileImages.find((t) => t.tileId === id)!.image);
+  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, undefined, input.roomType);
   const start = Date.now();
 
   let response;
@@ -46,7 +48,7 @@ async function attemptGeneration(input: GenerateVisualizationInput): Promise<Gen
             parts: [
               { text: promptText },
               { inlineData: { mimeType: input.roomImage.mimeType, data: input.roomImage.buffer.toString("base64") } },
-              { inlineData: { mimeType: input.tileImage.mimeType, data: input.tileImage.buffer.toString("base64") } },
+              ...orderedImages.map((image) => ({ inlineData: { mimeType: image.mimeType, data: image.buffer.toString("base64") } })),
             ],
           },
         ],
@@ -92,16 +94,17 @@ async function attemptGeneration(input: GenerateVisualizationInput): Promise<Gen
  */
 export async function generateVisualization(rawInput: GenerateVisualizationInput): Promise<GeneratedVisualizationResult> {
   validateRoomImage(rawInput.roomImage);
-  validateTileImage(rawInput.tileImage);
+  for (const t of rawInput.tileImages) validateTileImage(t.image);
 
   // Model-input copies only (resized, metadata stripped). The stored room and
   // tile files are never modified; `rawInput` buffers stay untouched.
   const maxDimension = aiConfig.image.generationMaxDimension;
-  const [roomImage, tileImage] = await Promise.all([
+  const [roomImage, ...preparedTiles] = await Promise.all([
     prepareImageForModel(rawInput.roomImage, { maxDimension, label: "room image" }),
-    prepareImageForModel(rawInput.tileImage, { maxDimension, label: "tile image" }),
+    ...rawInput.tileImages.map((t) => prepareImageForModel(t.image, { maxDimension, label: "tile image" })),
   ]);
-  const input: GenerateVisualizationInput = { ...rawInput, roomImage, tileImage };
+  const tileImages = rawInput.tileImages.map((t, i) => ({ tileId: t.tileId, image: preparedTiles[i]! }));
+  const input: GenerateVisualizationInput = { ...rawInput, roomImage, tileImages };
 
   const { roomUploadId, visualizationId, generationJobId } = input.context;
 

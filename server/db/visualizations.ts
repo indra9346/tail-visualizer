@@ -2,6 +2,7 @@ import { getSupabaseServerClient } from "../lib/supabaseServerClient.js";
 import { Errors } from "../lib/apiError.js";
 import { apiLogger } from "../lib/logger.js";
 import type { SurfaceType } from "../ai/types.js";
+import type { NormalizedDesign } from "../lib/design.js";
 
 export type VisualizationStatus = "pending" | "generating" | "completed" | "failed";
 
@@ -17,6 +18,9 @@ export interface VisualizationRow {
   requirements: string | null;
   roomType: string | null;
   creditsCharged: number;
+  /** Per-area tiles and layouts; null for visualizations created before the Design Studio. */
+  design: NormalizedDesign | null;
+  designHash: string | null;
   /** Owner-controlled: false (default) = visible only to the owner; true = also visible to anonymous callers. See migration 0011. */
   isPublic: boolean;
   createdAt: string;
@@ -35,6 +39,8 @@ interface RawVisualizationRow {
   requirements: string | null;
   room_type: string | null;
   credits_charged: number;
+  design: NormalizedDesign | null;
+  design_hash: string | null;
   is_public: boolean;
   created_at: string;
   completed_at: string | null;
@@ -53,6 +59,8 @@ function mapRow(row: RawVisualizationRow): VisualizationRow {
     requirements: row.requirements,
     roomType: row.room_type,
     creditsCharged: row.credits_charged,
+    design: row.design ?? null,
+    designHash: row.design_hash ?? null,
     isPublic: row.is_public,
     createdAt: row.created_at,
     completedAt: row.completed_at,
@@ -60,7 +68,7 @@ function mapRow(row: RawVisualizationRow): VisualizationRow {
 }
 
 const SELECT_COLUMNS =
-  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, credits_charged, is_public, created_at, completed_at";
+  "id, room_upload_id, user_id, tile_id, applied_surfaces, status, result_storage_path, error_message, requirements, room_type, credits_charged, design, design_hash, is_public, created_at, completed_at";
 
 export async function createVisualization(input: {
   roomUploadId: string;
@@ -69,6 +77,10 @@ export async function createVisualization(input: {
   surfaces: SurfaceType[];
   requirements?: string | null;
   roomType?: string | null;
+  design?: NormalizedDesign | null;
+  designHash?: string | null;
+  /** Every distinct tile the design uses (the primary `tileId` is always included). */
+  tileIds?: string[];
 }): Promise<VisualizationRow> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
@@ -80,6 +92,8 @@ export async function createVisualization(input: {
       applied_surfaces: input.surfaces,
       requirements: input.requirements ?? null,
       room_type: input.roomType ?? null,
+      design: input.design ?? null,
+      design_hash: input.designHash ?? null,
       status: "pending",
     })
     .select(SELECT_COLUMNS)
@@ -87,6 +101,17 @@ export async function createVisualization(input: {
 
   if (error || !data) {
     apiLogger.error("createVisualization failed", { operation: "createVisualization", errorCategory: error?.code });
+    throw Errors.internal("Failed to create visualization.");
+  }
+
+  const tileIds = [...new Set([input.tileId, ...(input.tileIds ?? [])])];
+  const { error: linkError } = await supabase
+    .from("visualization_tiles")
+    .insert(tileIds.map((tile_id) => ({ visualization_id: data.id, tile_id })));
+  if (linkError) {
+    // Never leave a visualization whose tiles are not protected by the FK links.
+    await supabase.from("visualizations").delete().eq("id", data.id);
+    apiLogger.error("createVisualization tile links failed", { operation: "createVisualization", errorCategory: linkError.code });
     throw Errors.internal("Failed to create visualization.");
   }
 
@@ -191,13 +216,13 @@ export async function findInFlightVisualization(
   roomUploadId: string,
   tileId: string,
   surfaces: SurfaceType[],
+  designHash?: string,
 ): Promise<VisualizationRow | null> {
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("visualizations")
-    .select(SELECT_COLUMNS)
-    .eq("room_upload_id", roomUploadId)
-    .eq("tile_id", tileId)
+  let query = supabase.from("visualizations").select(SELECT_COLUMNS).eq("room_upload_id", roomUploadId);
+  // A design fingerprint identifies the exact areas/patterns/tiles; without one (legacy rows) fall back to tile + surfaces.
+  query = designHash ? query.eq("design_hash", designHash) : query.eq("tile_id", tileId);
+  const { data, error } = await query
     .in("status", ["pending", "generating", "failed"])
     .order("created_at", { ascending: false })
     .limit(20);
@@ -206,6 +231,8 @@ export async function findInFlightVisualization(
     apiLogger.error("findInFlightVisualization query failed", { operation: "findInFlightVisualization", errorCategory: error.code });
     throw Errors.internal("Failed to check existing visualizations.");
   }
+
+  if (designHash) return data && data[0] ? mapRow(data[0]) : null;
 
   const sameSurfaces = (data ?? []).find((row) => {
     const rowSurfaces = [...(row.applied_surfaces as SurfaceType[])].sort();
@@ -268,4 +295,43 @@ export async function listVisualizationsForUser(userId: string, limit = 50): Pro
   }
 
   return (data ?? []).map(mapRow);
+}
+
+/**
+ * Owner-scoped delete of one visualization. The id + user_id filters mean a
+ * mismatched pair deletes nothing. Returns the removed row (for storage cleanup)
+ * or null when it is not found / not owned.
+ */
+export async function deleteOwnedVisualization(visualizationId: string, userId: string): Promise<VisualizationRow | null> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("visualizations")
+    .delete()
+    .eq("id", visualizationId)
+    .eq("user_id", userId)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+
+  if (error) {
+    apiLogger.error("deleteOwnedVisualization failed", { operation: "deleteOwnedVisualization", errorCategory: error.code });
+    throw Errors.internal("Failed to delete the visualization.");
+  }
+  return data ? mapRow(data) : null;
+}
+
+/** Result image paths of every visualization of these rooms (used to clean storage around a room/project delete). */
+export async function listResultPathsForRooms(roomUploadIds: string[], userId: string): Promise<string[]> {
+  if (roomUploadIds.length === 0) return [];
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("visualizations")
+    .select("result_storage_path")
+    .in("room_upload_id", roomUploadIds)
+    .eq("user_id", userId)
+    .not("result_storage_path", "is", null);
+  if (error) {
+    apiLogger.error("listResultPathsForRooms failed", { operation: "listResultPathsForRooms", errorCategory: error.code });
+    throw Errors.internal("Failed to prepare the delete.");
+  }
+  return (data ?? []).map((r) => r.result_storage_path as string);
 }

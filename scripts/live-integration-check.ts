@@ -157,10 +157,9 @@ async function checkVisualizationGeneration(analysis: RoomAnalysis): Promise<voi
   try {
     const result = await generateVisualization({
       roomImage: { buffer: tinyJpegBuffer(), mimeType: "image/jpeg" },
-      tileImage: { buffer: tinyJpegBuffer(), mimeType: "image/jpeg" },
+      tileImages: [{ tileId: tile.id, image: { buffer: tinyJpegBuffer(), mimeType: "image/jpeg" } }],
       roomAnalysis: analysis,
-      tile,
-      surfaces: ["floor"],
+      areas: [{ surface: "floor", location: "entire floor", pattern: "single", tiles: [tile] }],
       context: { roomUploadId: analysis.roomUploadId, visualizationId: randomUUID(), generationJobId: randomUUID() },
     });
     console.log(`  [OK] generated image: ${result.imageBuffer.length} bytes, mimeType=${result.mimeType}, model=${result.model}`);

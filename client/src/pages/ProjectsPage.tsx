@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { listProjects, listProjectRooms } from "@/api/projectsRooms";
 import { friendlyErrorMessage } from "@/api/client";
 import type { Project, RoomUpload } from "@/api/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { deleteRoom } from "@/api/rooms";
+import { deleteProject } from "@/api/projectsRooms";
 
 import { PageBanner } from "@/components/ui/PageBanner";
 
@@ -17,6 +20,7 @@ export function ProjectsPage() {
   const [roomsByProject, setRoomsByProject] = useState<Record<string, RoomUpload[]>>({});
   const [loadingRoomsFor, setLoadingRoomsFor] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ kind: "project"; project: Project } | { kind: "room"; room: RoomUpload; projectId: string } | null>(null);
 
   useEffect(() => {
     load();
@@ -44,6 +48,29 @@ export function ProjectsPage() {
       })
       .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load your projects.")));
   }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    try {
+      if (pendingDelete.kind === "project") {
+        await deleteProject(pendingDelete.project.id);
+        setProjects((prev) => prev?.filter((p) => p.id !== pendingDelete.project.id) ?? prev);
+      } else {
+        await deleteRoom(pendingDelete.room.id);
+        setRoomsByProject((prev) => ({
+          ...prev,
+          [pendingDelete.projectId]: (prev[pendingDelete.projectId] ?? []).filter((r) => r.id !== pendingDelete.room.id),
+        }));
+      }
+    } catch (err) {
+      throw new Error(friendlyErrorMessage(err, "We couldn't delete that. Please try again."));
+    }
+  }
+
+  const dialogText =
+    pendingDelete?.kind === "project"
+      ? `Delete the project "${pendingDelete.project.name}" with all its room photos and every visualization made from them?`
+      : "Delete this room photo with its analysis and every visualization made from it?";
 
   return (
     <PageContainer>
@@ -98,9 +125,19 @@ export function ProjectsPage() {
               project={project}
               rooms={roomsByProject[project.id]}
               loadingRooms={loadingRoomsFor.has(project.id)}
+              onDeleteProject={(p) => setPendingDelete({ kind: "project", project: p })}
+              onDeleteRoom={(room) => setPendingDelete({ kind: "room", room, projectId: project.id })}
             />
           ))}
       </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={pendingDelete?.kind === "project" ? "Delete project?" : "Delete room photo?"}
+        message={dialogText}
+        confirmLabel={pendingDelete?.kind === "project" ? "Delete project" : "Delete room"}
+        onConfirm={confirmDelete}
+        onClose={() => setPendingDelete(null)}
+      />
     </PageContainer>
   );
 }
