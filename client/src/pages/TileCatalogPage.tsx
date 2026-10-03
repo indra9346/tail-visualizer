@@ -43,7 +43,7 @@ export function TileCatalogPage() {
   return (
     <PageContainer>
       <PageBanner
-        imageSrc="/images/banners/catalog_banner.jpg"
+        scene="subway"
         badge="Showroom Catalog • Verified Products"
         title="Showroom Tile Collection"
         subtitle="Explore genuine Italian marbles, porcelain slabs, handcrafted terracotta, and mosaics. Select any tile to launch an instant in-situ trial in your actual room."
@@ -55,7 +55,7 @@ export function TileCatalogPage() {
               </Button>
             </Link>
             <Link to="/demos">
-              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-stone-300 bg-white/80 text-stone-900 hover:bg-white">
                 Watch Live Video Demo
               </Button>
             </Link>

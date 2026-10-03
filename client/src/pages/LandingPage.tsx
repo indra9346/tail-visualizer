@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { TileScene } from "@/components/ui/TileScene";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { TilePattern } from "@/components/ui/TilePattern";
@@ -633,7 +634,9 @@ export function LandingPage() {
       </section>
 
       {/* Comparison Experience: Try 3 Tiles, Choose 1 With Confidence */}
-      <section className="bg-stone-900 py-20 text-white">
+      <section className="on-light relative overflow-hidden py-20 text-stone-900">
+        <TileScene scene="hex" className="absolute inset-0 h-full w-full" />
+        <div className="absolute inset-0 bg-white/60" />
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">
             <span className="rounded-full bg-clay-500/20 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-300 border border-clay-500/30">
@@ -702,7 +705,7 @@ export function LandingPage() {
               </div>
 
               <div className="lg:col-span-7">
-                <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/10 bg-stone-950 p-6 flex flex-col justify-between shadow-2xl">
+                <div className="relative aspect-video rounded-2xl overflow-hidden border border-stone-200 bg-white/90 p-6 flex flex-col justify-between shadow-2xl">
                   <div className="flex justify-between items-center text-xs">
                     <span className="rounded bg-black/60 px-2.5 py-1 text-stone-300 backdrop-blur">
                       Simulated Room: Master Washroom Wall
@@ -814,22 +817,22 @@ export function LandingPage() {
       {/* Final Hero Banner (Section 20) */}
       <section className="container-page py-20">
         <motion.div
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-900 via-stone-950 to-stone-900 px-8 py-16 text-center text-white sm:px-16 shadow-2xl"
+          className="relative overflow-hidden rounded-3xl bg-[#efe6d8] px-5 py-12 text-center sm:px-16 sm:py-16 shadow-2xl"
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
         >
-          <TilePattern className="absolute inset-0 h-full w-full opacity-10" />
-          <div className="relative max-w-2xl mx-auto">
-            <span className="rounded-full bg-clay-500/20 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-300">
+          <TileScene scene="mosaic" className="absolute inset-0 h-full w-full" />
+          <div className="relative mx-auto max-w-2xl rounded-2xl bg-white/85 p-6 shadow-lg backdrop-blur-md sm:p-10">
+            <span className="rounded-full border border-clay-300 bg-clay-100 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
               Open Your Trial Room
             </span>
-            <h2 className="mt-4 font-display text-3xl font-bold sm:text-5xl">
+            <h2 className="mt-4 font-display text-3xl font-bold text-stone-900 sm:text-5xl">
               Don't Buy Tiles Blindly. <br />
-              <span className="text-clay-400">Try Them in Your Space First.</span>
+              <span className="text-clay-700">Try Them in Your Space First.</span>
             </h2>
-            <p className="mt-4 text-base text-stone-300 sm:text-lg">
+            <p className="mt-4 text-base text-stone-700 sm:text-lg">
               Your home has a trial room now. Upload your space, pick from our showroom catalog, and visualize before the first tile is fixed.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -839,7 +842,7 @@ export function LandingPage() {
                 </Button>
               </Link>
               <Link to="/demos">
-                <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 text-base">
+                <Button size="lg" variant="outline" className="border-stone-300 bg-white text-stone-900 hover:bg-stone-100 text-base">
                   Watch Live Demo
                 </Button>
               </Link>

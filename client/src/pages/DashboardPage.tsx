@@ -72,7 +72,7 @@ export function DashboardPage() {
   return (
     <PageContainer className="max-w-5xl">
       <PageBanner
-        imageSrc="/images/banners/dashboard_banner.jpg"
+        scene="mosaic"
         badge="Control Center • Studio Overview"
         title="Trial Room Dashboard"
         subtitle="Track customer room scans, in-situ generation metrics, showroom credit balance, and transaction history."
@@ -84,7 +84,7 @@ export function DashboardPage() {
               </Button>
             </Link>
             <Link to="/credits">
-              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-stone-300 bg-white/80 text-stone-900 hover:bg-white">
                 Top Up Credits
               </Button>
             </Link>

@@ -77,11 +77,11 @@ export function UploadPage() {
   return (
     <PageContainer className="max-w-3xl">
       <PageBanner
-        imageSrc="/images/banners/upload_banner.jpg"
+        scene="diamond"
         badge="Step 01 • Capture Your Space"
         title="Upload Your Room Photo"
         subtitle="A clear, well-lit photo of your bathroom, kitchen, wall, or floor produces the most accurate photorealistic trial room results."
-        heightClass="h-48 sm:h-56"
+        heightClass="min-h-[11rem] sm:min-h-[13rem]"
       />
 
       <Card className="mt-6 shadow-md border-stone-200">

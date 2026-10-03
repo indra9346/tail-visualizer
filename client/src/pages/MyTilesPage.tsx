@@ -125,7 +125,7 @@ export function MyTilesPage() {
   return (
     <PageContainer>
       <PageBanner
-        imageSrc="/images/banners/mytiles_banner.jpg"
+        scene="hex"
         badge="Craftsmanship • Showroom Inventory"
         title="Curate Your Tile Inventory"
         subtitle="List the tiles your showroom offers. These products are mapped to customer room trials for realistic in-situ visualizations."
@@ -137,7 +137,7 @@ export function MyTilesPage() {
               </Button>
             </Link>
             <Link to="/upload">
-              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-stone-300 bg-white/80 text-stone-900 hover:bg-white">
                 Try in a Room
               </Button>
             </Link>

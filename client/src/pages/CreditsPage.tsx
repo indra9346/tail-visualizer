@@ -91,13 +91,13 @@ export function CreditsPage() {
   return (
     <PageContainer className="max-w-5xl">
       <PageBanner
-        imageSrc="/images/banners/credits_banner.jpg"
+        scene="terrazzo"
         badge="Studio Passes • Rendering Power"
         title="Trial Room Studio Passes & Credits"
         subtitle="Fuel your virtual trial room with credits for photorealistic in-situ room visualizations, instant multi-tile comparisons, and high-resolution exports."
         actions={
           <div className="flex items-center gap-3">
-            <span className="text-xs text-stone-300">
+            <span className="text-xs text-stone-700">
               Secured with 256-bit encryption by Razorpay
             </span>
           </div>

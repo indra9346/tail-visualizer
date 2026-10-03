@@ -325,12 +325,12 @@ export function CalculatorPage() {
 
             {/* Result */}
             <div id="calc-result" className="scroll-mt-24 xl:sticky xl:top-24 xl:self-start">
-              <div className="rounded-2xl border border-stone-900 bg-stone-900 p-5 text-white shadow-xl" aria-live="polite">
+              <div className="rounded-2xl border border-teal-400/40 bg-gradient-to-br from-teal-600 via-emerald-600 to-cyan-700 p-5 text-white shadow-xl" aria-live="polite">
                 <h2 className="font-display text-lg">You need</h2>
                 {result ? (
                   <>
                     <p className="mt-3 text-5xl font-semibold tabular-nums">{result.boxes}</p>
-                    <p className="text-sm text-stone-300">boxes of {input.piecesPerBox} tiles</p>
+                    <p className="text-sm text-teal-50">boxes of {input.piecesPerBox} tiles</p>
 
                     <dl className="mt-5 space-y-2.5 text-sm">
                       <Row k="Area to tile" v={`${fmt(result.netAreaSqFt)} sq ft (${fmt(result.netAreaM2)} m²)`} />
@@ -343,7 +343,7 @@ export function CalculatorPage() {
                     </dl>
 
                     {result.perArea.length > 1 && (
-                      <ul className="mt-4 space-y-1 border-t border-stone-700 pt-3 text-xs text-stone-300">
+                      <ul className="mt-4 space-y-1 border-t border-white/25 pt-3 text-xs text-teal-50">
                         {result.perArea.map((a) => (
                           <li key={a.id} className="flex justify-between gap-3">
                             <span className="truncate">{a.label}</span>
@@ -354,7 +354,7 @@ export function CalculatorPage() {
                     )}
                   </>
                 ) : (
-                  <ul className="mt-3 space-y-1.5 text-sm text-amber-200">
+                  <ul className="mt-3 space-y-1.5 text-sm text-amber-100">
                     {outcome.ok ? null : outcome.errors.slice(0, 4).map((e) => <li key={e}>• {e}</li>)}
                   </ul>
                 )}
@@ -375,10 +375,10 @@ export function CalculatorPage() {
         <button
           type="button"
           onClick={() => document.getElementById("calc-result")?.scrollIntoView({ behavior: "smooth" })}
-          className="fixed inset-x-4 bottom-4 z-30 rounded-2xl bg-stone-900 px-5 py-3.5 text-left text-white shadow-2xl xl:hidden"
+          className="fixed inset-x-4 bottom-4 z-30 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-700 px-5 py-3.5 text-left text-white shadow-2xl xl:hidden"
         >
           <span className="text-lg font-semibold tabular-nums">{result.boxes} boxes</span>
-          <span className="ml-2 text-sm text-stone-300">· {fmt(result.tilesNeeded, 0)} tiles · tap for details</span>
+          <span className="ml-2 text-sm text-teal-50">· {fmt(result.tilesNeeded, 0)} tiles · tap for details</span>
         </button>
       )}
 
@@ -422,7 +422,7 @@ function NumberField({ id, text, value, onChange, placeholder }: { id: string; t
 function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-stone-400">{k}</dt>
+      <dt className="text-teal-100">{k}</dt>
       <dd className={cn("text-right tabular-nums", strong ? "text-base font-semibold" : "font-medium")}>{v}</dd>
     </div>
   );

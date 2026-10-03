@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { TilePattern } from "@/components/ui/TilePattern";
+import { TileScene } from "@/components/ui/TileScene";
 import { SDSLogo } from "@/components/ui/SDSLogo";
 
 /**
@@ -76,32 +76,31 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-stone-900 lg:block">
-        <TilePattern className="absolute inset-0 h-full w-full opacity-25" />
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-900/70 to-transparent" />
-        <div className="relative flex h-full flex-col justify-between p-12 text-white">
+      <div className="relative hidden overflow-hidden bg-[#efe6d8] lg:block">
+        <TileScene scene="terrazzo" className="absolute inset-0 h-full w-full" />
+        <div className="relative flex h-full flex-col justify-between p-10 text-stone-900">
           <div className="flex items-center">
-            <SDSLogo size="lg" variant="light" subtitle="Virtual Trial Room" />
+            <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-lg backdrop-blur-md"><SDSLogo size="lg" variant="dark" subtitle="Virtual Trial Room" /></div>
           </div>
 
-          <div className="mb-8">
-            <span className="rounded-full bg-clay-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-300">
+          <div className="mb-4 rounded-2xl bg-white/85 p-7 shadow-lg backdrop-blur-md">
+            <span className="rounded-full border border-clay-300 bg-clay-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
               The Virtual Trial Room for Your Home
             </span>
-            <h2 className="mt-4 font-display text-4xl leading-tight font-bold">
+            <h2 className="mt-4 font-display text-3xl font-bold leading-tight text-stone-900">
               See your finished room before the first tile is laid.
             </h2>
-            <ul className="mt-8 space-y-3.5 text-stone-200">
+            <ul className="mt-6 space-y-3 text-stone-700">
               {perks.map((p) => (
                 <li key={p} className="flex items-start gap-3">
-                  <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-clay-500 text-xs font-bold text-stone-950">✓</span>
+                  <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-clay-600 text-xs font-bold text-white">✓</span>
                   <span className="text-sm">{p}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          <p className="text-xs text-stone-400">
+          <p className="text-xs text-stone-700">
             &copy; {new Date().getFullYear()} SDS TILES & CERAMICS. All rights reserved.
           </p>
         </div>

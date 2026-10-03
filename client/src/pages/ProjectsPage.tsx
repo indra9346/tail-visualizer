@@ -75,7 +75,7 @@ export function ProjectsPage() {
   return (
     <PageContainer>
       <PageBanner
-        imageSrc="/images/banners/projects_banner.jpg"
+        scene="checker"
         badge="Architectural Studio • Trial Rooms"
         title="Your Trial Spaces & Projects"
         subtitle="Manage your room captures, inspect active in-situ transformations, and test new showroom tiles directly in your actual space."
@@ -87,7 +87,7 @@ export function ProjectsPage() {
               </Button>
             </Link>
             <Link to="/tiles">
-              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-stone-300 bg-white/80 text-stone-900 hover:bg-white">
                 Browse Tile Catalog
               </Button>
             </Link>

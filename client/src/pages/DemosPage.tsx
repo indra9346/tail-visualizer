@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { TileScene } from "@/components/ui/TileScene";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -459,7 +460,10 @@ export function DemosPage() {
 
       {/* Comparison: Traditional vs SDS TILES & CERAMICS */}
       <section className="container-page mt-24">
-        <div className="overflow-hidden rounded-3xl bg-stone-900 p-8 sm:p-12 text-white">
+        <div className="on-light relative overflow-hidden rounded-3xl bg-[#efe6d8] p-6 text-stone-900 sm:p-12">
+          <TileScene scene="plank" className="absolute inset-0 h-full w-full" />
+          <div className="absolute inset-0 bg-white/55" />
+          <div className="relative">
           <div className="max-w-2xl">
             <span className="rounded-full bg-clay-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-300">
               The Fundamental Difference
@@ -520,6 +524,7 @@ export function DemosPage() {
                 </li>
               </ul>
             </div>
+          </div>
           </div>
         </div>
       </section>

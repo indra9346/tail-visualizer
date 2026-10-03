@@ -1,8 +1,10 @@
 import { ReactNode } from "react";
 import { motion } from "framer-motion";
+import { TileScene, type SceneId } from "@/components/ui/TileScene";
 
 interface PageBannerProps {
-  imageSrc: string;
+  /** Which tile layout is laid in the background. Give each page its own. */
+  scene: SceneId;
   badge?: string;
   title: string;
   subtitle: string;
@@ -10,50 +12,27 @@ interface PageBannerProps {
   heightClass?: string;
 }
 
-export function PageBanner({
-  imageSrc,
-  badge,
-  title,
-  subtitle,
-  actions,
-  heightClass = "h-56 sm:h-64 md:h-72",
-}: PageBannerProps) {
+export function PageBanner({ scene, badge, title, subtitle, actions, heightClass = "min-h-[14rem] sm:min-h-[16rem] md:min-h-[18rem]" }: PageBannerProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
-      className={`relative mb-8 overflow-hidden rounded-3xl border border-stone-800 bg-stone-950 shadow-xl ${heightClass}`}
+      className={`relative mb-8 flex items-end overflow-hidden rounded-3xl border border-white/70 bg-[#efe6d8] shadow-xl ${heightClass}`}
     >
-      {/* Background Banner Image */}
-      <img
-        src={imageSrc}
-        alt={title}
-        className="absolute inset-0 h-full w-full object-cover object-center brightness-[0.85] transition-transform duration-700 hover:scale-105"
-      />
+      <TileScene scene={scene} className="absolute inset-0 h-full w-full" />
 
-      {/* Cinematic Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-r from-stone-950 via-stone-950/75 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-transparent to-transparent" />
-
-      {/* Content Container */}
-      <div className="relative flex h-full flex-col justify-end p-6 sm:p-8 md:p-10">
-        <div className="max-w-2xl">
-          {badge && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-clay-500/30 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-200 border border-clay-400/30 backdrop-blur mb-2.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-clay-400 animate-pulse" />
-              {badge}
-            </span>
-          )}
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl md:text-4xl drop-shadow-sm">
-            {title}
-          </h1>
-          <p className="mt-2 text-xs text-stone-200/90 sm:text-sm md:text-base leading-relaxed max-w-xl drop-shadow">
-            {subtitle}
-          </p>
-        </div>
-
-        {actions && <div className="mt-5 flex flex-wrap items-center gap-3">{actions}</div>}
+      {/* Bright frosted panel keeps the text readable while the tiles stay colourful around it */}
+      <div className="relative m-3 max-w-2xl rounded-2xl bg-white/85 p-5 shadow-lg backdrop-blur-md sm:m-5 sm:p-7">
+        {badge && (
+          <span className="mb-2.5 inline-flex items-center gap-1.5 rounded-full border border-clay-300 bg-clay-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-clay-600" />
+            {badge}
+          </span>
+        )}
+        <h1 className="font-display text-2xl font-bold text-stone-900 sm:text-3xl md:text-4xl">{title}</h1>
+        <p className="mt-2 max-w-xl text-xs leading-relaxed text-stone-700 sm:text-sm md:text-base">{subtitle}</p>
+        {actions && <div className="mt-4 flex flex-wrap items-center gap-3">{actions}</div>}
       </div>
     </motion.div>
   );
