@@ -90,3 +90,31 @@
 .on-light .border-white\/20 { border-color: rgba(28, 25, 23, 0.14); }
 .on-light .hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.95); }
 .on-light .text-clay-200 { color: #725136; }
+
+/* Hero room (components/ui/RealTiles.tsx) */
+@keyframes floor-glide {
+  from { background-position: 0 0; }
+  to { background-position: 0 220px; }
+}
+.room-floor {
+  background-size: 220px 220px;
+  background-repeat: repeat;
+  animation: floor-glide 26s linear infinite;
+}
+@keyframes room-light-move {
+  0%, 100% { background-position: 0% 0%; opacity: 0.55; }
+  50% { background-position: 100% 0%; opacity: 0.9; }
+}
+.room-light {
+  background: linear-gradient(105deg, transparent 20%, rgba(255, 244, 214, 0.55) 38%, transparent 56%);
+  background-size: 220% 100%;
+  animation: room-light-move 14s ease-in-out infinite;
+  mix-blend-mode: soft-light;
+}
+.tile-gloss {
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, 0.1) 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .room-floor,
+  .room-light { animation: none; }
+}

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { TileScene } from "@/components/ui/TileScene";
+import { HeroRoom, TileWall, TiltCard, WALL_IMAGES } from "@/components/ui/RealTiles";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { TilePattern } from "@/components/ui/TilePattern";
@@ -163,7 +164,8 @@ export function LandingPage() {
   return (
     <div className="bg-transparent text-stone-950 selection:bg-clay-300">
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-10 pb-20 sm:pt-16 sm:pb-28">
+      <section className="relative overflow-hidden pt-10 pb-24 sm:pt-16 sm:pb-36">
+        <HeroRoom />
         <div className="pointer-events-none absolute -right-32 -top-32 h-[32rem] w-[32rem] rounded-full bg-clay-200/40 blur-3xl" />
         <div className="pointer-events-none absolute -left-32 top-1/2 h-[28rem] w-[28rem] rounded-full bg-clay-300/30 blur-3xl" />
 
@@ -173,7 +175,7 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55 }}
-            className="lg:col-span-6"
+            className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-[0_24px_60px_-24px_rgba(40,25,10,0.45)] backdrop-blur-md sm:p-8 lg:col-span-6"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-clay-300/80 bg-white/90 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-clay-950 shadow-sm backdrop-blur">
               <span className="h-2 w-2 rounded-full bg-clay-500 animate-pulse" />
@@ -465,6 +467,42 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Real tiles on real surfaces */}
+      <section className="container-page py-20">
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="rounded-full border border-clay-300 bg-clay-100 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
+            Tiles on every surface
+          </span>
+          <h2 className="mt-3 font-display text-3xl font-bold text-stone-900 sm:text-4xl">See how real tiles look on a real wall</h2>
+          <p className="mt-3 text-stone-600">Walls, floors, steps, facades and backsplashes: pick the surface, choose the tile, and preview the pattern before anything is fixed.</p>
+        </div>
+
+        <TileWall src={WALL_IMAGES.herringbone} cols={8} rows={4} className="mt-10 aspect-[4/3] sm:aspect-[16/7]">
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 sm:inset-x-auto sm:left-6 sm:bottom-6">
+            <span className="inline-block rounded-xl bg-white/90 px-4 py-2.5 text-sm font-semibold text-stone-900 shadow-lg backdrop-blur">
+              Herringbone backsplash &middot; glazed ceramic
+            </span>
+          </div>
+        </TileWall>
+
+        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { src: WALL_IMAGES.facade, title: "Exterior facade", note: "Stone-look cladding" },
+            { src: WALL_IMAGES.entrance, title: "Entrance wall", note: "Textured stone strips" },
+            { src: WALL_IMAGES.brick, title: "Feature wall", note: "Offset brick pattern" },
+            { src: WALL_IMAGES.diamondFloor, title: "Floor pattern", note: "Marble and travertine diamond" },
+          ].map((item) => (
+            <TiltCard key={item.title} className="aspect-[4/5]">
+              <img src={item.src} alt={item.title} loading="lazy" className="h-full w-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent p-4 pt-12">
+                <p className="font-display text-lg font-semibold text-white">{item.title}</p>
+                <p className="text-xs text-white/85">{item.note}</p>
+              </div>
+            </TiltCard>
+          ))}
+        </div>
+      </section>
+
       {/* The Core Formula Section */}
       <section className="border-y border-stone-300/70 bg-[#faf4eb]/70 backdrop-blur-md py-16">
         <div className="container-page">
@@ -514,7 +552,7 @@ export function LandingPage() {
               <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-white/20 text-xl font-display font-bold text-white">
                 ✓
               </span>
-              <h3 className="mt-4 font-display text-lg font-bold">CONFIDENT DECISION</h3>
+              <h3 className="mt-4 font-display text-lg font-bold text-white">CONFIDENT DECISION</h3>
               <p className="mt-2 text-xs text-clay-100 leading-relaxed">
                 Order tiles knowing precisely how they blend with your space. No regrets, no returns, no wasted materials.
               </p>
@@ -823,7 +861,7 @@ export function LandingPage() {
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
         >
-          <TileScene scene="mosaic" className="absolute inset-0 h-full w-full" />
+          <TileWall src={WALL_IMAGES.herringbone} cols={10} rows={5} className="absolute inset-0 h-full w-full" />
           <div className="relative mx-auto max-w-2xl rounded-2xl bg-white/85 p-6 shadow-lg backdrop-blur-md sm:p-10">
             <span className="rounded-full border border-clay-300 bg-clay-100 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
               Open Your Trial Room
