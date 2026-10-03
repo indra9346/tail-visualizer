@@ -2,8 +2,8 @@
  * "Designed & Developed with love by Swan Digital" footer credit.
  * Fill in the two values below and the logo becomes a link to the official site.
  */
-const SWAN_SITE_URL = ""; // e.g. "https://your-swan-site.com"
-const SWAN_LOGO_SRC = ""; // e.g. "/images/logo/swan-digital.png" (file placed in client/public/images/logo/)
+const SWAN_SITE_URL = "https://www.swandigitalsolutions.com/";
+const SWAN_LOGO_SRC = "/images/logo/swan-digital.png";
 
 /** Two swans whose curved necks form a heart. */
 function SwanHeart({ className }: { className?: string }) {
@@ -27,10 +27,16 @@ function SwanHeart({ className }: { className?: string }) {
 }
 
 export function SwanCredit() {
-  const brand = SWAN_LOGO_SRC ? (
-    <img src={SWAN_LOGO_SRC} alt="Swan Digital" className="h-6 w-auto" loading="lazy" />
-  ) : (
-    <span className="font-semibold text-stone-700">Swan Digital</span>
+  const brand = (
+    <>
+      {SWAN_LOGO_SRC && (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#0b0b0b] shadow-sm ring-1 ring-stone-300">
+          {/* The artwork has a thin edge strip on its right side, so it is clipped off */}
+          <img src={SWAN_LOGO_SRC} alt="" className="h-full w-full object-contain" style={{ clipPath: "inset(0 7% 0 0)" }} loading="lazy" />
+        </span>
+      )}
+      <span className="font-semibold text-stone-700">Swan Digital</span>
+    </>
   );
 
   return (
