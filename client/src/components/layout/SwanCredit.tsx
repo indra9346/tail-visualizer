@@ -35,7 +35,7 @@ export function SwanCredit() {
           <img src={SWAN_LOGO_SRC} alt="" className="h-full w-full object-contain" style={{ clipPath: "inset(0 7% 0 0)" }} loading="lazy" />
         </span>
       )}
-      <span className="font-semibold text-stone-700">Swan Digital</span>
+      <span className="font-semibold text-stone-700">Swan Digital Solutions</span>
     </>
   );
 
@@ -49,7 +49,7 @@ export function SwanCredit() {
           href={SWAN_SITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Swan Digital official website"
+          aria-label="Swan Digital Solutions official website"
           className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 transition hover:bg-clay-100 hover:text-stone-900"
         >
           {brand}
