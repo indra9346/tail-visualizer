@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { SwanCredit } from "@/components/layout/SwanCredit";
 import { SDSLogo } from "@/components/ui/SDSLogo";
 
 export function Footer() {
@@ -21,6 +22,7 @@ export function Footer() {
       <div className="container-page mt-5 border-t border-stone-100 pt-4 text-center text-[11px] text-stone-400">
         Realistic visualization preview. Actual lighting conditions, tile batch variations, and grout installation can affect physical finished results.
       </div>
+      <div className="container-page"><SwanCredit /></div>
     </footer>
   );
 }
