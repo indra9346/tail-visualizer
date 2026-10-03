@@ -136,7 +136,7 @@ export function SmokeEffect() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 overflow-hidden h-80 select-none">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-40 select-none overflow-hidden sm:h-80">
       {/* Soft ground warm-air boundary gradient */}
       <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-stone-900/8 via-stone-800/3 to-transparent" />
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
