@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PageBanner } from "@/components/ui/PageBanner";
+import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { friendlyErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -37,6 +38,8 @@ const packageCardVariants = {
 function formatINR(paise: number): string {
   return `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
+
+const PACK_TONES: TileTone[] = ["sky", "sun", "teal", "rose"];
 
 export function CreditsPage() {
   const { user } = useAuth();
@@ -104,21 +107,27 @@ export function CreditsPage() {
         }
       />
 
-      <Card className="border-stone-900 shadow-md">
-        <CardBody className="flex flex-wrap items-center justify-between gap-4">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Tile tone="feature" className="flex flex-wrap items-center justify-between gap-4 p-6 lg:col-span-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-stone-400">Available Balance</p>
-            <p className="mt-1 font-display text-4xl text-stone-900 font-bold">
-              {summary ? <AnimatedNumber value={summary.balance} /> : "—"} Credits
+            <TileLabel>Available balance</TileLabel>
+            <p className="mt-1 font-display text-5xl font-bold text-white">
+              {summary ? <AnimatedNumber value={summary.balance} /> : "—"}
+              <span className="ml-2 text-lg font-medium text-teal-50">credits</span>
             </p>
           </div>
           <Link to="/upload">
-            <Button size="lg" className="shadow-sm">
-              Use Credits in Trial Room →
+            <Button size="lg" className="bg-white text-stone-900 hover:bg-teal-50">
+              Use credits in trial room →
             </Button>
           </Link>
-        </CardBody>
-      </Card>
+        </Tile>
+        <Tile tone="soft" className="flex flex-col justify-center">
+          <TileLabel>How it works</TileLabel>
+          <p className="mt-2 text-sm text-stone-700">Each preview holds credits while it generates. If it fails, the credits are returned automatically.</p>
+          <p className="mt-2 text-xs text-stone-500">Payments run securely through Razorpay.</p>
+        </Tile>
+      </div>
 
       <AnimatePresence>
         {justPurchased && (
@@ -154,13 +163,13 @@ export function CreditsPage() {
           </div>
         ) : (
           <motion.div className="mt-4 grid gap-4 sm:grid-cols-3" variants={packageGridVariants} initial="hidden" animate="show">
-            {packages.map((pkg) => {
+            {packages.map((pkg, index) => {
               const total = pkg.credits + pkg.bonusCredits;
               const perCredit = pkg.pricePaise / total;
               return (
                 <motion.div key={pkg.id} variants={packageCardVariants} whileHover={{ y: -4 }} transition={{ duration: 0.18 }}>
-                  <Card className="flex h-full flex-col transition-shadow hover:shadow-xl border-stone-200">
-                    <CardBody className="flex flex-1 flex-col">
+                  <Tile tone={PACK_TONES[index % PACK_TONES.length] ?? "plain"} interactive className="flex h-full flex-col">
+                    <div className="flex flex-1 flex-col">
                       <p className="font-display text-lg text-stone-900 font-semibold">{pkg.name}</p>
                       {pkg.description && <p className="mt-1 text-sm text-stone-500">{pkg.description}</p>}
                       <p className="mt-4 font-display text-3xl text-stone-900 font-bold">{formatINR(pkg.pricePaise)}</p>
@@ -173,8 +182,8 @@ export function CreditsPage() {
                       <Button className="mt-6 w-full" loading={buyingId === pkg.id} disabled={buyingId !== null} onClick={() => buy(pkg)}>
                         Buy {total.toLocaleString()} Credits
                       </Button>
-                    </CardBody>
-                  </Card>
+                    </div>
+                  </Tile>
                 </motion.div>
               );
             })}
@@ -185,7 +194,7 @@ export function CreditsPage() {
 
       <section className="mt-10">
         <h2 className="font-display text-lg text-stone-900 font-semibold">Credit Transaction History</h2>
-        <Card className="mt-3 overflow-x-auto shadow-sm">
+        <Card className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">

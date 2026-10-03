@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { PageBanner } from "@/components/ui/PageBanner";
+import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { friendlyErrorMessage } from "@/api/client";
 import { getBillingSummary, getCreditTransactions, type BillingSummary, type CreditTransaction } from "@/api/billing";
 
@@ -22,18 +23,21 @@ const statCardVariants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
 };
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function MetricTile({ title, items, tone, note, className }: { title: string; items: Array<[string, string | number]>; tone: TileTone; note?: string; className?: string }) {
   return (
-    <motion.div variants={statCardVariants}>
-      <Card>
-        <CardBody>
-          <p className="text-xs uppercase tracking-wide text-stone-400">{label}</p>
-          <p className="mt-1 font-display text-2xl text-stone-900">
-            {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
-          </p>
-          {sub && <p className="mt-0.5 text-xs text-stone-500">{sub}</p>}
-        </CardBody>
-      </Card>
+    <motion.div variants={statCardVariants} className={className}>
+      <Tile tone={tone} className="h-full">
+        <TileLabel>{title}</TileLabel>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+          {items.map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs text-stone-500">{label}</dt>
+              <dd className="font-display text-2xl text-stone-900">{typeof value === "number" ? <AnimatedNumber value={value} /> : value}</dd>
+            </div>
+          ))}
+        </dl>
+        {note && <p className="mt-3 text-xs text-stone-600">{note}</p>}
+      </Tile>
     </motion.div>
   );
 }
@@ -63,14 +67,14 @@ export function DashboardPage() {
 
   if (error) {
     return (
-      <PageContainer className="max-w-5xl">
+      <PageContainer className="max-w-6xl">
         <ErrorState message={error} />
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer className="max-w-5xl">
+    <PageContainer className="max-w-6xl">
       <PageBanner
         scene="mosaic"
         badge="Control Center • Studio Overview"
@@ -94,71 +98,56 @@ export function DashboardPage() {
 
       {!summary ? (
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
         </div>
       ) : (
         <>
-          <section className="mt-8">
-            <Card className="border-stone-900 shadow-md">
-              <CardBody className="flex flex-wrap items-center justify-between gap-4">
+          {/* Bento layout: one big balance tile, then grouped metric tiles of different widths */}
+          <motion.div className="mt-8 grid gap-4 lg:grid-cols-6" variants={statGridVariants} initial="hidden" animate="show">
+            <motion.div variants={statCardVariants} className="lg:col-span-3 lg:row-span-2">
+              <Tile tone="feature" className="flex h-full flex-col justify-between gap-6 p-6 sm:p-7">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-stone-400">Available Trial Balance</p>
-                  <p className="mt-1 font-display text-4xl text-stone-900">
-                    <AnimatedNumber value={summary.balance} /> Credits
+                  <TileLabel>Available trial balance</TileLabel>
+                  <p className="mt-2 font-display text-5xl font-bold text-white sm:text-6xl">
+                    <AnimatedNumber value={summary.balance} />
                   </p>
+                  <p className="mt-1 text-sm text-teal-50">credits</p>
                   {summary.balance <= 20 && (
-                    <p className="mt-1 text-sm text-amber-700">
+                    <p className="mt-3 inline-block rounded-lg bg-white/20 px-3 py-1.5 text-sm font-medium text-white">
                       {summary.balance === 0 ? "You've used all available credits." : "Your credits are running low."}
                     </p>
                   )}
                 </div>
-                <Link to="/credits">
-                  <Button size="lg">Top Up Balance</Button>
-                </Link>
-              </CardBody>
-            </Card>
-          </section>
-
-          <section className="mt-8">
-            <h2 className="font-display text-lg text-stone-900">Usage Analytics</h2>
-            <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
-              <StatCard label="Used today" value={summary.used.today} />
-              <StatCard label="Used this week" value={summary.used.week} />
-              <StatCard label="Used this month" value={summary.used.month} />
-              <StatCard label="Total used" value={summary.used.total} sub={summary.used.reserved > 0 ? `${summary.used.reserved} reserved` : undefined} />
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/credits">
+                    <Button size="lg" className="bg-white text-stone-900 hover:bg-teal-50">
+                      Top up balance
+                    </Button>
+                  </Link>
+                  <Link to="/upload">
+                    <Button size="lg" variant="outline" className="border-white/60 text-white hover:bg-white/15">
+                      Start a trial
+                    </Button>
+                  </Link>
+                </div>
+              </Tile>
             </motion.div>
-          </section>
 
-          <section className="mt-8">
-            <h2 className="font-display text-lg text-stone-900">Trial Renderings</h2>
-            <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
-              <StatCard label="Total" value={summary.generations.total} />
-              <StatCard label="Successful" value={summary.generations.completed} />
-              <StatCard label="Failed" value={summary.generations.failed} />
-              <StatCard label="In progress" value={summary.generations.inProgress} />
-            </motion.div>
-          </section>
-
-          <section className="mt-8">
-            <h2 className="font-display text-lg text-stone-900">Payments & Passes</h2>
-            <motion.div className="mt-3 grid gap-4 sm:grid-cols-4" variants={statGridVariants} initial="hidden" animate="show">
-              <StatCard label="Total paid" value={`₹${(summary.payments.paidPaise / 100).toLocaleString()}`} />
-              <StatCard label="Successful" value={summary.payments.paid} />
-              <StatCard label="Pending" value={summary.payments.pending} />
-              <StatCard label="Failed" value={summary.payments.failed} />
-            </motion.div>
-          </section>
+            <MetricTile className="lg:col-span-3" tone="sky" title="Credits used" items={[["Today", summary.used.today], ["This week", summary.used.week], ["This month", summary.used.month], ["All time", summary.used.total]]} note={summary.used.reserved > 0 ? `${summary.used.reserved} credits reserved for running previews` : undefined} />
+            <MetricTile className="lg:col-span-3" tone="soft" title="Trial renderings" items={[["Total", summary.generations.total], ["Successful", summary.generations.completed], ["Failed", summary.generations.failed], ["In progress", summary.generations.inProgress]]} />
+            <MetricTile className="lg:col-span-6" tone="sun" title="Payments & passes" items={[["Total paid", `₹${(summary.payments.paidPaise / 100).toLocaleString()}`], ["Successful", summary.payments.paid], ["Pending", summary.payments.pending], ["Failed", summary.payments.failed]]} />
+          </motion.div>
 
           <section className="mt-10">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg text-stone-900">Recent Transactions</h2>
-              <Link to="/credits" className="text-sm text-stone-500 underline hover:text-stone-900">
+              <h2 className="font-display text-lg text-stone-900">Recent transactions</h2>
+              <Link to="/credits" className="text-sm font-medium text-clay-700 hover:underline">
                 View all
               </Link>
             </div>
-            <Card className="mt-3 overflow-x-auto shadow-sm">
+            <Card className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">

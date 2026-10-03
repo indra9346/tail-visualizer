@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "outline";
+type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger";
 type Size = "sm" | "md" | "lg";
 
 // motion.button's drag/animation event props conflict in type with the native DOM equivalents;
@@ -16,15 +16,16 @@ interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, Conf
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-stone-900 text-white hover:bg-stone-800 disabled:bg-stone-400",
+  primary: "bg-stone-900 text-white shadow-sm hover:bg-stone-800 hover:shadow-md disabled:bg-stone-400 disabled:shadow-none",
   secondary: "bg-clay-100 text-clay-900 hover:bg-clay-200 disabled:bg-stone-100 disabled:text-stone-400",
   outline: "border border-stone-300 text-stone-900 hover:bg-stone-100 disabled:text-stone-400 disabled:border-stone-200",
   ghost: "text-stone-700 hover:bg-stone-100 disabled:text-stone-400",
+  danger: "bg-red-700 text-white hover:bg-red-800 disabled:bg-red-300",
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "text-sm px-3.5 py-2 rounded-lg",
-  md: "text-sm px-5 py-2.5 rounded-lg",
+  sm: "text-sm px-3.5 py-2 rounded-lg min-h-9",
+  md: "text-sm px-5 py-2.5 rounded-lg min-h-11",
   lg: "text-base px-7 py-3.5 rounded-xl",
 };
 

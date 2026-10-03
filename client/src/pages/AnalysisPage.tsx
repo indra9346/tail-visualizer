@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ProgressSteps, type Step } from "@/components/ui/ProgressSteps";
 import { AnalysisSummary } from "@/components/analysis/AnalysisSummary";
+import { Tile, TileLabel } from "@/components/ui/Tile";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getRoomAnalysis, analyzeRoom } from "@/api/rooms";
@@ -82,7 +83,7 @@ export function AnalysisPage() {
   }));
 
   return (
-    <PageContainer className="max-w-2xl">
+    <PageContainer className="max-w-5xl">
       <h1 className="font-display text-3xl text-stone-900">Room Analysis</h1>
       <p className="mt-2 text-stone-600">
         {phase === "done" && wasReused
@@ -92,9 +93,9 @@ export function AnalysisPage() {
 
       <div className="mt-8">
         {(phase === "checking" || phase === "analyzing") && (
-          <div className="rounded-2xl border border-stone-200 bg-white p-8">
+          <Tile tone="soft" className="mx-auto max-w-2xl p-8">
             <ProgressSteps steps={steps} />
-          </div>
+          </Tile>
         )}
 
         {phase === "error" && error && (
@@ -119,11 +120,18 @@ export function AnalysisPage() {
         )}
 
         {phase === "done" && analysis && (
-          <div className="space-y-6">
+          <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
             <AnalysisSummary analysis={analysis} />
-            <Button size="lg" onClick={() => navigate(`/tiles/${roomId}`)}>
-              See recommended tiles
-            </Button>
+            <Tile tone="feature" className="flex h-fit flex-col gap-4 p-6 lg:sticky lg:top-24">
+              <div>
+                <TileLabel>Next step</TileLabel>
+                <p className="mt-1 font-display text-xl font-semibold text-white">Choose tiles for each area</p>
+                <p className="mt-2 text-sm text-teal-50">Pick which tile goes on which wall, floor or step, and the pattern for each.</p>
+              </div>
+              <Button size="lg" className="w-full bg-white text-stone-900 hover:bg-teal-50" onClick={() => navigate(`/tiles/${roomId}`)}>
+                Open Design Studio
+              </Button>
+            </Tile>
           </div>
         )}
       </div>

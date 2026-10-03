@@ -50,7 +50,7 @@ export function ConfirmDialog({
         <Button variant="outline" onClick={onClose} disabled={busy}>
           Cancel
         </Button>
-        <Button onClick={confirm} loading={busy} className="bg-red-700 hover:bg-red-800">
+        <Button variant="danger" onClick={confirm} loading={busy}>
           {confirmLabel}
         </Button>
       </div>
