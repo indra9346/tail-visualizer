@@ -89,3 +89,4 @@
 .on-light .border-white\/10,
 .on-light .border-white\/20 { border-color: rgba(28, 25, 23, 0.14); }
 .on-light .hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.95); }
+.on-light .text-clay-200 { color: #725136; }

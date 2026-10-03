@@ -676,7 +676,7 @@ export function LandingPage() {
                   Option Under Trial
                 </span>
                 <h3 className="mt-3 font-display text-3xl font-bold text-white">{activeTile.name}</h3>
-                <p className="mt-1 text-sm text-clay-200">Aesthetic: {activeTile.vibe}</p>
+                <p className="mt-1 text-sm font-medium text-clay-700">Aesthetic: {activeTile.vibe}</p>
                 <p className="mt-4 text-sm text-stone-300 leading-relaxed">{activeTile.description}</p>
 
                 <div className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 text-xs">
@@ -707,7 +707,7 @@ export function LandingPage() {
               <div className="lg:col-span-7">
                 <div className="relative aspect-video rounded-2xl overflow-hidden border border-stone-200 bg-white/90 p-6 flex flex-col justify-between shadow-2xl">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="rounded bg-black/60 px-2.5 py-1 text-stone-300 backdrop-blur">
+                    <span className="rounded bg-stone-100 px-2.5 py-1 text-stone-700">
                       Simulated Room: Master Washroom Wall
                     </span>
                     <span className="rounded bg-emerald-500/20 px-2.5 py-1 text-emerald-300 border border-emerald-500/40">
