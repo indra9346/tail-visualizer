@@ -40,6 +40,9 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
           <>
             <p className="truncate text-sm font-medium text-stone-900">{tile.name}</p>
             <p className="truncate text-xs text-stone-500">{[tile.brand, tile.sizeMm && `${tile.sizeMm} mm`, tile.finish].filter(Boolean).join(" · ") || "From your catalog"}</p>
+            <button type="button" onClick={onPick} className="mt-1 rounded-md border border-clay-300 px-2 py-0.5 text-xs font-medium text-clay-700 hover:bg-clay-50">
+              Change tile
+            </button>
           </>
         ) : (
           <button type="button" onClick={onPick} className="text-sm font-medium text-clay-700 hover:underline">
@@ -48,7 +51,7 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
         )}
       </div>
       {tile && (
-        <button type="button" onClick={onClear} className="rounded-full p-2 text-stone-400 hover:bg-stone-200 hover:text-stone-700" aria-label={`Remove tile from ${role}`}>
+        <button type="button" onClick={onClear} className="rounded-full p-2 text-stone-400 hover:bg-stone-200 hover:text-stone-700" aria-label={`Remove tile from ${role}`} title="Remove this tile">
           ✕
         </button>
       )}
