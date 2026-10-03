@@ -23,5 +23,15 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    // Vendor libraries change rarely, so splitting them lets browsers cache them across deploys.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          motion: ["framer-motion"],
+          supabase: ["@supabase/supabase-js"],
+        },
+      },
+    },
   },
 });

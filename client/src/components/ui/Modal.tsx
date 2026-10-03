@@ -16,11 +16,15 @@ export function Modal({
   className?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Callers often pass an inline onClose; keeping it in a ref stops the effect below re-running
+  // (and stealing focus from the search box) every time the parent re-renders.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     const previousOverflow = document.body.style.overflow;
@@ -30,7 +34,7 @@ export function Modal({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

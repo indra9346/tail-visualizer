@@ -25,7 +25,11 @@ export function SmokeEffect() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animationFrameId: number;
+    // Decorative only: skip entirely for people who ask for less motion.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let animationFrameId = 0;
+    let lastFrame = 0;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = 360);
 
@@ -37,7 +41,9 @@ export function SmokeEffect() {
     window.addEventListener("resize", handleResize);
 
     const particles: SmokeParticle[] = [];
-    const PARTICLE_COUNT = 55;
+    // Fewer particles on small screens keeps scrolling and typing smooth on phones.
+    const PARTICLE_COUNT = window.innerWidth < 768 ? 16 : 40;
+    const FRAME_MS = window.innerWidth < 768 ? 33 : 16;
 
     function createParticle(initialY?: number): SmokeParticle {
       const maxLife = 260 + Math.random() * 180;
@@ -63,7 +69,10 @@ export function SmokeEffect() {
       particles.push(createParticle(Math.random() * height));
     }
 
-    const render = () => {
+    const render = (now = 0) => {
+      animationFrameId = requestAnimationFrame(render);
+      if (now - lastFrame < FRAME_MS) return;
+      lastFrame = now;
       ctx.clearRect(0, 0, width, height);
 
       for (let i = 0; i < particles.length; i++) {
@@ -108,13 +117,20 @@ export function SmokeEffect() {
         }
       }
 
-      animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    // Stop drawing while the tab is in the background.
+    const handleVisibility = () => {
+      cancelAnimationFrame(animationFrameId);
+      if (!document.hidden) animationFrameId = requestAnimationFrame(render);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    animationFrameId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("resize", handleResize);
     };
   }, []);
