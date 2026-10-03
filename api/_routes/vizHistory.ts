@@ -17,6 +17,7 @@ export default createHandler({ methods: ["GET"], operation: "listMyVisualization
       roomUploadId: v.roomUploadId,
       status: v.status,
       appliedSurfaces: v.appliedSurfaces,
+      design: v.design ?? null,
       errorMessage: v.errorMessage,
       requirements: v.requirements,
       roomType: v.roomType,

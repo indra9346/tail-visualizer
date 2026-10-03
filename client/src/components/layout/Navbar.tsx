@@ -147,11 +147,28 @@ const CreditsIcon = () => (
   </svg>
 );
 
+const CalculatorIcon = () => (
+  <svg
+    className="h-5 w-5 transition-transform duration-300 ease-out group-hover:scale-115 group-hover:rotate-6"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h4" />
+  </svg>
+);
+
 const publicNavItems: NavItem[] = [
   { to: "/", label: "Home", end: true, icon: <HomeIcon /> },
   { to: "/demos", label: "Demos", icon: <DemosIcon /> },
   { to: "/tiles", label: "Catalog", icon: <CatalogIcon /> },
   { to: "/my-visualizations", label: "Designs", icon: <DesignsIcon /> },
+  { to: "/calculator", label: "Calculator", icon: <CalculatorIcon /> },
 ];
 
 const authNavItems: NavItem[] = [
@@ -161,7 +178,8 @@ const authNavItems: NavItem[] = [
   { to: "/projects", label: "Visualize", icon: <VisualizeIcon /> },
   { to: "/tiles", label: "Catalog", icon: <CatalogIcon /> },
   { to: "/my-tiles", label: "My Tiles", icon: <MyTilesIcon /> },
-  { to: "/my-visualizations", label: "My Designs", icon: <DesignsIcon /> },
+  { to: "/my-visualizations", label: "History", icon: <DesignsIcon /> },
+  { to: "/calculator", label: "Calculator", icon: <CalculatorIcon /> },
   { to: "/credits", label: "Credits", icon: <CreditsIcon /> },
 ];
 

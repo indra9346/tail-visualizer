@@ -24,6 +24,7 @@ const CreditsPage = lazy(() => import("@/pages/CreditsPage").then((m) => ({ defa
 const PaymentsPage = lazy(() => import("@/pages/PaymentsPage").then((m) => ({ default: m.PaymentsPage })));
 const MyVisualizationsPage = lazy(() => import("@/pages/MyVisualizationsPage").then((m) => ({ default: m.MyVisualizationsPage })));
 const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const CalculatorPage = lazy(() => import("@/pages/CalculatorPage").then((m) => ({ default: m.CalculatorPage })));
 const DemosPage = lazy(() => import("@/pages/DemosPage").then((m) => ({ default: m.DemosPage })));
 
 function PageFallback() {
@@ -49,6 +50,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/demos" element={<DemosPage />} />
+                <Route path="/calculator" element={<CalculatorPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
                 <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />
