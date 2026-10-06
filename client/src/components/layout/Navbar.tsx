@@ -442,6 +442,16 @@ export function Navbar() {
                         </svg>
                         Sign in
                       </Button>
+                      <Button
+                        variant="secondary"
+                        className="mt-2 w-full justify-center"
+                        onClick={() => {
+                          setMobileOpen(false);
+                          navigate("/login?mode=signup");
+                        }}
+                      >
+                        Create a free account
+                      </Button>
                     </div>
                   )}
                 </motion.aside>

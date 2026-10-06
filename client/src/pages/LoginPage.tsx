@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useLocation, useNavigate, Navigate, Link } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams, Navigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
@@ -7,12 +7,8 @@ import { Input } from "@/components/ui/Input";
 import { TileScene } from "@/components/ui/TileScene";
 import { SDSLogo } from "@/components/ui/SDSLogo";
 
-/**
- * Self-serve account creation is disabled for now (frontend-only toggle —
- * the sign-up flow itself, including confirmation-email handling below,
- * is fully implemented and ready to re-enable by flipping this to true).
- */
-const SIGNUP_ENABLED = false;
+/** Self-serve account creation: anyone can register and gets a private workspace (own designs, tiles and credits). */
+const SIGNUP_ENABLED = true;
 
 const perks = [
   "Upload a photo of your unfinished room",
@@ -26,7 +22,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [params] = useSearchParams();
+  const [mode, setMode] = useState<"signin" | "signup">(SIGNUP_ENABLED && params.get("mode") === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +136,7 @@ export function LoginPage() {
                 required
                 minLength={6}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                placeholder="At least 6 characters"
+                placeholder={mode === "signup" ? "Choose a password (6+ characters)" : "Your password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
