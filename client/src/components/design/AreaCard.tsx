@@ -12,6 +12,8 @@ interface Props {
   onChange: (next: DraftArea) => void;
   onRemove: () => void;
   onPickTile: (slotIndex: number) => void;
+  /** Set for a surface that belongs to a room template: its surface and name are fixed, and this explains what it covers. */
+  lockedNote?: string;
 }
 
 const field = "w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900";
@@ -60,7 +62,7 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
 }
 
 /** One area of the room (e.g. "Back wall"): surface, location name, layout pattern, and the tiles in that pattern. */
-export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile }: Props) {
+export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, lockedNote }: Props) {
   const spec = PATTERNS[area.pattern];
   const surface = SURFACES[area.surface];
   const idBase = `area-${area.key}`;
@@ -80,14 +82,20 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile }
           {area.location || "New area"}
         </h3>
         <button type="button" onClick={onRemove} className="rounded-lg px-2.5 py-1.5 text-sm text-stone-500 hover:bg-red-50 hover:text-red-700">
-          {area.wall ? "Keep this wall as is" : "Remove area"}
+          {area.wall || lockedNote ? "Keep this surface as is" : "Remove area"}
         </button>
       </div>
 
-      {area.wall ? (
-        // A numbered wall of an L / C layout: its name and surface are fixed so it can never overlap another wall.
+      {area.wall || lockedNote ? (
+        // A surface of a room template (or a numbered wall of an L / C layout): its name and surface are fixed so it can never overlap another.
         <p className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
-          Connected wall <strong className="text-stone-900">{area.wall}</strong> (numbered left to right in your photo). Its tile stops at the corner with any wall you keep.
+          {area.wall ? (
+            <>
+              Connected wall <strong className="text-stone-900">{area.wall}</strong> (numbered left to right in your photo). Its tile stops at the corner with any surface you keep.
+            </>
+          ) : (
+            lockedNote
+          )}
         </p>
       ) : (
         <>

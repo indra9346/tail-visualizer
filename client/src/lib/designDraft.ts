@@ -202,9 +202,9 @@ interface KeyValueStore {
 const store = (): KeyValueStore | undefined => (globalThis as { sessionStorage?: KeyValueStore }).sessionStorage;
 
 /** The unfinished design survives a refresh. Only public catalog data and the owner's own choices are stored. */
-export function saveDraft(roomId: string, areas: DraftArea[], layout: RoomLayout = "open"): void {
+export function saveDraft(roomId: string, areas: DraftArea[], layout: RoomLayout = "open", template?: string): void {
   try {
-    store()?.setItem(storageKey(roomId), JSON.stringify({ layout, areas }));
+    store()?.setItem(storageKey(roomId), JSON.stringify({ layout, ...(template ? { template } : {}), areas }));
   } catch {
     /* best effort */
   }
@@ -212,6 +212,8 @@ export function saveDraft(roomId: string, areas: DraftArea[], layout: RoomLayout
 
 export interface LoadedDraft {
   layout: RoomLayout;
+  /** The room template the draft was made from; absent in drafts saved before templates existed. */
+  template?: string;
   areas: DraftArea[];
 }
 
@@ -224,6 +226,7 @@ export function loadDraft(roomId: string): LoadedDraft | null {
     const list = Array.isArray(parsedRaw) ? parsedRaw : (parsedRaw as { areas?: unknown })?.areas;
     if (!Array.isArray(list)) return null;
     const saved = Array.isArray(parsedRaw) ? undefined : (parsedRaw as { layout?: string }).layout;
+    const template = Array.isArray(parsedRaw) ? undefined : (parsedRaw as { template?: unknown }).template;
     const layout: RoomLayout = (ROOM_LAYOUTS as readonly string[]).includes(saved ?? "") ? (saved as RoomLayout) : "open";
     const areas = (list as DraftArea[])
       .filter((a) => a && a.surface in SURFACES && a.pattern in PATTERNS && Array.isArray(a.slots))
@@ -235,7 +238,7 @@ export function loadDraft(roomId: string): LoadedDraft | null {
         slots: emptySlots(a.pattern).map((_, i) => a.slots[i] ?? null),
       }))
       .map(({ wall, ...rest }) => (wall ? { ...rest, wall } : rest));
-    return { layout, areas };
+    return { layout, ...(typeof template === "string" ? { template } : {}), areas };
   } catch {
     return null;
   }

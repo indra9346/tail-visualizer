@@ -6,7 +6,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ProgressSteps, type Step } from "@/components/ui/ProgressSteps";
 import { AreaCard } from "@/components/design/AreaCard";
-import { RoomLayoutPicker } from "@/components/design/RoomLayoutPicker";
+import { RoomTemplatePicker } from "@/components/design/RoomTemplatePicker";
 import { TilePickerModal } from "@/components/design/TilePickerModal";
 import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { getRoom, getRoomAnalysis } from "@/api/rooms";
@@ -18,7 +18,6 @@ import { useWorkflow } from "@/context/WorkflowContext";
 import { SURFACES, SURFACE_ORDER } from "@/lib/designPatterns";
 import {
   MAX_AREAS,
-  applyLayout,
   chosenTiles,
   distinctTileCount,
   loadDraft,
@@ -26,11 +25,11 @@ import {
   saveDraft,
   tileFitsSurface,
   toPayload,
-  toggleWall,
   validateDraft,
   type DraftArea,
 } from "@/lib/designDraft";
-import { keptWalls, type RoomLayout, type WallId } from "@/lib/roomLayouts";
+import type { RoomLayout } from "@/lib/roomLayouts";
+import { TEMPLATES, applyTemplate, ensureFace, faceOfArea, isTemplateId, keptLabels, templateForLayout, toggleFace, type TemplateId } from "@/lib/roomTemplates";
 import type { RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
 const GENERATION_STAGES = ["Preparing your room", "Placing each tile in its area", "Laying out your patterns", "Rendering realistic lighting", "Finalizing visualization"];
@@ -52,7 +51,9 @@ export function TilesPage() {
   const [roomImage, setRoomImage] = useState<string | null>(null);
 
   const [areas, setAreas] = useState<DraftArea[] | null>(null);
-  const [layout, setLayout] = useState<RoomLayout>("open");
+  const [templateId, setTemplateId] = useState<TemplateId>("free");
+  // The layout (numbered connected walls) always follows the chosen room template.
+  const layout: RoomLayout = TEMPLATES[templateId].layout;
   const [picker, setPicker] = useState<{ areaKey: string; slot: number } | null>(null);
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
@@ -124,7 +125,7 @@ export function TilesPage() {
     if (!roomId || !analysis || areas !== null) return;
     const draft = loadDraft(roomId);
     if (draft && draft.areas.length > 0) {
-      setLayout(draft.layout);
+      setTemplateId(isTemplateId(draft.template) ? draft.template : templateForLayout(draft.layout));
       setAreas(draft.areas);
       return;
     }
@@ -139,22 +140,31 @@ export function TilesPage() {
   }, [roomId, analysis, areas, selectedTile]);
 
   useEffect(() => {
-    if (roomId && areas) saveDraft(roomId, areas, layout);
-  }, [roomId, areas, layout]);
+    if (roomId && areas) saveDraft(roomId, areas, layout, templateId);
+  }, [roomId, areas, layout, templateId]);
 
   const issues = useMemo(() => validateDraft(areas ?? [], layout), [areas, layout]);
-  const tiledWalls = useMemo(() => new Set((areas ?? []).map((a) => a.wall).filter((w): w is WallId => !!w)), [areas]);
-  const keptWallLabels = useMemo(() => (layout === "open" ? [] : keptWalls(layout, [...tiledWalls]).map((w) => w.label)), [layout, tiledWalls]);
+  const template = TEMPLATES[templateId];
+  // Surfaces of the template the owner did not switch on: they stay exactly as in the photo.
+  const keptLabelList = useMemo(() => (template.faces.length > 0 ? keptLabels(template, areas ?? []) : []), [template, areas]);
   const ready = areas !== null && Object.keys(issues).length === 0;
   const tileTotal = areas ? distinctTileCount(areas) : 0;
   const lowCredits = balance !== null && generationCost !== null && balance < generationCost;
 
   const updateArea = useCallback((key: string, next: DraftArea) => setAreas((prev) => prev?.map((a) => (a.key === key ? next : a)) ?? prev), []);
 
-  function changeLayout(next: RoomLayout) {
-    setAreas((prev) => applyLayout(prev ?? [], next));
-    setLayout(next);
+  function changeTemplate(next: TemplateId) {
+    setAreas((prev) => applyTemplate(prev ?? [], next, templateId));
+    setTemplateId(next);
     setShowIssues(false);
+  }
+
+  function pickFace(faceKey: string) {
+    if (!areas) return;
+    const { areas: next, area } = ensureFace(areas, templateId, faceKey);
+    if (!area) return;
+    setAreas(next);
+    setPicker({ areaKey: area.key, slot: 0 });
   }
 
   function addArea(surface: SurfaceType) {
@@ -264,11 +274,12 @@ export function TilesPage() {
           </aside>
 
           <div className="space-y-5">
-            <RoomLayoutPicker
-              layout={layout}
-              tiledWalls={tiledWalls}
-              onLayoutChange={changeLayout}
-              onToggleWall={(id) => setAreas((prev) => toggleWall(prev ?? [], layout, id))}
+            <RoomTemplatePicker
+              templateId={templateId}
+              areas={areas}
+              onTemplateChange={changeTemplate}
+              onToggleFace={(key) => setAreas((prev) => toggleFace(prev ?? [], templateId, key))}
+              onPickFace={pickFace}
             />
 
             {areas.map((area, i) => (
@@ -280,6 +291,7 @@ export function TilesPage() {
                 onChange={(next) => updateArea(area.key, next)}
                 onRemove={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}
                 onPickTile={(slot) => setPicker({ areaKey: area.key, slot })}
+                lockedNote={faceOfArea(template, area)?.note || undefined}
               />
             ))}
 
@@ -288,7 +300,7 @@ export function TilesPage() {
                 <p className="mb-2.5 text-sm font-medium text-stone-700">Add another area</p>
                 <div className="flex flex-wrap gap-2">
                   {/* In an L / C room the walls are chosen in "Room shape" above, so a loose "Wall" area is not offered. */}
-                  {SURFACE_ORDER.filter((s) => layout === "open" || s !== "wall").map((s) => (
+                  {SURFACE_ORDER.filter((s) => layout === "open" || (s !== "wall" && !template.faces.some((f) => f.surface === s))).map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -331,7 +343,7 @@ export function TilesPage() {
                   ? areas.map((a) => `${a.location}: ${chosenTiles(a).map((t) => t.name).join(" + ")}`).join("  |  ").slice(0, 140)
                   : "Choose the required tiles for every area to continue."}
               </p>
-              {keptWallLabels.length > 0 && <p className="text-xs font-medium text-stone-600">Kept as in the photo: {keptWallLabels.join(", ")}</p>}
+              {keptLabelList.length > 0 && <p className="text-xs font-medium text-stone-600">Kept as in the photo: {keptLabelList.join(", ")}</p>}
               {generationCost !== null && (
                 <p className="mt-1 text-xs text-stone-400">
                   Generation cost: {generationCost} credits{balance !== null && <> · Balance: {balance}</>}

@@ -153,7 +153,45 @@ describe("generation prompt: connected walls", () => {
     expect(all).toContain("none (every wall of this layout is finished)");
     const open = buildDesignPrompt(analysis, [{ surface: "wall", location: "Back wall", pattern: "single", tiles: [a] }], null, "REQ-fixed");
     expect(open).not.toContain("ROOM LAYOUT");
-    expect(open).toContain("AREA 1: the walls");
+    expect(open).toContain("AREA 1: ONE wall only");
+  });
+
+  test("free naming: a named wall is the ONLY wall changed; unlisted walls (incl. the end wall) stay as they are", () => {
+    const left: DesignAreaInput = { surface: "wall", location: "Left wall", pattern: "single", tiles: [a] };
+    const right: DesignAreaInput = { surface: "wall", location: "Right wall", pattern: "single", tiles: [b] };
+    const floor: DesignAreaInput = { surface: "floor", location: "Entire floor", pattern: "single", tiles: [{ ...a, category: "floor" }] };
+    const p2 = buildDesignPrompt(analysis, [left, right, floor], null, "REQ-fixed");
+    expect(p2).toContain("AREA 1: ONE wall only");
+    expect(p2).toContain("AREA 2: ONE wall only");
+    expect(p2).toContain("AREA 3: the floor");
+    expect(p2).toMatch(/Walls that are not listed below are NOT target areas: this includes the wall at the end of the room facing the camera/);
+    expect(p2).toContain('only the walls labelled "Left wall" and "Right wall" (every other wall left unchanged)');
+    expect(p2).not.toMatch(/with the walls finished as specified/);
+  });
+
+  test("free naming: 'All walls' and the legacy single-tile shape still mean every wall (no restriction wording)", () => {
+    for (const location of ["All walls", "entire surface"]) {
+      const all = buildDesignPrompt(analysis, [{ surface: "wall", location, pattern: "single", tiles: [a] }], null, "REQ-fixed");
+      expect(all).toContain("AREA 1: the walls");
+      expect(all).not.toContain("Walls that are not listed below");
+      expect(all).toContain("finished as specified");
+    }
+  });
+
+  test("a backsplash next to a wall area: the wall must not overwrite the backsplash zone", () => {
+    const kitchen = buildDesignPrompt(
+      analysis,
+      [
+        { surface: "wall", wall: "C2", location: "C2 (middle wall)", pattern: "single", tiles: [a] },
+        { surface: "backsplash", location: "Kitchen backsplash", pattern: "single", tiles: [b] },
+      ],
+      null,
+      "REQ-fixed",
+      undefined,
+      "c_shape",
+    );
+    expect(kitchen).toMatch(/Backsplash rule: the backsplash zone .* belongs ONLY to the backsplash area/);
+    expect(buildDesignPrompt(analysis, [{ surface: "wall", location: "All walls", pattern: "single", tiles: [a] }], null, "REQ-fixed")).not.toContain("Backsplash rule");
   });
 
   test("L-shape with only L2 tiled keeps L1", () => {
