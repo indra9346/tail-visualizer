@@ -1,6 +1,7 @@
 import type { SurfaceType, Tile } from "../api/types";
 import { PATTERNS, SURFACES, isValidLabel, type DesignPattern } from "./designPatterns";
 import { LAYOUTS, ROOM_LAYOUTS, coversAllWalls, wallInfo, type RoomLayout, type WallId } from "./roomLayouts";
+import { sizeProblem, sizeToDimensions, type AreaSize } from "./fitRecommend";
 
 export const MAX_AREAS = 6;
 export const MAX_DISTINCT_TILES = 8;
@@ -12,6 +13,8 @@ export interface DraftArea {
   location: string;
   /** Set only for a numbered wall of an L / C layout; its `location` is then that wall's fixed label. */
   wall?: WallId;
+  /** Optional measurement the owner typed (walls: width x height; floors: length x depth). Never required. */
+  size?: AreaSize;
   pattern: DesignPattern;
   patternNote: string;
   slots: Array<Tile | null>;
@@ -158,6 +161,9 @@ export function validateDraft(areas: DraftArea[], layout: RoomLayout = "open"): 
     if (!isValidLabel(area.location, 80)) add(area.key, "Name the location with letters, numbers and simple punctuation (up to 80 characters).");
     if (area.patternNote.trim() !== "" && !isValidLabel(area.patternNote, 160)) add(area.key, "The pattern note may only use letters, numbers and simple punctuation (up to 160 characters).");
 
+    const sizeIssue = sizeProblem(area.size);
+    if (sizeIssue) add(area.key, sizeIssue);
+
     const firstGap = area.slots.findIndex((t) => t === null);
     if (tiles.length < spec.min) {
       const missing = spec.roles.slice(0, spec.min).filter((_, i) => area.slots[i] === null);
@@ -185,6 +191,7 @@ export function toPayload(areas: DraftArea[], layout: RoomLayout = "open") {
       surface: a.surface,
       location: a.location.replace(/\s+/g, " ").trim(),
       ...(a.wall ? { wall: a.wall } : {}),
+      ...(sizeToDimensions(a.size) ? { dimensions: sizeToDimensions(a.size)! } : {}),
       pattern: a.pattern,
       ...(a.patternNote.trim() !== "" ? { patternNote: a.patternNote.replace(/\s+/g, " ").trim() } : {}),
       tileIds: chosenTiles(a).map((t) => t.id),

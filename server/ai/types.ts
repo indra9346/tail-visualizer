@@ -138,6 +138,8 @@ export interface DesignAreaInput {
   location: string;
   /** Set only for a wall of an L / C layout: which numbered wall this area is (the location is then its canonical label). */
   wall?: WallId;
+  /** Optional owner measurement in mm (walls: width x height; floors: length x depth). */
+  dimensions?: { widthMm: number; heightMm: number };
   pattern: DesignPattern;
   /** Optional sanitized note refining the pattern (e.g. "dado up to 4 ft"). */
   patternNote?: string | null;

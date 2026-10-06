@@ -24,7 +24,16 @@ export async function generateVisualization(input: {
   design: {
     /** L / C connected-wall layout; omitted = free naming. */
     layout?: "l_shape" | "c_shape";
-    areas: Array<{ surface: SurfaceType; location: string; wall?: string; pattern: string; patternNote?: string; tileIds: string[] }>;
+    areas: Array<{
+      surface: SurfaceType;
+      location: string;
+      wall?: string;
+      /** Optional measurement in mm. */
+      dimensions?: { widthMm: number; heightMm: number };
+      pattern: string;
+      patternNote?: string;
+      tileIds: string[];
+    }>;
   };
   /** Optional natural-language design instructions (sanitized and length-checked by the server). */
   requirements?: string;

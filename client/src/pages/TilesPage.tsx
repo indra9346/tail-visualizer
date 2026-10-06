@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/Button";
@@ -10,7 +10,7 @@ import { RoomTemplatePicker } from "@/components/design/RoomTemplatePicker";
 import { TilePickerModal } from "@/components/design/TilePickerModal";
 import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { getRoom, getRoomAnalysis } from "@/api/rooms";
-import { getTileRecommendations } from "@/api/tiles";
+import { getTileRecommendations, searchTiles } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
 import { getBillingSummary, getCreditPackages } from "@/api/billing";
 import { ApiClientError, friendlyErrorMessage } from "@/api/client";
@@ -57,6 +57,19 @@ export function TilesPage() {
   const [picker, setPicker] = useState<{ areaKey: string; slot: number } | null>(null);
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  // The showroom's tiles, for the optional best-fit suggestions (the tile picker loads its own copy).
+  const [catalog, setCatalog] = useState<Tile[]>([]);
+  // Only this surface is open for editing; the others show a one-line summary.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const closedAll = useRef(false);
+
+  useEffect(() => {
+    searchTiles({ page: 1, pageSize: 50 })
+      .then((res) => setCatalog(res.tiles))
+      .catch(() => {
+        /* suggestions are optional; the tile picker still works */
+      });
+  }, []);
 
   const [requirements, setRequirements] = useState("");
   const [showIssues, setShowIssues] = useState(false);
@@ -143,6 +156,13 @@ export function TilesPage() {
     if (roomId && areas) saveDraft(roomId, areas, layout, templateId);
   }, [roomId, areas, layout, templateId]);
 
+  // Always keep one surface open: the first one, unless the owner closed them all on purpose or the open one was removed.
+  useEffect(() => {
+    if (!areas || areas.length === 0) return;
+    if (activeKey !== null && !areas.some((a) => a.key === activeKey)) setActiveKey(areas[0]!.key);
+    else if (activeKey === null && !closedAll.current) setActiveKey(areas[0]!.key);
+  }, [areas, activeKey]);
+
   const issues = useMemo(() => validateDraft(areas ?? [], layout), [areas, layout]);
   const template = TEMPLATES[templateId];
   // Surfaces of the template the owner did not switch on: they stay exactly as in the photo.
@@ -159,19 +179,30 @@ export function TilesPage() {
     setShowIssues(false);
   }
 
+  /** Open a surface for editing and bring it into view. */
+  function openArea(key: string) {
+    closedAll.current = false;
+    setActiveKey(key);
+    // After the card has expanded.
+    window.setTimeout(() => document.getElementById(`area-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
+
+  /** Clicking a surface of the 3D box: switch it on if it was kept, then edit it. */
   function pickFace(faceKey: string) {
     if (!areas) return;
     const { areas: next, area } = ensureFace(areas, templateId, faceKey);
     if (!area) return;
     setAreas(next);
-    setPicker({ areaKey: area.key, slot: 0 });
+    openArea(area.key);
   }
 
   function addArea(surface: SurfaceType) {
+    const created = newArea(surface, nextLocation(surface, areas ?? []));
     setAreas((prev) => {
       const list = prev ?? [];
-      return list.length >= MAX_AREAS ? list : [...list, newArea(surface, nextLocation(surface, list))];
+      return list.length >= MAX_AREAS ? list : [...list, created];
     });
+    openArea(created.key);
   }
 
   function pickTile(tile: Tile) {
@@ -186,6 +217,9 @@ export function TilesPage() {
     if (!roomId || !areas) return;
     if (!ready) {
       setShowIssues(true);
+      // Take the owner to the first surface that still needs something.
+      const firstBad = areas.find((a) => issues[a.key]);
+      if (firstBad) openArea(firstBad.key);
       return;
     }
     // A convenience check only: the server re-checks and atomically reserves the real balance.
@@ -237,9 +271,14 @@ export function TilesPage() {
     <PageContainer>
       <div>
         <h1 className="font-display text-3xl text-stone-900">Design Studio</h1>
-        <p className="mt-2 max-w-3xl text-stone-600">
-          Decide, area by area, which tiles go where. Combine several tiles on one wall with a pattern, then preview the whole room.
-        </p>
+        <ol className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-stone-600">
+          {["Pick your room", "Click a surface in the 3D box", "Choose a layout and its tiles", "Preview the whole room"].map((step, i) => (
+            <li key={step} className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-[11px] font-semibold text-white">{i + 1}</span>
+              {step}
+            </li>
+          ))}
+        </ol>
       </div>
 
       {generationError && (
@@ -280,6 +319,7 @@ export function TilesPage() {
               onTemplateChange={changeTemplate}
               onToggleFace={(key) => setAreas((prev) => toggleFace(prev ?? [], templateId, key))}
               onPickFace={pickFace}
+              activeAreaKey={activeKey}
             />
 
             {areas.map((area, i) => (
@@ -292,6 +332,16 @@ export function TilesPage() {
                 onRemove={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}
                 onPickTile={(slot) => setPicker({ areaKey: area.key, slot })}
                 lockedNote={faceOfArea(template, area)?.note || undefined}
+                open={area.key === activeKey}
+                onToggleOpen={() => {
+                  if (area.key === activeKey) {
+                    closedAll.current = true;
+                    setActiveKey(null);
+                  } else openArea(area.key);
+                }}
+                roomType={analysis?.roomType}
+                catalog={catalog}
+                recommendedIds={recommendedIds}
               />
             ))}
 

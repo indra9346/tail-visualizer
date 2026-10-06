@@ -9,6 +9,8 @@ export interface NormalizedArea {
   location: string;
   /** Present only for a numbered wall of an L / C layout. */
   wall?: WallId;
+  /** Optional owner measurement in mm; absent for every design saved before sizes existed. */
+  dimensions?: { widthMm: number; heightMm: number };
   pattern: DesignPattern;
   patternNote: string | null;
   tileIds: string[];
@@ -33,6 +35,7 @@ export function normalizeDesign(body: { design?: DesignInput; tileId?: string; s
           surface: a.surface,
           location: spec ? spec.label : a.location,
           ...(spec ? { wall: spec.id } : {}),
+          ...(a.dimensions ? { dimensions: { widthMm: a.dimensions.widthMm, heightMm: a.dimensions.heightMm } } : {}),
           pattern: a.pattern,
           patternNote: a.patternNote ?? null,
           tileIds: [...a.tileIds],
@@ -71,7 +74,7 @@ export function designTileIds(design: NormalizedDesign): string[] {
  */
 export function designHash(design: NormalizedDesign): string {
   const canonical = [...design.areas]
-    .map((a) => ({ s: a.surface, l: a.location.toLowerCase(), p: a.pattern, n: (a.patternNote ?? "").toLowerCase(), t: a.tileIds, ...(a.wall ? { w: a.wall } : {}) }))
+    .map((a) => ({ s: a.surface, l: a.location.toLowerCase(), p: a.pattern, n: (a.patternNote ?? "").toLowerCase(), t: a.tileIds, ...(a.wall ? { w: a.wall } : {}), ...(a.dimensions ? { d: [a.dimensions.widthMm, a.dimensions.heightMm] } : {}) }))
     .sort((x, y) => `${x.s}|${x.l}`.localeCompare(`${y.s}|${y.l}`));
   const payload = design.layout && design.layout !== "open" ? { layout: design.layout, areas: canonical } : canonical;
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");

@@ -1,10 +1,12 @@
-import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
-import { getPublicTileImageUrl } from "@/lib/tileImage";
-import { DESIGN_PATTERNS, PATTERNS, SURFACES, SURFACE_ORDER, type DesignPattern } from "@/lib/designPatterns";
-import { withPattern, type DraftArea } from "@/lib/designDraft";
-import type { SurfaceType, Tile } from "@/api/types";
+import { PATTERNS, SURFACES, SURFACE_ORDER } from "@/lib/designPatterns";
+import { chosenTiles, withPattern, type DraftArea } from "@/lib/designDraft";
+import { recommendPatterns, sizeToDimensions } from "@/lib/fitRecommend";
+import type { RoomType, SurfaceType, Tile } from "@/api/types";
+import { AreaSizeAssist } from "./AreaSizeAssist";
+import { PatternPicker } from "./PatternPicker";
+import { TileThumb } from "./TileThumb";
 
 interface Props {
   index: number;
@@ -15,22 +17,28 @@ interface Props {
   onPickTile: (slotIndex: number) => void;
   /** Set for a surface that belongs to a room template: its surface and name are fixed, and this explains what it covers. */
   lockedNote?: string;
+  /** Only the active surface is open; the others show a one-line summary. */
+  open: boolean;
+  onToggleOpen: () => void;
+  roomType?: RoomType;
+  /** The showroom's tiles, for the optional best-fit suggestions. */
+  catalog: Tile[];
+  recommendedIds: Set<string>;
 }
 
 const field = "w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900";
 const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500";
 
-/** The tile photo. If it cannot be loaded, a neutral swatch with the tile's initials is shown instead of the browser's broken-image icon and raw alt text. */
-function TileThumb({ tile }: { tile: Tile }) {
-  const [broken, setBroken] = useState(false);
-  if (broken) {
-    return (
-      <span role="img" aria-label={tile.name} className="flex h-full w-full items-center justify-center bg-stone-200 text-sm font-semibold uppercase text-stone-500">
-        {tile.name.trim().slice(0, 2)}
-      </span>
-    );
-  }
-  return <img src={getPublicTileImageUrl(tile.storagePath)} alt={tile.name} className="h-full w-full object-cover" onError={() => setBroken(true)} />;
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-5">
+      <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-clay-100 text-[11px] text-clay-800">{n}</span>
+        {title}
+      </p>
+      {children}
+    </div>
+  );
 }
 
 function Slot({ role, required, tile, onPick, onClear }: { role: string; required: boolean; tile: Tile | null; onPick: () => void; onClear: () => void }) {
@@ -75,11 +83,17 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
   );
 }
 
-/** One area of the room (e.g. "Back wall"): surface, location name, layout pattern, and the tiles in that pattern. */
-export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, lockedNote }: Props) {
+/**
+ * One surface of the room (e.g. "C1 left wall"). Three clear steps: (1) optional size and suggestions, (2) pick a layout by
+ * looking at it, (3) choose the tiles. Only the active surface is open, so a long design stays easy to scan.
+ */
+export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, lockedNote, open, onToggleOpen, roomType, catalog, recommendedIds }: Props) {
   const spec = PATTERNS[area.pattern];
   const surface = SURFACES[area.surface];
   const idBase = `area-${area.key}`;
+  const tiles = chosenTiles(area);
+  const suggestions = recommendPatterns(area.surface, sizeToDimensions(area.size), roomType);
+  const locked = Boolean(area.wall || lockedNote);
 
   function setSurface(next: SurfaceType) {
     const nextInfo = SURFACES[next];
@@ -88,106 +102,125 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, 
     onChange({ ...area, surface: next, location: wasPreset ? nextInfo.defaultLocation : area.location });
   }
 
+  const ready = tiles.length >= spec.min;
+
   return (
-    <section className={cn("rounded-2xl border bg-white p-5 shadow-soft", issues.length > 0 ? "border-amber-300" : "border-stone-200")} aria-label={`Area ${index + 1}: ${area.location}`}>
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-lg text-stone-900">
-          <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-stone-900 text-sm text-white">{index + 1}</span>
-          {area.location || "New area"}
-        </h3>
-        <button type="button" onClick={onRemove} className="rounded-lg px-2.5 py-1.5 text-sm text-stone-500 hover:bg-red-50 hover:text-red-700">
-          {area.wall || lockedNote ? "Keep this surface as is" : "Remove area"}
+    <section
+      id={idBase}
+      className={cn("scroll-mt-24 rounded-2xl border bg-white shadow-soft", open ? "p-5" : "p-3", issues.length > 0 ? "border-amber-300" : open ? "border-stone-300" : "border-stone-200")}
+      aria-label={`Area ${index + 1}: ${area.location}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <button type="button" onClick={onToggleOpen} aria-expanded={open} aria-controls={`${idBase}-body`} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-sm text-white">{index + 1}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-display text-lg leading-tight text-stone-900">{area.location || "New area"}</span>
+            {!open && (
+              <span className="mt-0.5 flex items-center gap-2 text-xs text-stone-500">
+                <span className="truncate">{spec.label}</span>
+                <span className="flex -space-x-1.5">
+                  {tiles.slice(0, 4).map((t, i) => (
+                    <span key={`${t.id}-${i}`} className="inline-block h-5 w-5 overflow-hidden rounded-full border-2 border-white">
+                      <TileThumb tile={t} />
+                    </span>
+                  ))}
+                </span>
+                <span className={cn("font-medium", ready ? "text-emerald-700" : "text-amber-700")}>{ready ? "Ready" : "Needs a tile"}</span>
+              </span>
+            )}
+          </span>
+          <span className="ml-auto shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-clay-700">{open ? "Collapse ▴" : "Edit ▾"}</span>
         </button>
+        {open && (
+          <button type="button" onClick={onRemove} className="shrink-0 rounded-lg px-2.5 py-1.5 text-sm text-stone-500 hover:bg-red-50 hover:text-red-700">
+            {locked ? "Keep this surface as is" : "Remove area"}
+          </button>
+        )}
       </div>
 
-      {area.wall || lockedNote ? (
-        // A surface of a room template (or a numbered wall of an L / C layout): its name and surface are fixed so it can never overlap another.
-        <p className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
-          {area.wall ? (
-            <>
-              Connected wall <strong className="text-stone-900">{area.wall}</strong> (numbered left to right in your photo). Its tile stops at the corner with any surface you keep.
-            </>
+      {open && (
+        <div id={`${idBase}-body`}>
+          {locked ? (
+            // A surface of a room template (or a numbered wall of an L / C layout): its name and surface are fixed so it can never overlap another.
+            <p className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
+              {area.wall ? (
+                <>
+                  Connected wall <strong className="text-stone-900">{area.wall}</strong> (numbered left to right in your photo). Its tile stops at the corner with any surface you keep.
+                </>
+              ) : (
+                lockedNote
+              )}
+            </p>
           ) : (
-            lockedNote
-          )}
-        </p>
-      ) : (
-        <>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor={`${idBase}-surface`} className={fieldLabel}>Surface</label>
-              <select id={`${idBase}-surface`} className={field} value={area.surface} onChange={(e) => setSurface(e.target.value as SurfaceType)}>
-                {SURFACE_ORDER.map((s) => (
-                  <option key={s} value={s}>
-                    {SURFACES[s].label}
-                  </option>
+            <>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor={`${idBase}-surface`} className={fieldLabel}>Surface</label>
+                  <select id={`${idBase}-surface`} className={field} value={area.surface} onChange={(e) => setSurface(e.target.value as SurfaceType)}>
+                    {SURFACE_ORDER.map((s) => (
+                      <option key={s} value={s}>
+                        {SURFACES[s].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor={`${idBase}-location`} className={fieldLabel}>Which part? (name it)</label>
+                  <Input id={`${idBase}-location`} maxLength={80} value={area.location} onChange={(e) => onChange({ ...area, location: e.target.value })} placeholder="e.g. Wall behind basin" />
+                </div>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Quick location names">
+                {surface.locations.map((loc) => (
+                  <button
+                    key={loc}
+                    type="button"
+                    onClick={() => onChange({ ...area, location: loc })}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                      area.location === loc ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 text-stone-600 hover:bg-stone-100",
+                    )}
+                  >
+                    {loc}
+                  </button>
                 ))}
-              </select>
+              </div>
+            </>
+          )}
+
+          <AreaSizeAssist area={area} roomType={roomType} catalog={catalog} recommendedIds={recommendedIds} suggestions={suggestions} onChange={onChange} />
+
+          <Step n={1} title="Choose a layout (look at the demo)">
+            <PatternPicker pattern={area.pattern} tiles={tiles} suggestions={suggestions} onChange={(p) => onChange(withPattern(area, p))} />
+          </Step>
+
+          <Step n={2} title="Choose the tiles">
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {area.slots.map((tile, i) => (
+                <Slot
+                  key={i}
+                  role={spec.roles[i] ?? `tile ${i + 1}`}
+                  required={i < spec.min}
+                  tile={tile}
+                  onPick={() => onPickTile(i)}
+                  onClear={() => onChange({ ...area, slots: area.slots.map((t, j) => (j === i ? null : t)) })}
+                />
+              ))}
             </div>
-            <div>
-              <label htmlFor={`${idBase}-location`} className={fieldLabel}>Which part? (name it)</label>
-              <Input id={`${idBase}-location`} maxLength={80} value={area.location} onChange={(e) => onChange({ ...area, location: e.target.value })} placeholder="e.g. Wall behind basin" />
+          </Step>
+
+          {spec.max > 1 && (
+            <div className="mt-4">
+              <label htmlFor={`${idBase}-note`} className={fieldLabel}>Pattern note (optional)</label>
+              <Input
+                id={`${idBase}-note`}
+                maxLength={160}
+                value={area.patternNote}
+                onChange={(e) => onChange({ ...area, patternNote: e.target.value })}
+                placeholder={area.pattern === "dado" ? "e.g. dado up to 4 ft" : area.pattern === "highlighter_strip" ? "e.g. strip at 5 ft height" : "e.g. strip two tiles wide"}
+              />
             </div>
-          </div>
-
-          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Quick location names">
-            {surface.locations.map((loc) => (
-              <button
-                key={loc}
-                type="button"
-                onClick={() => onChange({ ...area, location: loc })}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  area.location === loc ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 text-stone-600 hover:bg-stone-100",
-                )}
-              >
-                {loc}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className="mt-5">
-        <label htmlFor={`${idBase}-pattern`} className={fieldLabel}>Layout pattern</label>
-        <select
-          id={`${idBase}-pattern`}
-          className={field}
-          value={area.pattern}
-          onChange={(e) => onChange(withPattern(area, e.target.value as DesignPattern))}
-        >
-          {DESIGN_PATTERNS.map((p) => (
-            <option key={p} value={p}>
-              {PATTERNS[p].label}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1.5 text-xs text-stone-500">{spec.hint}</p>
-      </div>
-
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
-        {area.slots.map((tile, i) => (
-          <Slot
-            key={i}
-            role={spec.roles[i] ?? `tile ${i + 1}`}
-            required={i < spec.min}
-            tile={tile}
-            onPick={() => onPickTile(i)}
-            onClear={() => onChange({ ...area, slots: area.slots.map((t, j) => (j === i ? null : t)) })}
-          />
-        ))}
-      </div>
-
-      {spec.max > 1 && (
-        <div className="mt-4">
-          <label htmlFor={`${idBase}-note`} className={fieldLabel}>Pattern note (optional)</label>
-          <Input
-            id={`${idBase}-note`}
-            maxLength={160}
-            value={area.patternNote}
-            onChange={(e) => onChange({ ...area, patternNote: e.target.value })}
-            placeholder={area.pattern === "dado" ? "e.g. dado up to 4 ft" : area.pattern === "highlighter_strip" ? "e.g. strip at 5 ft height" : "e.g. strip two tiles wide"}
-          />
+          )}
         </div>
       )}
 

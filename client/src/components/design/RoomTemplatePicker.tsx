@@ -11,12 +11,14 @@ interface Props {
   onToggleFace: (faceKey: string) => void;
   /** Clicking a face in the 3D box: switch it on if needed, then choose its tile. */
   onPickFace: (faceKey: string) => void;
+  /** The area being edited; its face is outlined in the 3D box. */
+  activeAreaKey?: string | null;
 }
 
 /** Short tag drawn on the 3D picture. */
 const tagOf = (face: FaceSpec) => (face.wall ? face.wall : face.label);
 
-function sceneFaces(template: RoomTemplate, areas: DraftArea[], onPick: (key: string) => void): SceneFace[] {
+function sceneFaces(template: RoomTemplate, areas: DraftArea[], onPick: (key: string) => void, activeAreaKey?: string | null): SceneFace[] {
   return template.faces.map((face) => {
     const area = areaOfFace(areas, face);
     const tiles = area ? chosenTiles(area) : [];
@@ -26,6 +28,7 @@ function sceneFaces(template: RoomTemplate, areas: DraftArea[], onPick: (key: st
       label: face.label,
       state: !area ? "keep" : tiles.length === 0 ? "empty" : "tiled",
       tile: tiles[0] ?? null,
+      selected: Boolean(area && area.key === activeAreaKey),
       onClick: () => onPick(face.key),
     };
   });
@@ -35,7 +38,7 @@ function sceneFaces(template: RoomTemplate, areas: DraftArea[], onPick: (key: st
  * "What are you designing?": ready-made room templates (washroom, kitchen, any room) drawn as a 3D CAD box. Each surface of
  * the box is switched on (it gets a tile design below) or off (it stays exactly as it is in the customer's photo).
  */
-export function RoomTemplatePicker({ templateId, areas, onTemplateChange, onToggleFace, onPickFace }: Props) {
+export function RoomTemplatePicker({ templateId, areas, onTemplateChange, onToggleFace, onPickFace, activeAreaKey }: Props) {
   const template = TEMPLATES[templateId];
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-soft" aria-label="Room template and surfaces">
@@ -79,8 +82,8 @@ export function RoomTemplatePicker({ templateId, areas, onTemplateChange, onTogg
       ) : (
         <div className="mt-5 grid gap-5 md:grid-cols-[minmax(0,360px)_1fr] md:items-center">
           <div>
-            <RoomScene3D scene={template.scene} faces={sceneFaces(template, areas, onPickFace)} />
-            <p className="mt-2 text-center text-[11px] text-stone-500">Click a surface to choose its tile. Camera: your photo, looking into the room.</p>
+            <RoomScene3D scene={template.scene} faces={sceneFaces(template, areas, onPickFace, activeAreaKey)} />
+            <p className="mt-2 text-center text-[11px] text-stone-500">Drag to rotate through 360°. Click a surface to edit it.</p>
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Surfaces (walls numbered left to right as in your photo)</p>

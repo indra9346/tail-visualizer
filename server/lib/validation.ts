@@ -114,6 +114,11 @@ export const designAreaSchema = z
     location: labelSchema(80),
     /** Which numbered wall of an L / C layout this area is (only valid together with design.layout). */
     wall: z.enum(WALL_IDS).optional(),
+    /** Optional measurement of the area (millimetres). Walls: width x height. Floors: length x depth. Lets the model lay a believable number of tiles at the right scale. */
+    dimensions: z
+      .object({ widthMm: z.number().int().min(300).max(30000), heightMm: z.number().int().min(300).max(30000) })
+      .strict()
+      .optional(),
     pattern: z.enum(DESIGN_PATTERNS).default("single"),
     patternNote: labelSchema(160).optional(),
     tileIds: z.array(uuidSchema).min(1).max(MAX_TILES_PER_AREA),

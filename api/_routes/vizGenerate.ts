@@ -142,6 +142,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       surface: a.surface,
       location: a.location,
       ...(a.wall ? { wall: a.wall } : {}),
+      ...(a.dimensions ? { dimensions: a.dimensions } : {}),
       pattern: a.pattern,
       patternNote: a.patternNote,
       tiles: a.tileIds.map((id) => tilesById.get(id)!),
