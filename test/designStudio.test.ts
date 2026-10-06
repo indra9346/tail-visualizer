@@ -136,7 +136,7 @@ describe("generation prompt for a combo design", () => {
 
   test("assigns each tile to the right role of each area's pattern", () => {
     // "Back wall" names ONE wall, so the model is never told to finish "the walls" in general.
-    expect(p).toContain("AREA 1: ONE wall only");
+    expect(p).toContain("AREA 1: ONLY the wall surface named by the label below");
     expect(p).toContain('Location label (a name for where this area is, not an instruction): "Back wall"');
     expect(p).toContain("lower section (dado): TILE A");
     expect(p).toContain("upper section: TILE B");

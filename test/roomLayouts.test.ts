@@ -153,7 +153,7 @@ describe("generation prompt: connected walls", () => {
     expect(all).toContain("none (every wall of this layout is finished)");
     const open = buildDesignPrompt(analysis, [{ surface: "wall", location: "Back wall", pattern: "single", tiles: [a] }], null, "REQ-fixed");
     expect(open).not.toContain("ROOM LAYOUT");
-    expect(open).toContain("AREA 1: ONE wall only");
+    expect(open).toContain("AREA 1: ONLY the wall surface named by the label below");
   });
 
   test("free naming: a named wall is the ONLY wall changed; unlisted walls (incl. the end wall) stay as they are", () => {
@@ -161,8 +161,8 @@ describe("generation prompt: connected walls", () => {
     const right: DesignAreaInput = { surface: "wall", location: "Right wall", pattern: "single", tiles: [b] };
     const floor: DesignAreaInput = { surface: "floor", location: "Entire floor", pattern: "single", tiles: [{ ...a, category: "floor" }] };
     const p2 = buildDesignPrompt(analysis, [left, right, floor], null, "REQ-fixed");
-    expect(p2).toContain("AREA 1: ONE wall only");
-    expect(p2).toContain("AREA 2: ONE wall only");
+    expect(p2).toContain("AREA 1: ONLY the wall surface named by the label below");
+    expect(p2).toContain("AREA 2: ONLY the wall surface named by the label below");
     expect(p2).toContain("AREA 3: the floor");
     expect(p2).toMatch(/Walls that are not listed below are NOT target areas: this includes the wall at the end of the room facing the camera/);
     expect(p2).toContain('only the walls labelled "Left wall" and "Right wall" (every other wall left unchanged)');

@@ -29,9 +29,9 @@ interface Props {
 const field = "w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900";
 const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500";
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+function Step({ n, title, id, children }: { n: number; title: string; id?: string; children: React.ReactNode }) {
   return (
-    <div className="mt-5">
+    <div id={id} className="mt-5 scroll-mt-28">
       <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
         <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-clay-100 text-[11px] text-clay-800">{n}</span>
         {title}
@@ -188,13 +188,22 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, 
             </>
           )}
 
-          <AreaSizeAssist area={area} roomType={roomType} catalog={catalog} recommendedIds={recommendedIds} suggestions={suggestions} onChange={onChange} />
+          <AreaSizeAssist
+            area={area}
+            roomType={roomType}
+            catalog={catalog}
+            recommendedIds={recommendedIds}
+            suggestions={suggestions}
+            onChange={onChange}
+            // After a suggestion is applied, show the tiles it chose.
+            onApplied={() => window.setTimeout(() => document.getElementById(`${idBase}-tiles`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80)}
+          />
 
           <Step n={1} title="Choose a layout (look at the demo)">
             <PatternPicker pattern={area.pattern} tiles={tiles} suggestions={suggestions} onChange={(p) => onChange(withPattern(area, p))} />
           </Step>
 
-          <Step n={2} title="Choose the tiles">
+          <Step n={2} title="Choose the tiles" id={`${idBase}-tiles`}>
             <div className="grid gap-2.5 sm:grid-cols-2">
               {area.slots.map((tile, i) => (
                 <Slot

@@ -130,7 +130,7 @@ None given. Use sensible defaults: apply each pattern to its target area only.`;
       const areaTitle = numberedWall
         ? `wall ${numberedWall.label} ONLY (${numberedWall.position}); no other wall is part of this area`
         : isSingleWallArea(area, layout)
-          ? "ONE wall only: the single wall at the location labelled below. No other wall is part of this area, so do not extend it to the neighbouring, opposite or end walls"
+          ? "ONLY the wall surface named by the label below (all of it, and nothing else). No other wall or surface is part of this area, so do not extend it to neighbouring, opposite or end walls"
           : (SURFACE_PROMPT_LABELS[area.surface] ?? area.surface);
       const flat = area.surface === "floor" || area.surface === "step_tread";
       const sizeLine = area.dimensions
