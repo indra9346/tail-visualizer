@@ -13,12 +13,12 @@ import { applyLayout, newArea, toggleWall, type DraftArea } from "./designDraft"
  * numbers the connected walls) and adds/removes the matching areas, so the server needs no template
  * concept - it validates and prompts from the same layout + areas as before.
  */
-export const TEMPLATE_IDS = ["washroom", "washroom_corner", "kitchen", "three_walls", "corner", "free"] as const;
+export const TEMPLATE_IDS = ["washroom", "washroom_corner", "kitchen", "three_walls", "corner", "puja_mandir", "balcony", "feature_wall", "staircase", "free"] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
 /** Where a face sits in the 3D box. */
-export type FaceRole = "floor" | "left" | "back" | "right" | "backsplash";
-export type SceneKind = "box" | "corner" | "kitchen" | "none";
+export type FaceRole = "floor" | "left" | "back" | "right" | "backsplash" | "tread" | "riser";
+export type SceneKind = "box" | "corner" | "kitchen" | "stairs" | "none";
 
 export interface FaceSpec {
   /** Stable key within a template. */
@@ -110,6 +110,53 @@ export const TEMPLATES: Record<TemplateId, RoomTemplate> = {
     scene: "corner",
     faces: cornerFaces(),
   },
+  puja_mandir: {
+    id: "puja_mandir",
+    label: "Puja mandir",
+    blurb: "Prayer room / mandir: 3 panels + platform floor",
+    layout: "c_shape",
+    scene: "box",
+    faces: [
+      { ...floor, label: "Platform / floor", note: "Template surface: the mandir platform or prayer-room floor. Only this floor is changed here." },
+      { key: "C1", role: "left", label: "Left panel (C1)", surface: "wall", wall: "C1", location: "C1 (left wall)", note: "" },
+      { key: "C2", role: "back", label: "Back panel (C2)", surface: "wall", wall: "C2", location: "C2 (middle wall)", note: "" },
+      { key: "C3", role: "right", label: "Right panel (C3)", surface: "wall", wall: "C3", location: "C3 (right wall)", note: "" },
+    ],
+  },
+  balcony: {
+    id: "balcony",
+    label: "Balcony / terrace",
+    blurb: "Two connected parapet or house walls + floor",
+    layout: "l_shape",
+    scene: "corner",
+    faces: [
+      { ...floor, label: "Balcony floor", note: "Template surface: the balcony or terrace floor. Only the floor is changed here." },
+      { key: "L1", role: "left", label: "Left wall (L1)", surface: "wall", wall: "L1", location: "L1 (left wall)", note: "" },
+      { key: "L2", role: "right", label: "Right wall (L2)", surface: "wall", wall: "L2", location: "L2 (right wall)", note: "" },
+    ],
+  },
+  feature_wall: {
+    id: "feature_wall",
+    label: "Feature wall",
+    blurb: "One accent wall (living room, TV unit, bed head) + floor",
+    layout: "c_shape",
+    scene: "box",
+    faces: [
+      floor,
+      { key: "C2", role: "back", label: "Feature wall (C2)", surface: "wall", wall: "C2", location: "C2 (middle wall)", note: "" },
+    ],
+  },
+  staircase: {
+    id: "staircase",
+    label: "Staircase",
+    blurb: "Step treads (top) and risers (front of each step)",
+    layout: "open",
+    scene: "stairs",
+    faces: [
+      { key: "tread", role: "tread", label: "Step treads", surface: "step_tread", location: "All stair treads", note: "Template surface: the flat top of every step. Only the treads are changed here." },
+      { key: "riser", role: "riser", label: "Step risers", surface: "step_riser", location: "All stair risers", note: "Template surface: the upright front of every step. Only the risers are changed here." },
+    ],
+  },
   free: {
     id: "free",
     label: "Free naming",
@@ -162,6 +209,11 @@ export function applyTemplate(areas: DraftArea[], id: TemplateId, previous?: Tem
       ? areas.filter((a) => a.wall || !faceOfArea(before, a) || faceOfArea(template, a))
       : areas;
   let next = applyLayout(kept, template.layout);
+  // A template that names its walls (e.g. one feature wall) keeps only those; a template with no wall faces (stairs) keeps none.
+  if (template.faces.length > 0) {
+    const walls = template.faces.filter((f) => f.wall).map((f) => f.wall);
+    next = next.filter((a) => (a.surface !== "wall" && a.surface !== "step_riser") || (a.wall ? walls.includes(a.wall) : a.surface === "step_riser"));
+  }
   for (const face of template.faces) {
     if (face.wall || areaOfFace(next, face)) continue;
     next = [...next, newArea(face.surface, face.location)];

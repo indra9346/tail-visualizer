@@ -60,7 +60,27 @@ const CORNER: Partial<Record<FaceRole, Geometry>> = {
   floor: { size: [WC, WC], transform: `translate3d(0px, ${H / 2}px, ${WC / S2}px) rotateX(90deg) rotateZ(45deg)`, cell: 34 },
 };
 
+// Staircase: four steps rising away from the viewer. Every tread shares the "tread" face and every riser the "riser" face.
+const STEPS = 4;
+const STEP_W = 210;
+const STEP_RISE = 30;
+const STEP_RUN = 44;
+const STAIRS: Partial<Record<FaceRole, Geometry[]>> = {
+  riser: Array.from({ length: STEPS }, (_, i) => ({
+    size: [STEP_W, STEP_RISE] as [number, number],
+    transform: `translate3d(0px, ${(STEPS / 2 - i - 0.5) * STEP_RISE}px, ${(STEPS / 2) * STEP_RUN - i * STEP_RUN}px)`,
+    cell: 26,
+  })),
+  tread: Array.from({ length: STEPS }, (_, i) => ({
+    size: [STEP_W, STEP_RUN] as [number, number],
+    transform: `translate3d(0px, ${(STEPS / 2 - i - 1) * STEP_RISE}px, ${(STEPS / 2) * STEP_RUN - i * STEP_RUN - STEP_RUN / 2}px) rotateX(90deg)`,
+    cell: 26,
+  })),
+};
+
 const SHADE: Record<FaceRole, string> = {
+  tread: "linear-gradient(180deg, rgba(0,0,0,.14), rgba(255,255,255,.14))",
+  riser: "linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.18))",
   left: "linear-gradient(90deg, rgba(0,0,0,.26), rgba(0,0,0,.03))",
   right: "linear-gradient(270deg, rgba(0,0,0,.20), rgba(0,0,0,.03))",
   back: "linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.10))",
@@ -69,6 +89,8 @@ const SHADE: Record<FaceRole, string> = {
 };
 
 const PREVIEW_COLOR: Record<FaceRole, string> = {
+  tread: "#b8c9c4",
+  riser: "#d9c2a7",
   left: "#d9c2a7",
   right: "#e6d3bb",
   back: "#efe0cc",
@@ -132,12 +154,19 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
   const geometry = scene === "corner" ? CORNER : BOX;
   const byRole = new Map(faces.map((f) => [f.role, f]));
   const kitchen = scene === "kitchen";
-  const entries = (Object.keys(SHADE) as FaceRole[])
-    .map((role) => {
-      const geo = role === "backsplash" ? (kitchen ? BACKSPLASH : undefined) : geometry[role];
-      return geo ? { role, geo, face: byRole.get(role) } : null;
-    })
-    .filter((e): e is { role: FaceRole; geo: Geometry; face: SceneFace | undefined } => e !== null);
+  const entries = (Object.keys(SHADE) as FaceRole[]).flatMap((role) => {
+    const geos: Geometry[] =
+      scene === "stairs"
+        ? STAIRS[role] ?? []
+        : role === "backsplash"
+          ? kitchen
+            ? [BACKSPLASH]
+            : []
+          : geometry[role]
+            ? [geometry[role]!]
+            : [];
+    return geos.map((geo, i) => ({ id: `${role}-${i}`, role, geo, face: byRole.get(role) }));
+  });
 
   // Automatic turntable: stops as soon as the owner touches the box.
   useEffect(() => {
@@ -206,12 +235,12 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
   const leftTag = byRole.get("left")?.tag;
   const rightTag = byRole.get("right")?.tag;
 
-  const faceEls = entries.map(({ role, geo, face }) => {
+  const faceEls = entries.map(({ id, role, geo, face }) => {
     const live: SceneFace = face ?? { role, tag: "", label: role, state: "keep" };
     const interactive = !preview && Boolean(face?.onClick);
     const base: CSSProperties = { left: -geo.size[0] / 2, top: -geo.size[1] / 2, width: geo.size[0], height: geo.size[1], backfaceVisibility: "hidden" };
     return (
-      <Fragment key={role}>
+      <Fragment key={id}>
         <div
           role={interactive ? "button" : undefined}
           tabIndex={interactive ? 0 : undefined}
@@ -227,7 +256,7 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
           }}
         >
           <div className="absolute inset-0" style={{ background: SHADE[role], pointerEvents: "none" }} />
-          {!preview && live.tag && (
+          {!preview && live.tag && id.endsWith("-0") && (
             <span
               aria-hidden="true"
               className={cn(
@@ -288,6 +317,7 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
           <ViewButton label="Front view" onClick={() => goTo(DEFAULT_VIEW)}>Front</ViewButton>
           {leftTag && <ViewButton label={`See the left wall ${leftTag}`} onClick={() => goTo({ yaw: -52, pitch: -14 })}>See {leftTag}</ViewButton>}
           {rightTag && <ViewButton label={`See the right wall ${rightTag}`} onClick={() => goTo({ yaw: 52, pitch: -14 })}>See {rightTag}</ViewButton>}
+          {scene === "stairs" && <ViewButton label="Side view" onClick={() => goTo({ yaw: 70, pitch: -8 })}>Side</ViewButton>}
           <ViewButton label="Top view" onClick={() => goTo({ yaw: 0, pitch: -84 })}>Top</ViewButton>
           <ViewButton label="Turn right 90 degrees" onClick={() => rotateBy(90)}>⟳ 90°</ViewButton>
           <ViewButton label={spin ? "Stop spinning" : "Spin the room"} active={spin} onClick={() => (setSmooth(false), setSpin((s) => !s))}>{spin ? "■ Stop" : "▶ Spin"}</ViewButton>

@@ -169,3 +169,42 @@ describe("room templates", () => {
     expect(templateForLayout("l_shape")).toBe("corner");
   });
 });
+
+describe("puja mandir, balcony, feature wall and staircase templates", () => {
+  test("every template id is defined and valid", () => {
+    for (const id of TEMPLATE_IDS) expect(TEMPLATES[id].id).toBe(id);
+    for (const id of ["puja_mandir", "balcony", "feature_wall", "staircase"]) expect(isTemplateId(id)).toBe(true);
+  });
+
+  test("puja mandir is a 3-wall room with a platform floor; balcony is a corner", () => {
+    const mandir = applyTemplate([], "puja_mandir");
+    expect(mandir.map((a) => a.wall ?? a.surface)).toEqual(expect.arrayContaining(["C1", "C2", "C3", "floor"]));
+    const balcony = applyTemplate([], "balcony");
+    expect(balcony.map((a) => a.wall ?? a.surface)).toEqual(expect.arrayContaining(["L1", "L2", "floor"]));
+  });
+
+  test("feature wall tiles only the middle wall and keeps the others", () => {
+    const areas = applyTemplate([], "feature_wall");
+    expect(areas.filter((a) => a.wall).map((a) => a.wall)).toEqual(["C2"]);
+    expect(keptFaces(TEMPLATES.feature_wall, areas)).toEqual([]);
+    const draft = areas.map((a) => withPattern(a, "single"));
+    const payload = toPayload(draft, "c_shape");
+    expect(payload.areas.filter((a) => a.wall).length).toBe(1);
+  });
+
+  test("staircase has treads and risers, no walls, from any previous template", () => {
+    const areas = applyTemplate(applyTemplate([], "kitchen"), "staircase", "kitchen");
+    expect(areas.map((a) => a.surface).sort()).toEqual(["step_riser", "step_tread"]);
+    expect(areas.every((a) => !a.wall)).toBe(true);
+    expect(keptFaces(TEMPLATES.staircase, areas)).toEqual([]);
+    const off = toggleFace(areas, "staircase", "riser");
+    expect(keptFaces(TEMPLATES.staircase, off).map((f) => f.key)).toEqual(["riser"]);
+  });
+
+  test("moving from the staircase to a washroom drops the stair areas", () => {
+    const stairs = applyTemplate([], "staircase");
+    const next = applyTemplate(stairs, "washroom", "staircase");
+    expect(next.some((a) => a.surface === "step_tread" || a.surface === "step_riser")).toBe(false);
+    expect(next.filter((a) => a.wall).length).toBe(3);
+  });
+});
