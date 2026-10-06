@@ -141,6 +141,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     const areas: DesignAreaInput[] = design.areas.map((a) => ({
       surface: a.surface,
       location: a.location,
+      ...(a.wall ? { wall: a.wall } : {}),
       pattern: a.pattern,
       patternNote: a.patternNote,
       tiles: a.tileIds.map((id) => tilesById.get(id)!),
@@ -151,6 +152,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       tileImages,
       roomAnalysis: analysis,
       areas,
+      layout: design.layout ?? "open",
       requirements,
       roomType: body.roomType ?? analysis.roomType,
       context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id },

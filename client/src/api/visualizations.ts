@@ -21,7 +21,11 @@ interface GenerateVisualizationResponse {
 export async function generateVisualization(input: {
   roomUploadId: string;
   /** Per-area tiles and layout patterns. The server re-reads every tile from the catalog. */
-  design: { areas: Array<{ surface: SurfaceType; location: string; pattern: string; patternNote?: string; tileIds: string[] }> };
+  design: {
+    /** L / C connected-wall layout; omitted = free naming. */
+    layout?: "l_shape" | "c_shape";
+    areas: Array<{ surface: SurfaceType; location: string; wall?: string; pattern: string; patternNote?: string; tileIds: string[] }>;
+  };
   /** Optional natural-language design instructions (sanitized and length-checked by the server). */
   requirements?: string;
   visualizationId?: string;

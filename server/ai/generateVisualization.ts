@@ -34,7 +34,7 @@ async function attemptGeneration(input: GenerateVisualizationInput): Promise<Gen
   const model = aiConfig.models.visualization;
   // The prompt letters tiles in first-use order; attach the reference photos in that same order.
   const orderedImages = distinctTileIds(input.areas).map((id) => input.tileImages.find((t) => t.tileId === id)!.image);
-  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, undefined, input.roomType);
+  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, undefined, input.roomType, input.layout ?? "open");
   const start = Date.now();
 
   let response;

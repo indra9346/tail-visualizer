@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ROOM_TYPES, SURFACE_TYPES, TILE_CATEGORIES, TILE_STOCK_STATUSES } from "../ai/types.js";
 import { aiConfig } from "../ai/config.js";
 import { DESIGN_PATTERNS, PATTERN_SPECS } from "../ai/designPatterns.js";
+import { LAYOUT_SPECS, ROOM_LAYOUTS, WALL_IDS, coversAllWalls, wallSpec } from "../ai/roomLayouts.js";
 import { Errors } from "./apiError.js";
 
 // Base64 text is ~4/3 the size of the decoded bytes; add generous margin
@@ -111,6 +112,8 @@ export const designAreaSchema = z
   .object({
     surface: z.enum(SURFACE_TYPES),
     location: labelSchema(80),
+    /** Which numbered wall of an L / C layout this area is (only valid together with design.layout). */
+    wall: z.enum(WALL_IDS).optional(),
     pattern: z.enum(DESIGN_PATTERNS).default("single"),
     patternNote: labelSchema(160).optional(),
     tileIds: z.array(uuidSchema).min(1).max(MAX_TILES_PER_AREA),
@@ -128,7 +131,11 @@ export const designAreaSchema = z
   });
 
 export const designSchema = z
-  .object({ areas: z.array(designAreaSchema).min(1).max(MAX_DESIGN_AREAS) })
+  .object({
+    /** How the room's walls are connected. `open` (the default) = free naming; `l_shape` / `c_shape` = numbered connected walls. */
+    layout: z.enum(ROOM_LAYOUTS).default("open"),
+    areas: z.array(designAreaSchema).min(1).max(MAX_DESIGN_AREAS),
+  })
   .strict()
   .superRefine((design, ctx) => {
     const seen = new Set<string>();
@@ -138,6 +145,40 @@ export const designSchema = z
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas", i, "location"], message: "Two areas have the same surface and location." });
       }
       seen.add(key);
+    }
+
+    // Connected-wall rules. In an L / C layout every WALL area must be exactly one numbered wall of that
+    // layout (each at most once); walls with no area are kept as they are. In the free-naming layout no
+    // numbered wall may appear, and an "All walls" area cannot be combined with any other wall area.
+    const wallIssue = (i: number, message: string) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas", i, "wall"], message });
+    const usedWalls = new Set<string>();
+    for (const [i, area] of design.areas.entries()) {
+      if (design.layout === "open") {
+        if (area.wall) wallIssue(i, `Wall ${area.wall} needs an L-shape or C-shape room layout.`);
+        continue;
+      }
+      if (area.surface !== "wall") {
+        if (area.wall) wallIssue(i, "Only a wall area can name a numbered wall.");
+        continue;
+      }
+      if (!area.wall || !wallSpec(design.layout, area.wall)) {
+        wallIssue(i, `With the ${LAYOUT_SPECS[design.layout].label} layout, each wall area must be one of: ${LAYOUT_SPECS[design.layout].walls.map((w) => w.label).join(", ")}.`);
+        continue;
+      }
+      if (usedWalls.has(area.wall)) wallIssue(i, `Wall ${area.wall} appears twice.`);
+      usedWalls.add(area.wall);
+    }
+    if (design.layout === "open") {
+      const wallSurfaceAreas = design.areas.filter((a) => a.surface === "wall");
+      for (const [i, area] of design.areas.entries()) {
+        if (area.surface === "wall" && wallSurfaceAreas.length > 1 && coversAllWalls(area.location)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["areas", i, "location"],
+            message: `"${area.location}" already covers every wall, so it cannot be combined with another wall area. Remove it or name specific walls.`,
+          });
+        }
+      }
     }
     const distinct = new Set(design.areas.flatMap((a) => a.tileIds));
     if (distinct.size > MAX_DISTINCT_TILES) {

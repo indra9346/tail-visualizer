@@ -8,6 +8,7 @@
  */
 
 import type { DesignPattern } from "./designPatterns.js";
+import type { RoomLayout, WallId } from "./roomLayouts.js";
 
 // ---------- Enums (must stay in sync with the SQL migration) ----------
 
@@ -135,6 +136,8 @@ export interface DesignAreaInput {
   surface: SurfaceType;
   /** Short sanitized label naming the area (untrusted text, restricted charset). */
   location: string;
+  /** Set only for a wall of an L / C layout: which numbered wall this area is (the location is then its canonical label). */
+  wall?: WallId;
   pattern: DesignPattern;
   /** Optional sanitized note refining the pattern (e.g. "dado up to 4 ft"). */
   patternNote?: string | null;
@@ -148,6 +151,8 @@ export interface GenerateVisualizationInput {
   tileImages: Array<{ tileId: string; image: ImageInput }>;
   roomAnalysis: RoomAnalysis;
   areas: DesignAreaInput[];
+  /** How the room's walls are connected; `open` (or absent) = free naming, no numbered walls. */
+  layout?: RoomLayout;
   /** Sanitized customer requirements (untrusted free text, or null/undefined for defaults). */
   requirements?: string | null;
   /** Room type chosen by the showroom owner (overrides the analysis' guess in the prompt). */

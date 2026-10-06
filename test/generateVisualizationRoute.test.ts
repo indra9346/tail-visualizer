@@ -681,4 +681,67 @@ describe("POST /api/_routes/vizGenerate - multi-tile per-area design", () => {
     await handler(buildReq({ ...washroom(wl, wh, fa, fb), tileId: wl, surfaces: ["wall"] }), res);
     expect(res.statusCode).toBe(400);
   });
+
+  describe("connected walls (C-shape: C1 and C3 tiled with combos, middle wall C2 kept)", () => {
+    const cShape = (wl: string, wh: string, extra: Array<Record<string, unknown>> = []) => ({
+      roomUploadId: ROOM_ID,
+      design: {
+        layout: "c_shape",
+        areas: [
+          // The client label is deliberately wrong: the server always names a numbered wall itself.
+          { surface: "wall", wall: "C1", location: "anything the client typed", pattern: "dado", tileIds: [wl, wh] },
+          { surface: "wall", wall: "C3", location: "C3 (right wall)", pattern: "horizontal_bands", tileIds: [wh, wl] },
+          ...extra,
+        ],
+      },
+    });
+
+    test("tiles C1 and C3, leaves C2 alone, stores the layout and passes it to the generator", async () => {
+      const [wl, wh] = ids();
+      const res = makeRes();
+      await handler(buildReq(cShape(wl, wh)), res);
+
+      expect(res.statusCode).toBe(200);
+      expect(lastGenerateInput.layout).toBe("c_shape");
+      expect(lastGenerateInput.areas.map((a: { wall: string; location: string }) => [a.wall, a.location])).toEqual([
+        ["C1", "C1 (left wall)"],
+        ["C3", "C3 (right wall)"],
+      ]);
+      expect(lastGenerateInput.areas.some((a: { wall?: string }) => a.wall === "C2")).toBe(false);
+
+      const stored = fakeClient._dump("visualizations")[0]!.design as { layout: string; areas: Array<{ wall: string; location: string }> };
+      expect(stored.layout).toBe("c_shape");
+      expect(stored.areas.map((a) => a.wall)).toEqual(["C1", "C3"]);
+      expect(stored.areas[0]!.location).toBe("C1 (left wall)");
+    });
+
+    test("rejects the same wall twice, a wall that is not in the layout, and a wall area with no wall id", async () => {
+      const [wl, wh] = ids();
+      const bad: Array<Array<Record<string, unknown>>> = [
+        [{ surface: "wall", wall: "C1", location: "C1 (left wall)", pattern: "single", tileIds: [wl] }],
+        [{ surface: "wall", wall: "L1", location: "L1 (left wall)", pattern: "single", tileIds: [wl] }],
+        [{ surface: "wall", location: "Back wall", pattern: "single", tileIds: [wl] }],
+      ];
+      for (const extra of bad) {
+        const res = makeRes();
+        await handler(buildReq(cShape(wl, wh, extra)), res);
+        expect(res.statusCode).toBe(400);
+      }
+      expect(lastGenerateInput).toBeNull();
+    });
+
+    test("a layout design and the same walls as free-form areas never share a retry fingerprint", async () => {
+      const [wl, wh] = ids();
+      generateVisualizationImpl = async () => {
+        throw new Error("simulated failure");
+      };
+      await handler(buildReq(cShape(wl, wh)), makeRes());
+      const free = { roomUploadId: ROOM_ID, design: { areas: [
+        { surface: "wall", location: "C1 (left wall)", pattern: "dado", tileIds: [wl, wh] },
+        { surface: "wall", location: "C3 (right wall)", pattern: "horizontal_bands", tileIds: [wh, wl] },
+      ] } };
+      await handler(buildReq(free), makeRes());
+      expect(fakeClient._dump("visualizations")).toHaveLength(2);
+    });
+  });
 });

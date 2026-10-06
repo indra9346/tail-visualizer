@@ -92,12 +92,16 @@ export type DesignPatternId =
 export interface DesignArea {
   surface: SurfaceType;
   location: string;
+  /** Present only for a numbered wall of an L / C layout. */
+  wall?: "L1" | "L2" | "C1" | "C2" | "C3";
   pattern: DesignPatternId;
   patternNote: string | null;
   tileIds: string[];
 }
 
 export interface Design {
+  /** Present only for an L / C layout; absent = free naming (and for every design saved before layouts existed). */
+  layout?: "open" | "l_shape" | "c_shape";
   areas: DesignArea[];
 }
 

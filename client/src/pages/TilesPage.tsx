@@ -6,6 +6,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ProgressSteps, type Step } from "@/components/ui/ProgressSteps";
 import { AreaCard } from "@/components/design/AreaCard";
+import { RoomLayoutPicker } from "@/components/design/RoomLayoutPicker";
 import { TilePickerModal } from "@/components/design/TilePickerModal";
 import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { getRoom, getRoomAnalysis } from "@/api/rooms";
@@ -17,6 +18,7 @@ import { useWorkflow } from "@/context/WorkflowContext";
 import { SURFACES, SURFACE_ORDER } from "@/lib/designPatterns";
 import {
   MAX_AREAS,
+  applyLayout,
   chosenTiles,
   distinctTileCount,
   loadDraft,
@@ -24,9 +26,11 @@ import {
   saveDraft,
   tileFitsSurface,
   toPayload,
+  toggleWall,
   validateDraft,
   type DraftArea,
 } from "@/lib/designDraft";
+import { keptWalls, type RoomLayout, type WallId } from "@/lib/roomLayouts";
 import type { RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
 const GENERATION_STAGES = ["Preparing your room", "Placing each tile in its area", "Laying out your patterns", "Rendering realistic lighting", "Finalizing visualization"];
@@ -48,6 +52,7 @@ export function TilesPage() {
   const [roomImage, setRoomImage] = useState<string | null>(null);
 
   const [areas, setAreas] = useState<DraftArea[] | null>(null);
+  const [layout, setLayout] = useState<RoomLayout>("open");
   const [picker, setPicker] = useState<{ areaKey: string; slot: number } | null>(null);
   const [recommendedIds, setRecommendedIds] = useState<Set<string>>(new Set());
   const [reasons, setReasons] = useState<Record<string, string>>({});
@@ -118,8 +123,9 @@ export function TilesPage() {
   useEffect(() => {
     if (!roomId || !analysis || areas !== null) return;
     const draft = loadDraft(roomId);
-    if (draft && draft.length > 0) {
-      setAreas(draft);
+    if (draft && draft.areas.length > 0) {
+      setLayout(draft.layout);
+      setAreas(draft.areas);
       return;
     }
     const surfaces: SurfaceType[] = analysis.recommendedSurfaces.length > 0 ? analysis.recommendedSurfaces : ["wall"];
@@ -133,15 +139,23 @@ export function TilesPage() {
   }, [roomId, analysis, areas, selectedTile]);
 
   useEffect(() => {
-    if (roomId && areas) saveDraft(roomId, areas);
-  }, [roomId, areas]);
+    if (roomId && areas) saveDraft(roomId, areas, layout);
+  }, [roomId, areas, layout]);
 
-  const issues = useMemo(() => validateDraft(areas ?? []), [areas]);
+  const issues = useMemo(() => validateDraft(areas ?? [], layout), [areas, layout]);
+  const tiledWalls = useMemo(() => new Set((areas ?? []).map((a) => a.wall).filter((w): w is WallId => !!w)), [areas]);
+  const keptWallLabels = useMemo(() => (layout === "open" ? [] : keptWalls(layout, [...tiledWalls]).map((w) => w.label)), [layout, tiledWalls]);
   const ready = areas !== null && Object.keys(issues).length === 0;
   const tileTotal = areas ? distinctTileCount(areas) : 0;
   const lowCredits = balance !== null && generationCost !== null && balance < generationCost;
 
   const updateArea = useCallback((key: string, next: DraftArea) => setAreas((prev) => prev?.map((a) => (a.key === key ? next : a)) ?? prev), []);
+
+  function changeLayout(next: RoomLayout) {
+    setAreas((prev) => applyLayout(prev ?? [], next));
+    setLayout(next);
+    setShowIssues(false);
+  }
 
   function addArea(surface: SurfaceType) {
     setAreas((prev) => {
@@ -178,7 +192,7 @@ export function TilesPage() {
     try {
       const visualization = await generateVisualization({
         roomUploadId: roomId,
-        design: toPayload(areas),
+        design: toPayload(areas, layout),
         ...(requirements.trim().length > 0 ? { requirements: requirements.trim() } : {}),
       });
       clearInterval(stageTimer);
@@ -250,6 +264,13 @@ export function TilesPage() {
           </aside>
 
           <div className="space-y-5">
+            <RoomLayoutPicker
+              layout={layout}
+              tiledWalls={tiledWalls}
+              onLayoutChange={changeLayout}
+              onToggleWall={(id) => setAreas((prev) => toggleWall(prev ?? [], layout, id))}
+            />
+
             {areas.map((area, i) => (
               <AreaCard
                 key={area.key}
@@ -266,7 +287,8 @@ export function TilesPage() {
               <div className="rounded-2xl border border-dashed border-stone-300 p-4">
                 <p className="mb-2.5 text-sm font-medium text-stone-700">Add another area</p>
                 <div className="flex flex-wrap gap-2">
-                  {SURFACE_ORDER.map((s) => (
+                  {/* In an L / C room the walls are chosen in "Room shape" above, so a loose "Wall" area is not offered. */}
+                  {SURFACE_ORDER.filter((s) => layout === "open" || s !== "wall").map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -309,6 +331,7 @@ export function TilesPage() {
                   ? areas.map((a) => `${a.location}: ${chosenTiles(a).map((t) => t.name).join(" + ")}`).join("  |  ").slice(0, 140)
                   : "Choose the required tiles for every area to continue."}
               </p>
+              {keptWallLabels.length > 0 && <p className="text-xs font-medium text-stone-600">Kept as in the photo: {keptWallLabels.join(", ")}</p>}
               {generationCost !== null && (
                 <p className="mt-1 text-xs text-stone-400">
                   Generation cost: {generationCost} credits{balance !== null && <> · Balance: {balance}</>}

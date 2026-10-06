@@ -80,42 +80,51 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile }
           {area.location || "New area"}
         </h3>
         <button type="button" onClick={onRemove} className="rounded-lg px-2.5 py-1.5 text-sm text-stone-500 hover:bg-red-50 hover:text-red-700">
-          Remove area
+          {area.wall ? "Keep this wall as is" : "Remove area"}
         </button>
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor={`${idBase}-surface`} className={fieldLabel}>Surface</label>
-          <select id={`${idBase}-surface`} className={field} value={area.surface} onChange={(e) => setSurface(e.target.value as SurfaceType)}>
-            {SURFACE_ORDER.map((s) => (
-              <option key={s} value={s}>
-                {SURFACES[s].label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor={`${idBase}-location`} className={fieldLabel}>Which part? (name it)</label>
-          <Input id={`${idBase}-location`} maxLength={80} value={area.location} onChange={(e) => onChange({ ...area, location: e.target.value })} placeholder="e.g. Wall behind basin" />
-        </div>
-      </div>
+      {area.wall ? (
+        // A numbered wall of an L / C layout: its name and surface are fixed so it can never overlap another wall.
+        <p className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
+          Connected wall <strong className="text-stone-900">{area.wall}</strong> (numbered left to right in your photo). Its tile stops at the corner with any wall you keep.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor={`${idBase}-surface`} className={fieldLabel}>Surface</label>
+              <select id={`${idBase}-surface`} className={field} value={area.surface} onChange={(e) => setSurface(e.target.value as SurfaceType)}>
+                {SURFACE_ORDER.map((s) => (
+                  <option key={s} value={s}>
+                    {SURFACES[s].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`${idBase}-location`} className={fieldLabel}>Which part? (name it)</label>
+              <Input id={`${idBase}-location`} maxLength={80} value={area.location} onChange={(e) => onChange({ ...area, location: e.target.value })} placeholder="e.g. Wall behind basin" />
+            </div>
+          </div>
 
-      <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Quick location names">
-        {surface.locations.map((loc) => (
-          <button
-            key={loc}
-            type="button"
-            onClick={() => onChange({ ...area, location: loc })}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-xs transition-colors",
-              area.location === loc ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 text-stone-600 hover:bg-stone-100",
-            )}
-          >
-            {loc}
-          </button>
-        ))}
-      </div>
+          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Quick location names">
+            {surface.locations.map((loc) => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => onChange({ ...area, location: loc })}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                  area.location === loc ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 text-stone-600 hover:bg-stone-100",
+                )}
+              >
+                {loc}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="mt-5">
         <label htmlFor={`${idBase}-pattern`} className={fieldLabel}>Layout pattern</label>

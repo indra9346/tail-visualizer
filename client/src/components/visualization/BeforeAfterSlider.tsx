@@ -41,7 +41,11 @@ export function BeforeAfterSlider({
   const [position, setPosition] = useState(50);
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [pan, setPan] = useState<PanOffset>({ x: 0, y: 0 });
-  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  // The frame takes the shape of the RESULT image. It is remembered together with the image it was measured from,
+  // so a photo that finished loading before React attached its handlers (cached / data URLs) or before a state
+  // reset can never leave the frame stuck at the 4:3 placeholder, with a portrait photo letterboxed inside it.
+  const [measured, setMeasured] = useState<{ src: string; ratio: number } | null>(null);
+  const aspectRatio = measured && measured.src === afterSrc ? measured.ratio : null;
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const stageRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,8 +57,16 @@ export function BeforeAfterSlider({
     setPosition(50);
     setZoom(MIN_ZOOM);
     setPan({ x: 0, y: 0 });
-    setAspectRatio(null);
   }, [beforeSrc, afterSrc]);
+
+  const measureAfter = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image || !image.naturalWidth || !image.naturalHeight) return;
+      const ratio = image.naturalWidth / image.naturalHeight;
+      setMeasured((current) => (current && current.src === afterSrc && current.ratio === ratio ? current : { src: afterSrc, ratio }));
+    },
+    [afterSrc],
+  );
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -156,14 +168,15 @@ export function BeforeAfterSlider({
     transformOrigin: "center center",
   };
 
+  // Kept inside the frame at both ends so the handle is never half cut off when the divider sits at 0% or 100%.
+  const handleLeft = `clamp(22px, ${position}%, calc(100% - 22px))`;
+  // The range input is exactly as wide as the picture it controls (not as wide as the page).
+  const sliderStyle: React.CSSProperties = { width: frameWidth ? `${frameWidth}px` : "100%", maxWidth: expanded ? "calc(100% - 2rem)" : "100%" };
+
   const stage = (
       <div
         ref={stageRef}
-        className={`relative flex w-full items-center justify-center ${
-          expanded
-            ? "min-h-0 flex-1 px-2 pb-3 sm:px-4 sm:pb-4"
-            : "overflow-hidden rounded-2xl bg-stone-100"
-        }`}
+        className={`relative flex w-full items-center justify-center ${expanded ? "min-h-0 flex-1 px-2 pb-3 sm:px-4 sm:pb-4" : ""}`}
         style={expanded ? undefined : { height: "min(72dvh, calc(100dvh - 230px))" }}
       >
       <div
@@ -187,15 +200,13 @@ export function BeforeAfterSlider({
         }}
       >
         <img
+          ref={measureAfter}
           src={afterSrc}
           alt={afterAlt}
           className="absolute inset-0 h-full w-full object-contain"
           style={imageStyle}
           draggable={false}
-          onLoad={(event) => {
-            const image = event.currentTarget;
-            if (image.naturalWidth && image.naturalHeight) setAspectRatio(image.naturalWidth / image.naturalHeight);
-          }}
+          onLoad={(event) => measureAfter(event.currentTarget)}
         />
 
         {beforeSrc && (
@@ -203,16 +214,13 @@ export function BeforeAfterSlider({
             className="absolute inset-0 h-full w-full"
             style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
           >
+            {/* Same frame as the result, so features line up on both sides of the divider. */}
             <img
               src={beforeSrc}
               alt={beforeAlt}
-              className="h-full w-full object-contain"
+              className="h-full w-full object-cover"
               style={imageStyle}
               draggable={false}
-              onLoad={(event) => {
-                const image = event.currentTarget;
-                if (image.naturalWidth && image.naturalHeight) setAspectRatio(image.naturalWidth / image.naturalHeight);
-              }}
             />
           </div>
         )}
@@ -226,15 +234,14 @@ export function BeforeAfterSlider({
               After
             </div>
             <div
-              className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow"
+              className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-white shadow"
               style={{ left: `${position}%` }}
-            >
-              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-lg">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M8 5l-6 7 6 7M16 5l6 7-6 7" stroke="#1c1917" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
+            />
+            <div className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: handleLeft }}>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-lg">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M8 5l-6 7 6 7M16 5l6 7-6 7" stroke="#1c1917" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             </div>
           </>
@@ -325,7 +332,7 @@ export function BeforeAfterSlider({
         </header>
         {stage}
         {showComparison && (
-          <label className="shrink-0 px-4 pb-3 sm:px-6 sm:pb-4">
+          <label className="mx-auto block shrink-0 pb-3 sm:pb-4" style={sliderStyle}>
             <span className="sr-only">Comparison slider position</span>
             <input
               type="range"
@@ -347,7 +354,7 @@ export function BeforeAfterSlider({
     <div className="w-full select-none">
       {stage}
       {showComparison && (
-        <label className="mt-4 block">
+        <label className="mx-auto mt-3 block" style={sliderStyle}>
           <span className="sr-only">Comparison slider position</span>
           <input
             type="range"

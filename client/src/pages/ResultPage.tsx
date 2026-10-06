@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { getVisualization, deleteVisualization } from "@/api/visualizations";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PATTERNS, SURFACES } from "@/lib/designPatterns";
+import { keptWalls } from "@/lib/roomLayouts";
+import { cn } from "@/lib/cn";
 import { getRoom } from "@/api/rooms";
 import { friendlyErrorMessage } from "@/api/client";
 import { useWorkflow } from "@/context/WorkflowContext";
@@ -123,8 +125,13 @@ export function ResultPage() {
     );
   }
 
+  const hasViewer = visualization.status === "completed" && Boolean(visualization.resultImageUrl);
+  const layout = visualization.design?.layout ?? "open";
+  // Walls of an L / C layout that were NOT tiled: they stay exactly as in the photo.
+  const kept = layout !== "open" && visualization.design ? keptWalls(layout, visualization.design.areas.map((a) => a.wall)) : [];
+
   return (
-    <PageContainer compact className="!max-w-none">
+    <PageContainer compact className="max-w-7xl">
     <div className="w-full">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -179,9 +186,11 @@ export function ResultPage() {
         </motion.div>
       )}
 
-      {visualization.status === "completed" && visualization.resultImageUrl && (
+      {/* Picture on the left, design details and actions beside it on a laptop, so nothing important sits below the fold. */}
+      <div className={cn("mt-4 grid gap-6", hasViewer && "lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start")}>
+      {hasViewer && visualization.resultImageUrl && (
         <motion.div
-          className="mx-auto mt-4"
+          className="min-w-0"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
@@ -197,8 +206,9 @@ export function ResultPage() {
         </motion.div>
       )}
 
+      <div className="min-w-0">
       <motion.div
-        className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className={cn("grid gap-3 sm:grid-cols-2", hasViewer ? "lg:grid-cols-1" : "lg:grid-cols-3")}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
@@ -270,6 +280,15 @@ export function ResultPage() {
             </Card>
           </>
         )}
+        {kept.length > 0 && (
+          <Card className="border-dashed">
+            <CardBody className="py-4">
+              <p className="text-xs uppercase tracking-wide text-stone-400">Kept as in your photo</p>
+              <p className="mt-0.5 font-medium text-stone-900">{kept.map((w) => w.label).join(", ")}</p>
+              <p className="text-xs text-stone-500">Not tiled. The new tile stops at the corner.</p>
+            </CardBody>
+          </Card>
+        )}
         {visualization.requirements && (
           <Card className="sm:col-span-2 lg:col-span-1">
             <CardBody className="py-4">
@@ -286,7 +305,7 @@ export function ResultPage() {
         </p>
       )}
 
-      <div className="mt-6 flex flex-wrap gap-2.5">
+      <div className="mt-5 flex flex-wrap gap-2.5">
         {visualization.status === "completed" && visualization.resultImageUrl && (
           <Button size="md" variant="secondary" onClick={handleDownload} loading={downloading}>
             Save Visualization
@@ -322,6 +341,8 @@ export function ResultPage() {
       ) : (
         <p className="mt-2.5 text-xs text-stone-400">This is a visualization its owner has chosen to make public.</p>
       )}
+      </div>
+      </div>
     </div>
     <ConfirmDialog
       open={confirmingDelete}
