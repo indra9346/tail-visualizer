@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
@@ -19,6 +20,19 @@ interface Props {
 const field = "w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900";
 const fieldLabel = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-500";
 
+/** The tile photo. If it cannot be loaded, a neutral swatch with the tile's initials is shown instead of the browser's broken-image icon and raw alt text. */
+function TileThumb({ tile }: { tile: Tile }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) {
+    return (
+      <span role="img" aria-label={tile.name} className="flex h-full w-full items-center justify-center bg-stone-200 text-sm font-semibold uppercase text-stone-500">
+        {tile.name.trim().slice(0, 2)}
+      </span>
+    );
+  }
+  return <img src={getPublicTileImageUrl(tile.storagePath)} alt={tile.name} className="h-full w-full object-cover" onError={() => setBroken(true)} />;
+}
+
 function Slot({ role, required, tile, onPick, onClear }: { role: string; required: boolean; tile: Tile | null; onPick: () => void; onClear: () => void }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-stone-200 bg-stone-50 p-2.5">
@@ -31,7 +45,7 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
           tile ? "border-stone-300" : "border-dashed border-stone-400 bg-white text-2xl text-stone-400 hover:border-clay-500 hover:text-clay-600",
         )}
       >
-        {tile ? <img src={getPublicTileImageUrl(tile.storagePath)} alt={tile.name} className="h-full w-full object-cover" /> : "+"}
+        {tile ? <TileThumb tile={tile} /> : "+"}
       </button>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">

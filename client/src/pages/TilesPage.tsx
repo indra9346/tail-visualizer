@@ -332,26 +332,28 @@ export function TilesPage() {
       )}
 
       {areas !== null && (
-        <Card className="sticky bottom-4 z-10 mt-10 border-stone-900 shadow-xl">
-          <CardBody className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-display text-lg text-stone-900">
+        <Card className="sticky bottom-2 z-10 mt-8 border-stone-900 shadow-xl sm:bottom-4 sm:mt-10">
+          <CardBody className="flex items-center justify-between gap-3 !py-3 sm:!py-4">
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base leading-tight text-stone-900 sm:text-lg">
                 {areas.length} area{areas.length === 1 ? "" : "s"} · {tileTotal} tile{tileTotal === 1 ? "" : "s"}
               </p>
-              <p className="text-xs text-stone-500">
+              {/* The full list only where there is room; it wraps to at most two lines and is never cut mid-word. */}
+              <p className="line-clamp-2 hidden text-xs text-stone-500 sm:block">
                 {ready
-                  ? areas.map((a) => `${a.location}: ${chosenTiles(a).map((t) => t.name).join(" + ")}`).join("  |  ").slice(0, 140)
+                  ? areas.map((a) => `${a.location}: ${chosenTiles(a).map((t) => t.name).join(" + ")}`).join("  |  ")
                   : "Choose the required tiles for every area to continue."}
               </p>
-              {keptLabelList.length > 0 && <p className="text-xs font-medium text-stone-600">Kept as in the photo: {keptLabelList.join(", ")}</p>}
+              {!ready && <p className="truncate text-xs text-stone-500 sm:hidden">Choose a tile for every area to continue.</p>}
+              {keptLabelList.length > 0 && <p className="truncate text-xs font-medium text-stone-600">Kept as in the photo: {keptLabelList.join(", ")}</p>}
               {generationCost !== null && (
-                <p className="mt-1 text-xs text-stone-400">
-                  Generation cost: {generationCost} credits{balance !== null && <> · Balance: {balance}</>}
+                <p className="truncate text-[11px] text-stone-400 sm:text-xs">
+                  Cost: {generationCost} credits{balance !== null && <> · Balance: {balance}</>}
                 </p>
               )}
             </div>
-            <Button size="lg" onClick={handleGenerate} disabled={lowCredits && ready}>
-              Preview This Design
+            <Button size="md" className="shrink-0 sm:px-7 sm:py-3.5 sm:text-base" onClick={handleGenerate} disabled={lowCredits && ready}>
+              Preview<span className="hidden sm:inline">&nbsp;This Design</span>
             </Button>
           </CardBody>
         </Card>
