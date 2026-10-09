@@ -177,6 +177,9 @@ export function LandingPage() {
         <HeroRoom />
         <div className="pointer-events-none absolute -right-32 -top-32 h-[32rem] w-[32rem] rounded-full bg-clay-200/40 blur-3xl" />
         <div className="pointer-events-none absolute -left-32 top-1/2 h-[28rem] w-[28rem] rounded-full bg-clay-300/30 blur-3xl" />
+        {/* Fades the floor tile backdrop into the page background so the
+            footer never cuts straight into it when the showroom is collapsed. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent via-[#faf4eb]/80 to-[#faf4eb]" />
 
         <div className="container-page relative grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-14">
           {/* Hero Left Content */}
@@ -507,7 +510,7 @@ export function LandingPage() {
         )}
       </section>
 
-      {!showMore && <div className="h-px" ref={moreRef} aria-hidden="true" />}
+      {!showMore && <div className="h-10 sm:h-16" ref={moreRef} aria-hidden="true" />}
 
       {/* Everything below the fold stays out of the DOM until the visitor
           explicitly asks for it — the tool panel above is the whole app on
