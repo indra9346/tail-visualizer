@@ -246,7 +246,7 @@ export function CalculatorPage() {
                           </button>
                         )}
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-3">
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div>
                           <label className={label} htmlFor={`len-${a.id}`}>Length ({unitLabel})</label>
                           <input id={`len-${a.id}`} inputMode="decimal" className={field} value={a.length} onChange={(e) => updateArea(a.id, { length: e.target.value })} placeholder="0" />

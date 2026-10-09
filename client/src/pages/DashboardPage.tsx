@@ -147,51 +147,84 @@ export function DashboardPage() {
                 View all
               </Link>
             </div>
-            <Card className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm">
-                <thead>
-                  <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3 text-right">Credits</th>
-                    <th className="px-4 py-3 text-right">Balance</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-stone-400">
-                        No transactions yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    transactions.map((t, i) => (
-                      <motion.tr
-                        key={t.id}
-                        className="border-b border-stone-50 last:border-0"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25, delay: i * 0.03, ease: "easeOut" }}
-                      >
-                        <td className="whitespace-nowrap px-4 py-3 text-stone-500">{new Date(t.createdAt).toLocaleString()}</td>
-                        <td className="px-4 py-3">
-                          <Badge tone={TX_TONE[t.type] ?? "neutral"}>{t.type.replace(/_/g, " ")}</Badge>
-                        </td>
-                        <td className="px-4 py-3 text-stone-700">{t.description}</td>
-                        <td className={`px-4 py-3 text-right font-medium ${t.amount >= 0 ? "text-emerald-700" : "text-stone-900"}`}>
-                          {t.amount > 0 ? "+" : ""}
-                          {t.amount}
-                        </td>
-                        <td className="px-4 py-3 text-right text-stone-500">{t.balanceAfter}</td>
-                        <td className="px-4 py-3 text-stone-500">{t.status}</td>
-                      </motion.tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </Card>
+            {transactions.length === 0 ? (
+              <Card className="mt-3">
+                <p className="px-4 py-6 text-center text-sm text-stone-400">No transactions yet.</p>
+              </Card>
+            ) : (
+              <>
+                {/* Phone: a stacked list of cards — a 6-column table forced
+                    into a narrow viewport is unreadable even with scroll. */}
+                <ul className="mt-3 space-y-2.5 sm:hidden">
+                  {transactions.map((t, i) => (
+                    <motion.li
+                      key={t.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: i * 0.03, ease: "easeOut" }}
+                    >
+                      <Card className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <Badge tone={TX_TONE[t.type] ?? "neutral"}>{t.type.replace(/_/g, " ")}</Badge>
+                            <p className="mt-1.5 text-sm text-stone-700">{t.description}</p>
+                          </div>
+                          <p className={`shrink-0 text-right font-display text-lg font-semibold ${t.amount >= 0 ? "text-emerald-700" : "text-stone-900"}`}>
+                            {t.amount > 0 ? "+" : ""}
+                            {t.amount}
+                          </p>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between border-t border-stone-100 pt-2.5 text-xs text-stone-500">
+                          <span>{new Date(t.createdAt).toLocaleString()}</span>
+                          <span>
+                            Balance {t.balanceAfter} · {t.status}
+                          </span>
+                        </div>
+                      </Card>
+                    </motion.li>
+                  ))}
+                </ul>
+
+                {/* Tablet and up: the full table */}
+                <Card className="mt-3 hidden overflow-x-auto sm:block">
+                  <table className="w-full min-w-[560px] text-sm">
+                    <thead>
+                      <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">
+                        <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Description</th>
+                        <th className="px-4 py-3 text-right">Credits</th>
+                        <th className="px-4 py-3 text-right">Balance</th>
+                        <th className="px-4 py-3">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((t, i) => (
+                        <motion.tr
+                          key={t.id}
+                          className="border-b border-stone-50 last:border-0"
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25, delay: i * 0.03, ease: "easeOut" }}
+                        >
+                          <td className="whitespace-nowrap px-4 py-3 text-stone-500">{new Date(t.createdAt).toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            <Badge tone={TX_TONE[t.type] ?? "neutral"}>{t.type.replace(/_/g, " ")}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-stone-700">{t.description}</td>
+                          <td className={`px-4 py-3 text-right font-medium ${t.amount >= 0 ? "text-emerald-700" : "text-stone-900"}`}>
+                            {t.amount > 0 ? "+" : ""}
+                            {t.amount}
+                          </td>
+                          <td className="px-4 py-3 text-right text-stone-500">{t.balanceAfter}</td>
+                          <td className="px-4 py-3 text-stone-500">{t.status}</td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+              </>
+            )}
           </section>
         </>
       )}
