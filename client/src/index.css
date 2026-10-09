@@ -6,15 +6,17 @@
   html {
     scroll-behavior: smooth;
     min-height: 100%;
-    /* Safety net: a nested flex/grid item that forgets min-w-0 can force the
-       page wider than the viewport on narrow screens. Clip it here too, not
-       just at the component that happens to cause it today. */
-    overflow-x: hidden;
   }
   body {
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
     color: #303B33;
-    overflow-x: hidden;
+    /* No overflow-x:hidden here: setting it on html/body makes that element
+       its own scroll container (the CSS overflow computed-value rules turn
+       the other axis's "visible" into "auto"), which breaks position:sticky
+       for descendants like the mobile navbar and sidebar — they stop
+       sticking to the viewport and scroll away instead. Overflow safety
+       belongs on individual components (min-w-0 on grid/flex items), not
+       here. */
     /* One coordinated canvas — a single soft highlight near the top, not a
        stack of competing gradients, so every section sits on the same
        surface instead of its own patch of cream. */
