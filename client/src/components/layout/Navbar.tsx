@@ -153,9 +153,10 @@ export function Navbar() {
                           className={({ isActive }) =>
                             cn(
                               "group relative flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 sm:py-3 text-sm font-medium transition-all duration-200",
+                              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-champagne-500",
                               isActive
-                                ? "bg-stone-900 text-white shadow-md shadow-stone-900/20"
-                                : "text-stone-700 hover:bg-stone-100 hover:text-stone-950 active:scale-[0.99]",
+                                ? "bg-surface-sage text-sage-800 font-semibold"
+                                : "text-ink-secondary hover:bg-surface-sage/60 hover:text-ink active:scale-[0.99]",
                             )
                           }
                         >
@@ -165,8 +166,8 @@ export function Navbar() {
                                 className={cn(
                                   "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ease-out",
                                   isActive
-                                    ? "bg-stone-800 text-clay-400 ring-1 ring-white/10 shadow-sm"
-                                    : "bg-stone-100 text-stone-500 group-hover:bg-clay-100 group-hover:text-clay-800 group-hover:scale-105 group-hover:shadow-sm",
+                                    ? "bg-surface-card text-sage-700 ring-1 ring-hairline shadow-sm"
+                                    : "bg-surface-app text-ink-secondary group-hover:bg-surface-card group-hover:text-sage-700 group-hover:scale-105 group-hover:shadow-sm",
                                 )}
                               >
                                 {item.icon}
@@ -181,10 +182,10 @@ export function Navbar() {
                               </span>
 
                               {isActive ? (
-                                <span className="ml-auto flex h-2 w-2 rounded-full bg-clay-400 shadow-[0_0_8px_rgba(212,184,146,0.9)] animate-pulse" />
+                                <span className="ml-auto flex h-2 w-2 rounded-full bg-champagne-500 shadow-[0_0_8px_rgba(214,188,141,0.8)]" />
                               ) : (
                                 <svg
-                                  className="ml-auto h-4 w-4 opacity-0 -translate-x-1.5 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 text-stone-400 group-hover:text-clay-600"
+                                  className="ml-auto h-4 w-4 opacity-0 -translate-x-1.5 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 text-ink-secondary/60 group-hover:text-sage-700"
                                   viewBox="0 0 24 24"
                                   fill="none"
                                   stroke="currentColor"

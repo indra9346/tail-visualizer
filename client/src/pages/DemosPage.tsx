@@ -365,8 +365,8 @@ export function DemosPage() {
               onClick={() => setSelectedScenario(scenario.id)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 selectedScenario === scenario.id
-                  ? "bg-stone-950 text-white shadow-md"
-                  : "bg-white/80 text-stone-800 border border-stone-300/80 hover:bg-white"
+                  ? "bg-sage-800 text-white shadow-md"
+                  : "bg-surface-card text-ink-secondary border border-hairline hover:bg-white hover:text-ink"
               }`}
             >
               {scenario.title}
@@ -376,7 +376,7 @@ export function DemosPage() {
 
         {/* Active Scenario Detail Card */}
         <div className="mt-8">
-          <Card className="overflow-hidden border-stone-300/80 bg-white/85 shadow-lg backdrop-blur-sm">
+          <Card className="overflow-hidden border-hairline bg-surface-card shadow-lg">
             <CardBody className="p-8">
               <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
                 <div className="lg:col-span-5">
@@ -425,28 +425,28 @@ export function DemosPage() {
 
                 <div className="lg:col-span-7">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-stone-300/80 bg-[#F3F6F1]/90 p-4 shadow-sm">
-                      <div className="flex items-center justify-between text-xs font-semibold text-stone-600 uppercase tracking-wider mb-2">
+                    <div className="rounded-2xl border border-hairline bg-surface-sage/50 p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary uppercase tracking-wider mb-2">
                         <span>Current Space</span>
-                        <span className="rounded bg-stone-200/90 px-1.5 py-0.5 text-[10px] text-stone-700 font-bold">Before</span>
+                        <span className="rounded bg-surface-card px-1.5 py-0.5 text-[10px] text-ink-secondary font-bold">Before</span>
                       </div>
-                      <div className="aspect-[4/3] rounded-xl bg-stone-100 overflow-hidden relative border border-stone-300/70 flex items-center justify-center text-stone-600 text-xs p-4 text-center font-medium">
+                      <div className="aspect-[4/3] rounded-xl bg-surface-card overflow-hidden relative border border-hairline flex items-center justify-center text-ink-secondary text-xs p-4 text-center font-medium">
                         <p>{currentScenario.originalDescription}</p>
                       </div>
-                      <p className="mt-3 text-xs text-stone-600">
+                      <p className="mt-3 text-xs text-ink-secondary">
                         High risk of mismatch if ordered without visual trial.
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-clay-300/80 bg-white/90 p-4 shadow-sm">
-                      <div className="flex items-center justify-between text-xs font-semibold text-clay-950 uppercase tracking-wider mb-2">
+                    <div className="rounded-2xl border border-champagne-300/80 bg-surface-card p-4 shadow-sm">
+                      <div className="flex items-center justify-between text-xs font-semibold text-sage-800 uppercase tracking-wider mb-2">
                         <span>Virtual Preview</span>
-                        <span className="rounded bg-clay-200 px-1.5 py-0.5 text-[10px] text-clay-950 font-bold">SDS TILES & CERAMICS</span>
+                        <span className="rounded bg-champagne-200 px-1.5 py-0.5 text-[10px] text-sage-900 font-bold">SDS TILES & CERAMICS</span>
                       </div>
-                      <div className="aspect-[4/3] rounded-xl bg-[#FAF9F5] overflow-hidden relative border border-clay-300 flex items-center justify-center text-stone-900 text-xs p-4 text-center shadow-inner">
-                        <p className="font-medium text-stone-800">{currentScenario.transformedDescription}</p>
+                      <div className="aspect-[4/3] rounded-xl bg-surface-card overflow-hidden relative border border-champagne-300 flex items-center justify-center text-ink text-xs p-4 text-center shadow-inner">
+                        <p className="font-medium text-ink-secondary">{currentScenario.transformedDescription}</p>
                       </div>
-                      <p className="mt-3 text-xs text-clay-800 font-medium">
+                      <p className="mt-3 text-xs text-sage-800 font-medium">
                         Instant confidence before laying down mortar and buying boxes.
                       </p>
                     </div>
@@ -460,9 +460,9 @@ export function DemosPage() {
 
       {/* Comparison: Traditional vs SDS TILES & CERAMICS */}
       <section className="container-page mt-24">
-        <div className="on-light relative overflow-hidden rounded-3xl bg-[#F1ECE3] p-6 text-stone-900 sm:p-12">
+        <div className="on-light relative overflow-hidden rounded-3xl bg-surface-limestone p-6 text-ink sm:p-12">
           <TileScene scene="plank" className="absolute inset-0 h-full w-full" />
-          <div className="absolute inset-0 bg-white/55" />
+          <div className="absolute inset-0 bg-surface-card/60" />
           <div className="relative">
           <div className="max-w-2xl">
             <span className="rounded-full bg-clay-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-300">

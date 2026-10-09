@@ -40,7 +40,7 @@ export function Sidebar() {
       initial={false}
       animate={{ width: collapsed ? 76 : 240 }}
       transition={{ type: "spring", damping: 28, stiffness: 260 }}
-      className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0 lg:flex-col lg:border-r lg:border-white/5 lg:bg-stone-950"
+      className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0 lg:flex-col lg:border-r lg:border-hairline lg:bg-surface-card"
     >
       <div className="flex items-center gap-2.5 px-4 py-5">
         <DoorNavLink to="/" roomLabel="HOME" className="flex shrink-0 items-center" aria-label="SDS Tiles home">
@@ -53,8 +53,8 @@ export function Sidebar() {
             transition={{ delay: 0.08 }}
             className="min-w-0 leading-none"
           >
-            <p className="truncate font-display text-sm font-bold text-white">SDS Tiles</p>
-            <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-clay-400/80">
+            <p className="truncate font-display text-sm font-bold text-ink">SDS Tiles</p>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-sage-600">
               Virtual Trial Room
             </p>
           </motion.div>
@@ -72,11 +72,12 @@ export function Sidebar() {
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-300 transition-all duration-200",
+                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-champagne-500",
                     collapsed && "justify-center",
                     isActive
-                      ? "bg-white/10 text-white"
-                      : "hover:bg-white/5 hover:text-white",
+                      ? "bg-surface-sage text-sage-800"
+                      : "text-ink-secondary hover:bg-surface-sage/60 hover:text-ink",
                   )
                 }
               >
@@ -85,16 +86,18 @@ export function Sidebar() {
                     <span
                       className={cn(
                         "flex h-5 w-5 shrink-0 items-center justify-center",
-                        isActive ? "text-clay-400" : "text-stone-400 group-hover:text-clay-300",
+                        isActive ? "text-sage-700" : "text-ink-secondary/80 group-hover:text-sage-700",
                       )}
                     >
                       {item.icon}
                     </span>
-                    {!collapsed && <span className="truncate tracking-tight">{item.label}</span>}
+                    {!collapsed && (
+                      <span className={cn("truncate tracking-tight", isActive && "font-semibold")}>{item.label}</span>
+                    )}
                     {isActive && (
                       <motion.span
                         layoutId="sidebar-active-pill"
-                        className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-clay-400"
+                        className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-champagne-500"
                         transition={{ type: "spring", damping: 24, stiffness: 300 }}
                       />
                     )}
@@ -106,13 +109,14 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      <div className="border-t border-white/5 p-2.5">
+      <div className="border-t border-hairline p-2.5">
         {!loading && user && (
           <button
             type="button"
             title={collapsed ? "Sign out" : undefined}
             className={cn(
-              "mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-300 transition-colors hover:bg-white/5 hover:text-white",
+              "mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-sage/60 hover:text-ink",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-champagne-500",
               collapsed && "justify-center",
             )}
             onClick={async () => {
@@ -120,7 +124,7 @@ export function Sidebar() {
               navigate("/");
             }}
           >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-clay-400 to-clay-600 text-[11px] font-bold text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-champagne-400 to-champagne-600 text-[11px] font-bold text-white">
               {user.email ? user.email.charAt(0).toUpperCase() : "U"}
             </span>
             {!collapsed && <span className="truncate">Sign out</span>}
@@ -131,7 +135,8 @@ export function Sidebar() {
             type="button"
             title={collapsed ? "Sign in" : undefined}
             className={cn(
-              "mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-300 transition-colors hover:bg-white/5 hover:text-white",
+              "mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-sage/60 hover:text-ink",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-champagne-500",
               collapsed && "justify-center",
             )}
             onClick={() => navigate("/login")}
@@ -147,7 +152,7 @@ export function Sidebar() {
 
         <button
           type="button"
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-400 transition-colors hover:bg-white/5 hover:text-white"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-sage/60 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-champagne-500"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={() => setCollapsed((c) => !c)}
         >

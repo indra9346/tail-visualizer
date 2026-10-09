@@ -48,6 +48,21 @@ export default {
           500: "#C4A873",
           600: "#A98F5E",
         },
+        // Named surface/text/border tokens — the small, restrained palette
+        // every page and the sidebar draw from, so "which cream is this"
+        // stops being a per-component decision. Prefer these over sage/clay
+        // shades or arbitrary hex when choosing a page or card background.
+        surface: {
+          app: "#F3F3EC", // page canvas — the default background everywhere
+          limestone: "#E8E0D3", // warm section band, used sparingly to break up long pages
+          sage: "#E8EEE7", // pale sage band / active nav state
+          card: "#FAF9F5", // every card, panel, and banner surface
+        },
+        ink: {
+          DEFAULT: "#303B33", // primary text and headings
+          secondary: "#687269", // supporting/body copy
+        },
+        hairline: "#D8DED5", // the one border color for cards, dividers, the sidebar edge
       },
       fontFamily: {
         display: ["'Fraunces'", "ui-serif", "Georgia", "serif"],

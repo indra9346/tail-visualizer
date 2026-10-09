@@ -28,8 +28,8 @@ export function TileFilters({
             className={cn(
               "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
               (filters.category ?? "all") === c.value
-                ? "border-stone-900 bg-stone-900 text-white"
-                : "border-stone-300 text-stone-600 hover:bg-stone-100",
+                ? "border-sage-800 bg-sage-800 text-white"
+                : "border-hairline text-ink-secondary hover:bg-surface-sage/60",
             )}
             aria-pressed={(filters.category ?? "all") === c.value}
           >

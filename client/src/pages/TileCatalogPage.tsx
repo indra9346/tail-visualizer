@@ -51,12 +51,12 @@ export function TileCatalogPage() {
         actions={
           <>
             <Link to="/upload">
-              <Button size="lg" className="bg-clay-500 hover:bg-clay-400 text-stone-950 font-semibold shadow-md">
+              <Button size="lg" className="bg-champagne-500 hover:bg-champagne-400 text-ink font-semibold shadow-md">
                 Try Tiles in Your Space →
               </Button>
             </Link>
             <Link to="/demos">
-              <Button size="lg" variant="outline" className="border-stone-300 bg-white/80 text-stone-900 hover:bg-white">
+              <Button size="lg" variant="outline" className="border-hairline bg-surface-card text-ink hover:bg-white">
                 Watch Live Video Demo
               </Button>
             </Link>

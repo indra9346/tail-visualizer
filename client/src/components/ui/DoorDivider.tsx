@@ -14,16 +14,16 @@ interface DoorDividerProps {
 export function DoorDivider({ label }: DoorDividerProps) {
   return (
     <div className="container-page" aria-hidden="true">
-      <div className="relative mx-auto flex h-20 max-w-3xl items-center justify-center overflow-hidden sm:h-24">
+      <div className="relative mx-auto flex h-14 max-w-3xl items-center justify-center overflow-hidden sm:h-16">
         <motion.span
-          className="absolute h-px bg-sage-300"
+          className="absolute h-px bg-hairline"
           initial={{ width: "0%" }}
           whileInView={{ width: "100%" }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
         <motion.div
-          className="relative z-10 flex items-center gap-3 bg-[#F3F6F1] px-5"
+          className="relative z-10 flex items-center gap-3 bg-surface-app px-5"
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-80px" }}

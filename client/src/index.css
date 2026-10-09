@@ -10,13 +10,11 @@
   body {
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
     color: #303B33;
-    background-color: #F3F6F1;
-    background-image: 
-      radial-gradient(ellipse 100% 50% at 50% 0%, rgba(255, 255, 255, 0.95) 0%, rgba(254, 250, 242, 0.7) 40%, transparent 100%),
-      radial-gradient(circle 800px at 12% 25%, rgba(255, 252, 246, 0.85) 0%, transparent 60%),
-      radial-gradient(circle 750px at 88% 65%, rgba(246, 233, 214, 0.75) 0%, transparent 60%),
-      linear-gradient(180deg, #FAF9F5 0%, #F3F6F1 30%, #E8EEE7 65%, #D9D0C2 100%);
-    background-attachment: fixed;
+    /* One coordinated canvas — a single soft highlight near the top, not a
+       stack of competing gradients, so every section sits on the same
+       surface instead of its own patch of cream. */
+    background-color: #F3F3EC;
+    background-image: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255, 255, 255, 0.6) 0%, transparent 70%);
     min-height: 100vh;
   }
   h1,

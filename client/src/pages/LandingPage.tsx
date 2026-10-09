@@ -175,10 +175,12 @@ export function LandingPage() {
 
   return (
     <div className="bg-transparent text-stone-950 selection:bg-clay-300">
-      {/* Hero Section: the "open straight into the tool" dashboard panel */}
+      {/* Hero Section: the "open straight into the tool" dashboard panel.
+          Height follows its content instead of forcing a full viewport, so
+          there's no dead space between the fold and the next section. */}
       <section
         ref={heroSectionRef}
-        className="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden pt-10 pb-16 sm:pt-14 sm:pb-20 lg:min-h-[calc(100svh-1px)]"
+        className="relative overflow-hidden pt-10 pb-12 sm:pt-14 sm:pb-14 lg:pt-16 lg:pb-16"
       >
         <HeroRoom />
         <motion.div
@@ -189,14 +191,13 @@ export function LandingPage() {
           style={{ y: blobTwoY }}
           className="pointer-events-none absolute -left-32 top-1/2 h-[28rem] w-[28rem] rounded-full bg-clay-300/30 blur-3xl"
         />
-        {/* Fades the floor tile backdrop into the footer's own panel color
-            (#FAF9F5, matched exactly below) so nothing cuts in abruptly
-            when the showroom is collapsed. */}
+        {/* Fades the floor tile backdrop into the page's own canvas color
+            so the hero resolves into the next section without a seam. */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-[#FAF9F5]/85 to-[#FAF9F5]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent via-surface-app/85 to-surface-app"
         />
 
         <div className="container-page relative grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-14">
@@ -205,10 +206,10 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55 }}
-            className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-[0_24px_60px_-24px_rgba(40,25,10,0.45)] backdrop-blur-md sm:p-8 lg:col-span-6"
+            className="rounded-3xl border border-hairline bg-surface-card/90 p-6 shadow-[0_24px_60px_-24px_rgba(40,25,10,0.35)] backdrop-blur-md sm:p-8 lg:col-span-6"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-clay-300/80 bg-white/90 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-clay-950 shadow-sm backdrop-blur">
-              <span className="h-2 w-2 rounded-full bg-clay-500 animate-pulse" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider text-sage-800 shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-champagne-500" />
               The Virtual Trial Room for Your Home
             </div>
 
@@ -234,19 +235,19 @@ export function LandingPage() {
                 </Button>
               </Link>
               <Link to="/demos">
-                <Button size="lg" variant="secondary" className="border border-clay-300/90 text-base bg-white/80 hover:bg-white text-stone-900">
+                <Button size="lg" variant="secondary" className="border border-hairline text-base bg-surface-card hover:bg-white text-ink">
                   See Live Demos
                 </Button>
               </Link>
               <Link to="/tiles">
-                <Button size="lg" variant="outline" className="text-base bg-white/60 hover:bg-white/90 text-stone-900 border-stone-300">
+                <Button size="lg" variant="outline" className="text-base bg-surface-card/70 hover:bg-surface-card text-ink border-hairline">
                   Explore Tile Catalog
                 </Button>
               </Link>
             </div>
 
             {/* Trust Points */}
-            <dl className="mt-10 grid grid-cols-3 gap-4 border-t border-stone-300/80 pt-6 text-left">
+            <dl className="mt-10 grid grid-cols-3 gap-4 border-t border-hairline pt-6 text-left">
               <div>
                 <dt className="font-display text-2xl font-bold text-stone-950">100%</dt>
                 <dd className="text-xs text-stone-600 leading-snug font-medium">Real Room Photo Preserved</dd>
@@ -270,7 +271,7 @@ export function LandingPage() {
             className="lg:col-span-6"
           >
             <div className="relative mx-auto max-w-lg lg:max-w-none">
-              <div className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-clay-300/40 via-amber-200/20 to-clay-200/40 blur-2xl" />
+              <div className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-champagne-300/40 via-champagne-200/20 to-sage-200/40 blur-2xl" />
 
               <div className="relative overflow-hidden rounded-3xl border border-stone-800 bg-stone-950 shadow-2xl">
                 {/* Header bar of comparison player */}
@@ -286,7 +287,7 @@ export function LandingPage() {
                       onClick={() => setHeroViewMode("slider")}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                         heroViewMode === "slider"
-                          ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
+                          ? "bg-champagne-400/20 text-champagne-300 border border-champagne-400/40 shadow-sm"
                           : "text-stone-400 hover:text-stone-200"
                       }`}
                     >
@@ -305,13 +306,13 @@ export function LandingPage() {
                       }}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                         heroViewMode === "video"
-                          ? "bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm"
+                          ? "bg-champagne-400/20 text-champagne-300 border border-champagne-400/40 shadow-sm"
                           : "text-stone-400 hover:text-stone-200"
                       }`}
                     >
                       Video Demo
                     </button>
-                    <span className="rounded bg-stone-800 px-2 py-0.5 text-[10px] font-mono text-clay-300">
+                    <span className="rounded bg-stone-800 px-2 py-0.5 text-[10px] font-mono text-champagne-300">
                       Live Demo
                     </span>
                   </div>
@@ -355,7 +356,7 @@ export function LandingPage() {
                     </div>
 
                     {/* Overlaid Badges on Image exactly as in Pic */}
-                    <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-stone-950/85 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-300 backdrop-blur border border-white/10 shadow-lg">
+                    <div className="pointer-events-none absolute left-3 top-3 rounded-lg bg-stone-950/85 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-champagne-300 backdrop-blur border border-white/10 shadow-lg">
                       ◀ VIRTUAL TRIAL: MARBLE
                     </div>
                     <div className="pointer-events-none absolute right-3 top-3 rounded-lg bg-stone-950/85 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-stone-200 backdrop-blur border border-white/10 shadow-lg">
@@ -384,7 +385,7 @@ export function LandingPage() {
                       </span>
                       <Link
                         to="/demos"
-                        className="pointer-events-auto font-semibold text-amber-300 hover:text-white transition underline text-[11px] sm:text-xs"
+                        className="pointer-events-auto font-semibold text-champagne-300 hover:text-white transition underline text-[11px] sm:text-xs"
                       >
                         Watch Full Demo →
                       </Link>
@@ -465,7 +466,7 @@ export function LandingPage() {
                     {/* Progress Bar Line */}
                     <div className="absolute inset-x-0 bottom-9 h-1 bg-white/20">
                       <div
-                        className="h-full bg-amber-400 transition-all duration-150"
+                        className="h-full bg-champagne-400 transition-all duration-150"
                         style={{ width: `${heroVideoProgress}%` }}
                       />
                     </div>
@@ -478,7 +479,7 @@ export function LandingPage() {
                       </span>
                       <Link
                         to="/demos"
-                        className="pointer-events-auto font-semibold text-amber-300 hover:text-white transition underline text-[11px] sm:text-xs"
+                        className="pointer-events-auto font-semibold text-champagne-300 hover:text-white transition underline text-[11px] sm:text-xs"
                       >
                         Watch Full Demo →
                       </Link>
@@ -488,7 +489,7 @@ export function LandingPage() {
 
                 {/* Trial Room Tagline Banner below slider exactly as in Pic 3 */}
                 <div className="border-t border-stone-800/80 bg-stone-900/95 px-4 py-3 text-center text-xs text-stone-300">
-                  <span className="font-medium text-amber-400">The room doesn't change.</span>{" "}
+                  <span className="font-medium text-champagne-400">The room doesn't change.</span>{" "}
                   Your tile choice does.
                 </div>
               </div>
@@ -499,27 +500,27 @@ export function LandingPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="pointer-events-none absolute inset-x-0 bottom-5 z-10 mx-auto flex w-fit flex-col items-center gap-1.5 text-stone-500"
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="pointer-events-none relative z-10 mt-10 flex justify-center text-ink-secondary sm:mt-12"
           aria-hidden="true"
         >
-          <span className="rounded-full border border-stone-300/90 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm backdrop-blur">
+          <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-surface-card/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm backdrop-blur">
             Explore the Full Showroom
+            <motion.svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              animate={{ y: [0, 3, 0] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </motion.svg>
           </span>
-          <motion.svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            animate={{ y: [0, 5, 0] }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <path d="m6 9 6 6 6-6" />
-          </motion.svg>
         </motion.div>
       </section>
 
@@ -562,56 +563,56 @@ export function LandingPage() {
       </section>
 
       {/* The Core Formula Section */}
-      <section className="border-y border-stone-300/70 bg-[#F3F6F1]/70 backdrop-blur-md py-16">
+      <section className="border-y border-hairline bg-surface-limestone/60 py-16">
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">
-            <span className="rounded-full bg-clay-200/80 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-950 border border-clay-300">
+            <span className="rounded-full bg-surface-card px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-sage-800 border border-hairline">
               The Virtual Trial Room Equation
             </span>
-            <h2 className="mt-3 font-display text-3xl font-bold text-stone-950 sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold text-ink sm:text-4xl">
               Try. Compare. Visualize. Decide. Then Build.
             </h2>
-            <p className="mt-3 text-stone-700 leading-relaxed font-medium">
+            <p className="mt-3 text-ink-secondary leading-relaxed font-medium">
               Don't imagine how a tile will look after installation. Combine your actual room with genuine catalog products for an honest, realistic preview.
             </p>
           </div>
 
           <div className="mt-12 grid gap-4 grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto_1.15fr] items-center">
             {/* Step 1 */}
-            <div className="rounded-2xl border border-stone-300/80 bg-white/80 p-6 text-center shadow-soft backdrop-blur-sm h-full flex flex-col justify-center">
-              <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-clay-200 text-xl font-display font-bold text-clay-950">
+            <div className="rounded-2xl border border-hairline bg-surface-card p-6 text-center shadow-soft h-full flex flex-col justify-center">
+              <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-surface-sage text-xl font-display font-bold text-sage-800">
                 01
               </span>
-              <h3 className="mt-4 font-display text-lg font-bold text-stone-950">REAL SPACE</h3>
-              <p className="mt-2 text-xs text-stone-600 leading-relaxed">
+              <h3 className="mt-4 font-display text-lg font-bold text-ink">REAL SPACE</h3>
+              <p className="mt-2 text-xs text-ink-secondary leading-relaxed">
                 Your photograph, existing lighting, doors, windows, and permanent plumbing fixtures remain untouched.
               </p>
             </div>
 
             {/* Operator + */}
-            <div className="hidden md:flex justify-center text-3xl font-bold text-clay-600 px-1">+</div>
+            <div className="hidden md:flex justify-center text-3xl font-bold text-sage-600 px-1">+</div>
 
             {/* Step 2 */}
-            <div className="rounded-2xl border border-stone-300/80 bg-white/80 p-6 text-center shadow-soft backdrop-blur-sm h-full flex flex-col justify-center">
-              <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-clay-200 text-xl font-display font-bold text-clay-950">
+            <div className="rounded-2xl border border-hairline bg-surface-card p-6 text-center shadow-soft h-full flex flex-col justify-center">
+              <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-surface-sage text-xl font-display font-bold text-sage-800">
                 02
               </span>
-              <h3 className="mt-4 font-display text-lg font-bold text-stone-950">REAL TILE</h3>
-              <p className="mt-2 text-xs text-stone-600 leading-relaxed">
+              <h3 className="mt-4 font-display text-lg font-bold text-ink">REAL TILE</h3>
+              <p className="mt-2 text-xs text-ink-secondary leading-relaxed">
                 Genuine showroom products with verified dimensions, manufacturer finishes, textures, and patterns.
               </p>
             </div>
 
             {/* Operator = */}
-            <div className="hidden md:flex justify-center text-3xl font-bold text-clay-600 px-1">=</div>
+            <div className="hidden md:flex justify-center text-3xl font-bold text-sage-600 px-1">=</div>
 
             {/* Result */}
-            <div className="rounded-2xl border border-clay-400 bg-gradient-to-br from-clay-600 via-clay-700 to-stone-900 p-6 text-center text-white shadow-lg h-full flex flex-col justify-center">
+            <div className="rounded-2xl border border-sage-700 bg-gradient-to-br from-sage-600 via-sage-700 to-sage-900 p-6 text-center text-white shadow-lg h-full flex flex-col justify-center">
               <span className="flex h-12 w-12 mx-auto items-center justify-center rounded-xl bg-white/20 text-xl font-display font-bold text-white">
                 ✓
               </span>
               <h3 className="mt-4 font-display text-lg font-bold text-white">CONFIDENT DECISION</h3>
-              <p className="mt-2 text-xs text-clay-100 leading-relaxed">
+              <p className="mt-2 text-xs text-sage-100 leading-relaxed">
                 Order tiles knowing precisely how they blend with your space. No regrets, no returns, no wasted materials.
               </p>
             </div>
@@ -623,13 +624,13 @@ export function LandingPage() {
       <section className="container-page py-20">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-xl">
-            <span className="rounded-full bg-clay-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
+            <span className="rounded-full bg-surface-sage px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sage-800">
               Not Just Bathrooms
             </span>
-            <h2 className="mt-3 font-display text-3xl font-bold text-stone-950 sm:text-4xl">
+            <h2 className="mt-3 font-display text-3xl font-bold text-ink sm:text-4xl">
               A Virtual Trial Room for Every Surface
             </h2>
-            <p className="mt-3 text-stone-600">
+            <p className="mt-3 text-ink-secondary">
               Whether you are renovating a single kitchen backsplash or cladding an entire exterior villa elevation, try products virtually before physical installation.
             </p>
           </div>
@@ -641,15 +642,15 @@ export function LandingPage() {
         </div>
 
         {/* Space Category Tabs */}
-        <div className="mt-10 flex flex-wrap gap-2 border-b border-stone-300/80 pb-4">
+        <div className="mt-10 flex flex-wrap gap-2 border-b border-hairline pb-4">
           {SPACE_CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setActiveSpaceTab(cat.id)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
                 activeSpaceTab === cat.id
-                  ? "bg-stone-950 text-white shadow-md"
-                  : "bg-white/80 text-stone-800 border border-stone-300/80 hover:bg-white"
+                  ? "bg-sage-800 text-white shadow-md"
+                  : "bg-surface-card text-ink-secondary border border-hairline hover:bg-white hover:text-ink"
               }`}
             >
               <span>{cat.icon}</span>
@@ -659,27 +660,27 @@ export function LandingPage() {
         </div>
 
         {/* Active Space Details */}
-        <div className="mt-8 rounded-3xl border border-stone-300/80 bg-white/85 p-8 shadow-soft backdrop-blur-sm">
+        <div className="mt-8 rounded-3xl border border-hairline bg-surface-card p-8 shadow-soft">
           <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
             <div className="lg:col-span-6">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">{currentSpace.icon}</span>
-                <h3 className="font-display text-2xl font-bold text-stone-950">{currentSpace.name} Applications</h3>
+                <h3 className="font-display text-2xl font-bold text-ink">{currentSpace.name} Applications</h3>
               </div>
 
-              <p className="mt-4 text-sm text-stone-700 leading-relaxed font-normal">
+              <p className="mt-4 text-sm text-ink-secondary leading-relaxed font-normal">
                 {currentSpace.benefit}
               </p>
 
               <div className="mt-6">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">
                   Supported Trial Surfaces:
                 </h4>
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   {currentSpace.surfaces.map((s) => (
                     <span
                       key={s}
-                      className="rounded-lg bg-clay-100/80 px-3 py-1.5 text-xs font-semibold text-clay-950 border border-clay-200"
+                      className="rounded-lg bg-surface-sage px-3 py-1.5 text-xs font-semibold text-sage-800 border border-hairline"
                     >
                       {s}
                     </span>
@@ -688,15 +689,15 @@ export function LandingPage() {
               </div>
 
               <div className="mt-6">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">
                   Recommended Catalog Finishes:
                 </h4>
-                <p className="mt-1 text-xs text-stone-800 font-semibold">{currentSpace.recommendedTiles}</p>
+                <p className="mt-1 text-xs text-ink font-semibold">{currentSpace.recommendedTiles}</p>
               </div>
 
               <div className="mt-8">
                 <Link to="/upload">
-                  <Button size="lg" variant="outline" className="border-stone-300 text-stone-900 bg-white/80 hover:bg-white">
+                  <Button size="lg" variant="outline" className="border-hairline text-ink bg-surface-card hover:bg-white">
                     Try {currentSpace.name} Tiles Now →
                   </Button>
                 </Link>
@@ -704,22 +705,22 @@ export function LandingPage() {
             </div>
 
             <div className="lg:col-span-6">
-              <div className="relative aspect-[4/3] rounded-2xl bg-gradient-to-br from-amber-50/80 via-stone-100 to-clay-100/60 p-6 flex flex-col justify-between border border-stone-300/80 shadow-inner">
+              <div className="relative aspect-[4/3] rounded-2xl bg-gradient-to-br from-champagne-100 via-surface-sage to-surface-card p-6 flex flex-col justify-between border border-hairline shadow-inner">
                 <TilePattern className="absolute inset-0 h-full w-full opacity-15" />
                 <div className="relative flex justify-between items-start">
-                  <span className="rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-stone-900 shadow-sm border border-stone-200">
+                  <span className="rounded-full bg-surface-card px-3 py-1 text-xs font-semibold text-ink shadow-sm border border-hairline">
                     In-Situ Surface Mapping
                   </span>
-                  <span className="rounded-full bg-clay-700 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                  <span className="rounded-full bg-sage-700 px-3 py-1 text-xs font-semibold text-white shadow-sm">
                     Trial Room Mode
                   </span>
                 </div>
-                <div className="relative rounded-xl bg-white/95 p-4 shadow-lg backdrop-blur border border-stone-200">
-                  <p className="text-xs uppercase tracking-wider text-clay-800 font-bold">Real-Time Simulation</p>
-                  <p className="mt-1 font-display text-base font-bold text-stone-950">
+                <div className="relative rounded-xl bg-surface-card/95 p-4 shadow-lg backdrop-blur border border-hairline">
+                  <p className="text-xs uppercase tracking-wider text-sage-800 font-bold">Real-Time Simulation</p>
+                  <p className="mt-1 font-display text-base font-bold text-ink">
                     {currentSpace.name}: Perspective-matched tile scaling
                   </p>
-                  <p className="mt-1 text-xs text-stone-600">
+                  <p className="mt-1 text-xs text-ink-secondary">
                     Preserves original lighting vectors, shadows, fixtures, and room perimeter.
                   </p>
                 </div>
@@ -838,10 +839,10 @@ export function LandingPage() {
       <section className="container-page py-24">
         <div className="text-center max-w-2xl mx-auto">
           <Badge tone="neutral">Simple & Transparent</Badge>
-          <h2 className="mt-3 font-display text-3xl font-bold text-stone-950 sm:text-4xl">
+          <h2 className="mt-3 font-display text-3xl font-bold text-ink sm:text-4xl">
             How The Virtual Trial Room Works
           </h2>
-          <p className="mt-3 text-stone-700 font-medium">
+          <p className="mt-3 text-ink-secondary font-medium">
             From a quick photo on your mobile phone to complete purchasing confidence in six intuitive steps.
           </p>
         </div>
@@ -858,51 +859,51 @@ export function LandingPage() {
               key={step.number}
               variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
               whileHover={{ y: -4 }}
-              className="group relative rounded-2xl border border-stone-300/80 bg-white/85 p-6 shadow-soft backdrop-blur-sm transition-all hover:shadow-lg hover:border-clay-400"
+              className="group relative rounded-2xl border border-hairline bg-surface-card p-6 shadow-soft transition-all hover:shadow-lg hover:border-champagne-400"
             >
               <div className="flex items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-clay-100 font-display text-base font-bold text-clay-950 transition group-hover:bg-clay-600 group-hover:text-white">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-sage font-display text-base font-bold text-sage-800 transition group-hover:bg-sage-700 group-hover:text-white">
                   {step.number}
                 </span>
-                <span className="text-xs font-mono text-stone-500 font-medium">Step {step.number}</span>
+                <span className="text-xs font-mono text-ink-secondary font-medium">Step {step.number}</span>
               </div>
-              <h3 className="mt-5 font-display text-lg font-bold text-stone-950">{step.title}</h3>
-              <p className="mt-2 text-sm text-stone-600 leading-relaxed font-normal">{step.desc}</p>
+              <h3 className="mt-5 font-display text-lg font-bold text-ink">{step.title}</h3>
+              <p className="mt-2 text-sm text-ink-secondary leading-relaxed font-normal">{step.desc}</p>
             </motion.div>
           ))}
         </motion.div>
       </section>
 
       {/* Transparency & Accuracy Requirement Section (Section 1 & 19) */}
-      <section className="border-t border-stone-300/70 bg-[#F3F6F1]/70 backdrop-blur-md py-16">
+      <section className="border-t border-hairline bg-surface-limestone/60 py-16">
         <div className="container-page">
-          <div className="rounded-3xl border border-stone-300/80 bg-white/85 p-8 sm:p-12 shadow-soft backdrop-blur-sm">
+          <div className="rounded-3xl border border-hairline bg-surface-card p-8 sm:p-12 shadow-soft">
             <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
               <div className="lg:col-span-7">
-                <span className="rounded-full bg-clay-200/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-clay-950 border border-clay-300">
+                <span className="rounded-full bg-surface-sage px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sage-800 border border-hairline">
                   Honest & Trustworthy
                 </span>
-                <h3 className="mt-3 font-display text-2xl font-bold text-stone-950 sm:text-3xl">
+                <h3 className="mt-3 font-display text-2xl font-bold text-ink sm:text-3xl">
                   Photorealistic Previews Grounded in Reality
                 </h3>
-                <p className="mt-3 text-sm text-stone-700 leading-relaxed font-medium">
+                <p className="mt-3 text-sm text-ink-secondary leading-relaxed font-medium">
                   We built SDS TILES & CERAMICS to provide the strongest practical visualization possible. We strictly preserve your room geometry, doors, windows, and fixtures rather than generating fantasy 3D renders.
                 </p>
-                <div className="mt-6 grid grid-cols-2 gap-4 text-xs text-stone-800">
-                  <div className="rounded-xl border border-stone-300/80 bg-[#F3F6F1]/90 p-4">
-                    <span className="font-semibold text-stone-950 block mb-1">✓ What We Guarantee:</span>
-                    <span>Accurate scale, true perspective vanishing points, genuine catalog products, and camera preservation.</span>
+                <div className="mt-6 grid grid-cols-2 gap-4 text-xs text-ink">
+                  <div className="rounded-xl border border-hairline bg-surface-sage/60 p-4">
+                    <span className="font-semibold text-ink block mb-1">✓ What We Guarantee:</span>
+                    <span className="text-ink-secondary">Accurate scale, true perspective vanishing points, genuine catalog products, and camera preservation.</span>
                   </div>
-                  <div className="rounded-xl border border-stone-300/80 bg-[#F3F6F1]/90 p-4">
-                    <span className="font-semibold text-stone-950 block mb-1">ℹ️ Physical Variables:</span>
-                    <span>Lighting, tile batch variation, physical grout thickness, and mason installation quality affect real outcomes.</span>
+                  <div className="rounded-xl border border-hairline bg-surface-sage/60 p-4">
+                    <span className="font-semibold text-ink block mb-1">ℹ️ Physical Variables:</span>
+                    <span className="text-ink-secondary">Lighting, tile batch variation, physical grout thickness, and mason installation quality affect real outcomes.</span>
                   </div>
                 </div>
               </div>
 
               <div className="lg:col-span-5 text-center lg:text-right">
                 <Link to="/demos">
-                  <Button size="lg" variant="secondary" className="shadow-sm bg-white/90 hover:bg-white text-stone-900 border-stone-300">
+                  <Button size="lg" variant="secondary" className="shadow-sm bg-surface-card hover:bg-white text-ink border border-hairline">
                     View Live Tested Demo Video →
                   </Button>
                 </Link>
@@ -917,32 +918,32 @@ export function LandingPage() {
       {/* Final Hero Banner (Section 20) */}
       <section className="container-page py-20">
         <motion.div
-          className="relative overflow-hidden rounded-3xl bg-[#F1ECE3] px-5 py-12 text-center sm:px-16 sm:py-16 shadow-2xl"
+          className="relative overflow-hidden rounded-3xl bg-surface-limestone px-5 py-12 text-center sm:px-16 sm:py-16 shadow-2xl"
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-60px" }}
           transition={{ duration: 0.5 }}
         >
           <TileWall src={WALL_IMAGES.herringbone} cols={10} rows={5} className="absolute inset-0 h-full w-full" />
-          <div className="relative mx-auto max-w-2xl rounded-2xl bg-white/85 p-6 shadow-lg backdrop-blur-md sm:p-10">
-            <span className="rounded-full border border-clay-300 bg-clay-100 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-800">
+          <div className="relative mx-auto max-w-2xl rounded-2xl bg-surface-card/90 p-6 shadow-lg backdrop-blur-md sm:p-10">
+            <span className="rounded-full border border-hairline bg-surface-sage px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-sage-800">
               Open Your Trial Room
             </span>
-            <h2 className="mt-4 font-display text-3xl font-bold text-stone-900 sm:text-5xl">
+            <h2 className="mt-4 font-display text-3xl font-bold text-ink sm:text-5xl">
               Don't Buy Tiles Blindly. <br />
-              <span className="text-clay-700">Try Them in Your Space First.</span>
+              <span className="text-sage-700">Try Them in Your Space First.</span>
             </h2>
-            <p className="mt-4 text-base text-stone-700 sm:text-lg">
+            <p className="mt-4 text-base text-ink-secondary sm:text-lg">
               Your home has a trial room now. Upload your space, pick from our showroom catalog, and visualize before the first tile is fixed.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
               <Link to="/upload">
-                <Button size="lg" className="bg-clay-500 hover:bg-clay-400 text-stone-950 font-semibold px-8 py-3.5 text-base shadow-lg">
+                <Button size="lg" className="bg-champagne-500 hover:bg-champagne-400 text-ink font-semibold px-8 py-3.5 text-base shadow-lg">
                   Launch Your Trial Room →
                 </Button>
               </Link>
               <Link to="/demos">
-                <Button size="lg" variant="outline" className="border-stone-300 bg-white text-stone-900 hover:bg-stone-100 text-base">
+                <Button size="lg" variant="outline" className="border-hairline bg-white text-ink hover:bg-surface-sage text-base">
                   Watch Live Demo
                 </Button>
               </Link>
