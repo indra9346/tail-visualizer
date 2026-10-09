@@ -1,10 +1,17 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { SwanCredit } from "@/components/layout/SwanCredit";
 import { SDSLogo } from "@/components/ui/SDSLogo";
 
 export function Footer() {
   return (
-    <footer className="relative z-10 border-t border-stone-300/70 bg-[#fdfbf7]/85 backdrop-blur-md py-10">
+    <motion.footer
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="relative z-10 border-t border-stone-300/70 bg-[#fdfbf7]/85 backdrop-blur-md py-10"
+    >
       <div className="container-page flex flex-col items-center justify-between gap-4 text-sm text-stone-500 sm:flex-row">
         <div className="flex items-center gap-3">
           <SDSLogo size="sm" variant="dark" subtitle="Virtual Trial Room" />
@@ -23,6 +30,6 @@ export function Footer() {
         Realistic visualization preview. Actual lighting conditions, tile batch variations, and grout installation can affect physical finished results.
       </div>
       <div className="container-page"><SwanCredit /></div>
-    </footer>
+    </motion.footer>
   );
 }
