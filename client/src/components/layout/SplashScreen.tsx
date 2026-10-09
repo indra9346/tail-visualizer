@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SDSIcon } from "@/components/ui/SDSLogo";
 
-const HOLD_MS = 1500;
-const EXIT_MS = 650;
+const HOLD_MS = 400;
+const EXIT_MS = 350;
 
 /**
  * Full-screen boot intro shown once per browser session: an expanding-ring
@@ -20,9 +20,10 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
       onFinish();
       return;
     }
-    const t1 = setTimeout(() => setPhase("hold"), 550);
-    const t2 = setTimeout(() => setPhase("out"), 550 + HOLD_MS);
-    const t3 = setTimeout(onFinish, 550 + HOLD_MS + EXIT_MS);
+    const ENTER_MS = 450;
+    const t1 = setTimeout(() => setPhase("hold"), ENTER_MS);
+    const t2 = setTimeout(() => setPhase("out"), ENTER_MS + HOLD_MS);
+    const t3 = setTimeout(onFinish, ENTER_MS + HOLD_MS + EXIT_MS);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);

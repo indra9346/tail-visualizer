@@ -5,6 +5,7 @@ import { WorkflowProvider } from "@/context/WorkflowContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SplashScreen } from "@/components/layout/SplashScreen";
+import { PromoBanner } from "@/components/layout/PromoBanner";
 import { ConfigWarningBanner } from "@/components/layout/ConfigWarningBanner";
 import { Footer } from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -31,6 +32,8 @@ const DemosPage = lazy(() => import("@/pages/DemosPage").then((m) => ({ default:
 
 const SPLASH_KEY = "sds_splash_shown";
 
+type IntroPhase = "splash" | "promo" | "done";
+
 function PageFallback() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-16" aria-busy="true" aria-label="Loading page">
@@ -41,26 +44,27 @@ function PageFallback() {
 }
 
 function AppShell() {
-  const [splashActive, setSplashActive] = useState<boolean>(() => {
+  const [introPhase, setIntroPhase] = useState<IntroPhase>(() => {
     try {
-      return sessionStorage.getItem(SPLASH_KEY) !== "1";
+      return sessionStorage.getItem(SPLASH_KEY) === "1" ? "done" : "splash";
     } catch {
-      return true;
+      return "splash";
     }
   });
 
-  const finishSplash = () => {
+  const finishIntro = () => {
     try {
       sessionStorage.setItem(SPLASH_KEY, "1");
     } catch {
       /* ignore */
     }
-    setSplashActive(false);
+    setIntroPhase("done");
   };
 
   return (
     <>
-      {splashActive && <SplashScreen onFinish={finishSplash} />}
+      {introPhase === "splash" && <SplashScreen onFinish={() => setIntroPhase("promo")} />}
+      {introPhase === "promo" && <PromoBanner onFinish={finishIntro} />}
       <div className="flex min-h-screen relative">
         <Sidebar />
         <div className="flex min-h-screen flex-1 flex-col relative">

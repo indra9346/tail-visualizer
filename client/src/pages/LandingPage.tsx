@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { TileScene } from "@/components/ui/TileScene";
 import { HeroRoom, TileWall, TiltCard, WALL_IMAGES } from "@/components/ui/RealTiles";
 import { Button } from "@/components/ui/Button";
@@ -123,8 +123,6 @@ const COMPARISON_TILES = [
 ];
 
 export function LandingPage() {
-  const [showMore, setShowMore] = useState(false);
-  const moreRef = useRef<HTMLDivElement | null>(null);
   const [activeSpaceTab, setActiveSpaceTab] = useState<string>("bathrooms");
   const [selectedComparisonTile, setSelectedComparisonTile] = useState<string>("calacatta");
   const [heroSliderPos, setHeroSliderPos] = useState<number>(78);
@@ -158,13 +156,6 @@ export function LandingPage() {
     const rect = heroSliderRef.current.getBoundingClientRect();
     const pct = ((clientX - rect.left) / rect.width) * 100;
     setHeroSliderPos(Math.min(98, Math.max(2, pct)));
-  }, []);
-
-  const revealShowroom = useCallback(() => {
-    setShowMore(true);
-    requestAnimationFrame(() => {
-      moreRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   }, []);
 
   const currentSpace = SPACE_CATEGORIES.find((s) => s.id === activeSpaceTab) || SPACE_CATEGORIES[0];
@@ -484,54 +475,33 @@ export function LandingPage() {
           </motion.div>
         </div>
 
-        {!showMore && (
-          <motion.button
-            type="button"
-            onClick={revealShowroom}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-            className="group absolute inset-x-0 bottom-5 z-10 mx-auto flex w-fit flex-col items-center gap-1.5 text-stone-600 hover:text-stone-900"
-            aria-expanded={showMore}
-            aria-controls="landing-showroom"
-          >
-            <span className="rounded-full border border-stone-300/90 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm backdrop-blur transition-colors group-hover:border-clay-400 group-hover:bg-white">
-              Explore the Full Showroom
-            </span>
-            <motion.svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              animate={{ y: [0, 5, 0] }}
-              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <path d="m6 9 6 6 6-6" />
-            </motion.svg>
-          </motion.button>
-        )}
-      </section>
-
-      {!showMore && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="h-10 bg-[#fdfbf7] sm:h-16"
-          ref={moreRef}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="pointer-events-none absolute inset-x-0 bottom-5 z-10 mx-auto flex w-fit flex-col items-center gap-1.5 text-stone-500"
           aria-hidden="true"
-        />
-      )}
+        >
+          <span className="rounded-full border border-stone-300/90 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm backdrop-blur">
+            Explore the Full Showroom
+          </span>
+          <motion.svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            animate={{ y: [0, 5, 0] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </motion.svg>
+        </motion.div>
+      </section>
 
-      {/* Everything below the fold stays out of the DOM until the visitor
-          explicitly asks for it — the tool panel above is the whole app on
-          first paint, like opening straight into a workspace. */}
-      {showMore && (
-        <div ref={moreRef}>
       {/* Real tiles on real surfaces */}
       <section className="container-page py-20">
         <div className="mx-auto max-w-2xl text-center">
@@ -953,8 +923,6 @@ export function LandingPage() {
           </div>
         </motion.div>
       </section>
-        </div>
-      )}
     </div>
   );
 }
