@@ -9,6 +9,10 @@ const PROMO_MS = 5000;
  * for exactly 5 seconds after SplashScreen finishes, on the same light
  * limestone/sage field (never a dark screen). "Start Your Visit" lets an
  * impatient visitor skip ahead into Stage C early; otherwise it auto-advances.
+ *
+ * Layout is a genuine two-column editorial split (text ~52%, architectural
+ * photo filling the rest, full height) rather than a centered card over a
+ * background image, so it reads as a brand campaign, not a dialog.
  */
 export function PromoBanner({ onFinish }: { onFinish: () => void }) {
   const firedRef = useRef(false);
@@ -36,7 +40,7 @@ export function PromoBanner({ onFinish }: { onFinish: () => void }) {
   return (
     <motion.div
       key="promo"
-      className="fixed inset-0 z-[100] overflow-hidden bg-[#F3F6F1]"
+      className="fixed inset-0 z-[100] overflow-y-auto overflow-x-hidden bg-[#FAF9F5] sm:overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -44,37 +48,21 @@ export function PromoBanner({ onFinish }: { onFinish: () => void }) {
       role="status"
       aria-label="SDS Tiles and Ceramics: the virtual trial room for your home"
     >
-      {/* Limestone field matching the splash and the body's own base gradient */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: "linear-gradient(180deg, #FAF9F5 0%, #F3F6F1 35%, #E8EEE7 70%, #D9D0C2 100%)",
-        }}
-      />
+      <div className="grid min-h-full grid-cols-1 sm:grid-cols-[52%_48%] sm:h-full">
+        {/* Text column */}
+        <div className="relative flex items-center px-6 py-12 sm:px-12 sm:py-10 lg:px-20">
+          <div
+            className="absolute inset-0 -z-10"
+            style={{ background: "linear-gradient(180deg, #FAF9F5 0%, #F3F6F1 55%, #E8EEE7 100%)" }}
+          />
+          <motion.div
+            className="pointer-events-none absolute -left-16 top-1/3 h-[42vmax] w-[42vmax] rounded-full bg-champagne-400/25 blur-[110px]"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, ease: "easeOut" }}
+          />
 
-      {/* Real catalog tile photo on the right, softly vignetted into the
-          light field rather than hidden behind a dark scrim */}
-      <div className="absolute inset-y-0 right-0 hidden w-[46%] overflow-hidden sm:block">
-        <img
-          src="/images/walls/herringbone-green.jpg"
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover opacity-90"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#F3F6F1] via-[#F3F6F1]/10 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#F3F6F1]/60 via-transparent to-[#F3F6F1]/30" />
-      </div>
-
-      <motion.div
-        className="pointer-events-none absolute left-[-8%] top-1/2 h-[50vmax] w-[50vmax] -translate-y-1/2 rounded-full bg-champagne-400/30 blur-[110px]"
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1, ease: "easeOut" }}
-      />
-
-      <div className="relative z-10 flex h-full w-full items-center">
-        <div className="container-page">
-          <div className="max-w-xl">
+          <div className="relative max-w-lg">
             <motion.div
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
@@ -100,7 +88,7 @@ export function PromoBanner({ onFinish }: { onFinish: () => void }) {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.3 }}
-              className="mt-5 font-display text-4xl font-bold leading-[1.08] text-sage-900 sm:text-6xl"
+              className="mt-5 font-display text-4xl font-bold leading-[1.08] text-sage-900 sm:text-5xl lg:text-6xl"
             >
               Your Home. <br />
               Your Tile. <br />
@@ -140,11 +128,29 @@ export function PromoBanner({ onFinish }: { onFinish: () => void }) {
             </motion.button>
           </div>
         </div>
+
+        {/* Architectural image column — full height on desktop, a shorter
+            banner above the text on mobile so nothing is hidden. */}
+        <motion.div
+          className="relative order-first h-48 overflow-hidden sm:order-none sm:h-full"
+          initial={{ opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
+          <img
+            src="/images/walls/herringbone-green.jpg"
+            alt="Sage herringbone tile wall with natural light and styled greenery"
+            className="h-full w-full object-cover"
+          />
+          {/* Blend the seam into the text column rather than a hard cut */}
+          <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-[#FAF9F5] to-transparent sm:block hidden" />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[#FAF9F5]/70 to-transparent sm:hidden" />
+        </motion.div>
       </div>
 
       {/* Quiet honest timer instead of a skip button — communicates that the
           screen will advance on its own */}
-      <div className="absolute inset-x-0 bottom-0 h-0.5 bg-sage-900/10">
+      <div className="absolute inset-x-0 bottom-0 z-10 h-0.5 bg-sage-900/10">
         <motion.div
           className="h-full bg-champagne-500"
           initial={{ scaleX: 0 }}

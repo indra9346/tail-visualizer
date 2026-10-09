@@ -273,13 +273,15 @@ export function LandingPage() {
             <div className="relative mx-auto max-w-lg lg:max-w-none">
               <div className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-champagne-300/40 via-champagne-200/20 to-sage-200/40 blur-2xl" />
 
-              <div className="relative overflow-hidden rounded-3xl border border-stone-800 bg-stone-950 shadow-2xl">
-                {/* Header bar of comparison player */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-800 bg-stone-900/90 px-4 py-2.5 text-xs text-stone-300">
+              <div className="relative overflow-hidden rounded-3xl border border-hairline bg-surface-card shadow-2xl">
+                {/* Header bar of comparison player — a light mat frame around
+                    the photo, like a piece hung on the wall, not a dark
+                    device chrome */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline bg-surface-sage/70 px-4 py-2.5 text-xs text-ink-secondary">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-semibold text-stone-100">REAL IN-SITU TEST:</span>
-                    <span className="text-stone-400 hidden sm:inline">Washroom Wall Retiling</span>
+                    <span className="font-semibold text-ink">REAL IN-SITU TEST:</span>
+                    <span className="text-ink-secondary hidden sm:inline">Washroom Wall Retiling</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -287,8 +289,8 @@ export function LandingPage() {
                       onClick={() => setHeroViewMode("slider")}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                         heroViewMode === "slider"
-                          ? "bg-champagne-400/20 text-champagne-300 border border-champagne-400/40 shadow-sm"
-                          : "text-stone-400 hover:text-stone-200"
+                          ? "bg-champagne-400/30 text-sage-900 border border-champagne-400/60 shadow-sm"
+                          : "text-ink-secondary hover:text-ink"
                       }`}
                     >
                       Split Slider
@@ -306,13 +308,13 @@ export function LandingPage() {
                       }}
                       className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
                         heroViewMode === "video"
-                          ? "bg-champagne-400/20 text-champagne-300 border border-champagne-400/40 shadow-sm"
-                          : "text-stone-400 hover:text-stone-200"
+                          ? "bg-champagne-400/30 text-sage-900 border border-champagne-400/60 shadow-sm"
+                          : "text-ink-secondary hover:text-ink"
                       }`}
                     >
                       Video Demo
                     </button>
-                    <span className="rounded bg-stone-800 px-2 py-0.5 text-[10px] font-mono text-champagne-300">
+                    <span className="rounded bg-sage-800 px-2 py-0.5 text-[10px] font-mono text-champagne-200">
                       Live Demo
                     </span>
                   </div>
@@ -322,7 +324,7 @@ export function LandingPage() {
                   /* Interactive Split Slider matching user pic */
                   <div
                     ref={heroSliderRef}
-                    className="relative aspect-[4/3] sm:aspect-video w-full touch-none select-none overflow-hidden cursor-ew-resize bg-black"
+                    className="relative aspect-[4/3] sm:aspect-video w-full touch-none select-none overflow-hidden cursor-ew-resize bg-stone-900"
                     onPointerDown={(e) => {
                       setHeroDragging(true);
                       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -393,7 +395,7 @@ export function LandingPage() {
                   </div>
                 ) : (
                   /* 45s In-Situ Conversion Demo Video with Before & After Visuals */
-                  <div className="relative aspect-video w-full bg-black group overflow-hidden">
+                  <div className="relative aspect-video w-full bg-stone-900 group overflow-hidden">
                     <video
                       ref={heroVideoRef}
                       src="/videos/conversiondemo.mp4"
@@ -488,8 +490,8 @@ export function LandingPage() {
                 )}
 
                 {/* Trial Room Tagline Banner below slider exactly as in Pic 3 */}
-                <div className="border-t border-stone-800/80 bg-stone-900/95 px-4 py-3 text-center text-xs text-stone-300">
-                  <span className="font-medium text-champagne-400">The room doesn't change.</span>{" "}
+                <div className="border-t border-hairline bg-surface-sage/70 px-4 py-3 text-center text-xs text-ink-secondary">
+                  <span className="font-medium text-sage-800">The room doesn't change.</span>{" "}
                   Your tile choice does.
                 </div>
               </div>

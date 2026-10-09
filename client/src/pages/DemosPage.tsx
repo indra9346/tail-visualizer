@@ -165,20 +165,21 @@ export function DemosPage() {
 
       {/* Main Video Showcase */}
       <section className="container-page mt-10">
-        <div className="overflow-hidden rounded-3xl border border-stone-800 bg-stone-950 shadow-2xl">
-          {/* Video Player Header Bar */}
-          <div className="flex flex-wrap items-center justify-between border-b border-stone-800 bg-stone-900/80 px-5 py-3 text-xs text-stone-400">
+        <div className="overflow-hidden rounded-3xl border border-hairline bg-surface-card shadow-2xl">
+          {/* Video Player Header Bar — light mat frame; the video itself
+              keeps a neutral dark backdrop (standard player convention) */}
+          <div className="flex flex-wrap items-center justify-between border-b border-hairline bg-surface-sage/70 px-5 py-3 text-xs text-ink-secondary">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
-              <span className="font-semibold text-stone-200">LIVE DEMO:</span>
+              <span className="font-semibold text-ink">LIVE DEMO:</span>
               <span>Washroom Wall Tile Transformation</span>
             </div>
-            <div className="flex items-center gap-4 text-stone-400">
+            <div className="flex items-center gap-4 text-ink-secondary">
               <span>Resolution: 1080p Cinematic</span>
               <span>•</span>
               <span>Camera: Fixed Tripod</span>
               <span>•</span>
-              <span className="text-emerald-400 font-medium">100% Geometry Preserved</span>
+              <span className="text-emerald-700 font-medium">100% Geometry Preserved</span>
             </div>
           </div>
 
