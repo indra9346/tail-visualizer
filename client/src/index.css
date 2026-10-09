@@ -6,10 +6,15 @@
   html {
     scroll-behavior: smooth;
     min-height: 100%;
+    /* Safety net: a nested flex/grid item that forgets min-w-0 can force the
+       page wider than the viewport on narrow screens. Clip it here too, not
+       just at the component that happens to cause it today. */
+    overflow-x: hidden;
   }
   body {
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
     color: #303B33;
+    overflow-x: hidden;
     /* One coordinated canvas — a single soft highlight near the top, not a
        stack of competing gradients, so every section sits on the same
        surface instead of its own patch of cream. */

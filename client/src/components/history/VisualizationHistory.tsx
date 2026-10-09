@@ -123,13 +123,17 @@ export function VisualizationHistory() {
   if (error && items === null) return <ErrorState message={error} />;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_1fr]">
       {/* History list */}
-      <aside className={cn("flex min-h-0 flex-col rounded-2xl border border-stone-200 bg-white shadow-soft lg:h-[calc(100vh-11rem)]", showDetailOnPhone && "hidden lg:flex")} aria-label="Design history">
-        <div className="space-y-3 border-b border-stone-200 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="font-display text-xl text-stone-900">Design history</h1>
-            <Link to="/projects">
+      {/* min-w-0: grid/flex items default to min-width:auto, which refuses to
+          shrink below the content's natural width — on a phone that forces
+          the whole grid track (and the page) wider than the viewport,
+          producing a horizontal scroll that cuts off the sticky navbar too. */}
+      <aside className={cn("flex min-h-0 min-w-0 flex-col rounded-2xl border border-stone-200 bg-white shadow-soft lg:h-[calc(100vh-11rem)]", showDetailOnPhone && "hidden lg:flex")} aria-label="Design history">
+        <div className="min-w-0 space-y-3 border-b border-stone-200 p-4">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <h1 className="min-w-0 truncate font-display text-xl text-stone-900">Design history</h1>
+            <Link to="/projects" className="shrink-0">
               <Button size="sm">+ New design</Button>
             </Link>
           </div>

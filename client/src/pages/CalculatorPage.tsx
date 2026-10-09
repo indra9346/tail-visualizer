@@ -147,12 +147,15 @@ export function CalculatorPage() {
 
   return (
     <PageContainer className="max-w-7xl" compact>
-      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[320px_1fr]">
         {/* History */}
-        <aside className={cn("flex min-h-0 flex-col rounded-2xl border border-stone-200 bg-white shadow-soft lg:h-[calc(100vh-11rem)]", !showHistoryOnPhone && "hidden lg:flex")} aria-label="Calculation history">
-          <div className="flex items-center justify-between gap-2 border-b border-stone-200 p-4">
-            <h2 className="font-display text-xl text-stone-900">History</h2>
-            <Button size="sm" onClick={startNew}>
+        {/* min-w-0: a grid/flex item's default min-width:auto refuses to
+            shrink below its content, so on a phone this aside could force
+            the whole grid (and the page) wider than the viewport. */}
+        <aside className={cn("flex min-h-0 min-w-0 flex-col rounded-2xl border border-stone-200 bg-white shadow-soft lg:h-[calc(100vh-11rem)]", !showHistoryOnPhone && "hidden lg:flex")} aria-label="Calculation history">
+          <div className="flex min-w-0 items-center justify-between gap-2 border-b border-stone-200 p-4">
+            <h2 className="min-w-0 truncate font-display text-xl text-stone-900">History</h2>
+            <Button size="sm" onClick={startNew} className="shrink-0">
               + New
             </Button>
           </div>
