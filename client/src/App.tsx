@@ -1,8 +1,10 @@
-import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { WorkflowProvider } from "@/context/WorkflowContext";
 import { Navbar } from "@/components/layout/Navbar";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { SplashScreen } from "@/components/layout/SplashScreen";
 import { ConfigWarningBanner } from "@/components/layout/ConfigWarningBanner";
 import { Footer } from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -27,6 +29,10 @@ const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default:
 const CalculatorPage = lazy(() => import("@/pages/CalculatorPage").then((m) => ({ default: m.CalculatorPage })));
 const DemosPage = lazy(() => import("@/pages/DemosPage").then((m) => ({ default: m.DemosPage })));
 
+const SPLASH_KEY = "sds_splash_shown";
+const AUTO_ADVANCE_KEY = "sds_auto_advance_shown";
+const AUTO_ADVANCE_DELAY_MS = 4800;
+
 function PageFallback() {
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-16" aria-busy="true" aria-label="Loading page">
@@ -36,71 +42,161 @@ function PageFallback() {
   );
 }
 
+/**
+ * On the very first visit of a browser session, after the splash finishes on
+ * the home page, give the hero a few seconds to be seen then glide straight
+ * into the live "try a visualization" demo screen — unless the person starts
+ * interacting first, in which case we back off and never ask again this session.
+ */
+function HomeAutoAdvance({ armed }: { armed: boolean }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (!armed || location.pathname !== "/") return;
+    let alreadyShown = false;
+    try {
+      alreadyShown = sessionStorage.getItem(AUTO_ADVANCE_KEY) === "1";
+    } catch {
+      /* ignore */
+    }
+    if (alreadyShown || firedRef.current) return;
+
+    const markShown = () => {
+      try {
+        sessionStorage.setItem(AUTO_ADVANCE_KEY, "1");
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (firedRef.current) return;
+      firedRef.current = true;
+      markShown();
+      navigate("/demos");
+    }, AUTO_ADVANCE_DELAY_MS);
+
+    const cancel = () => {
+      if (firedRef.current) return;
+      firedRef.current = true;
+      markShown();
+      clearTimeout(timer);
+    };
+
+    const opts: AddEventListenerOptions = { once: true, passive: true };
+    window.addEventListener("pointerdown", cancel, opts);
+    window.addEventListener("wheel", cancel, opts);
+    window.addEventListener("keydown", cancel, opts);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", cancel);
+      window.removeEventListener("wheel", cancel);
+      window.removeEventListener("keydown", cancel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armed, location.pathname]);
+
+  return null;
+}
+
+function AppShell() {
+  const [splashActive, setSplashActive] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(SPLASH_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
+
+  const finishSplash = () => {
+    try {
+      sessionStorage.setItem(SPLASH_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setSplashActive(false);
+  };
+
+  return (
+    <>
+      {splashActive && <SplashScreen onFinish={finishSplash} />}
+      <HomeAutoAdvance armed={!splashActive} />
+      <div className="flex min-h-screen relative">
+        <Sidebar />
+        <div className="flex min-h-screen flex-1 flex-col relative">
+          <ConfigWarningBanner />
+          <Navbar />
+          <div className="flex-1 relative z-10">
+            <ErrorBoundary>
+              <Suspense fallback={<PageFallback />}>
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/demos" element={<DemosPage />} />
+                  <Route path="/calculator" element={<CalculatorPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
+                  <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />
+                  <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                  <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
+                  <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+                  <Route path="/my-visualizations" element={<MyVisualizationsPage />} />
+                  <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+                  <Route
+                    path="/projects"
+                    element={
+                      <ProtectedRoute>
+                        <ProjectsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/upload"
+                    element={
+                      <ProtectedRoute>
+                        <UploadPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/analysis/:roomId"
+                    element={
+                      <ProtectedRoute>
+                        <AnalysisPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/tiles/:roomId"
+                    element={
+                      <ProtectedRoute>
+                        <TilesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Unprotected: the API itself decides access (owner, or anonymous
+                      if the visualization was made public) — see vizGet.ts. */}
+                  <Route path="/result/:visualizationId" element={<ResultPage />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+          <Footer />
+          <SmokeEffect />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <WorkflowProvider>
         <BrowserRouter>
-          <div className="flex min-h-screen flex-col relative">
-            <ConfigWarningBanner />
-            <Navbar />
-            <div className="flex-1 relative z-10">
-              <ErrorBoundary>
-              <Suspense fallback={<PageFallback />}>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/demos" element={<DemosPage />} />
-                <Route path="/calculator" element={<CalculatorPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
-                <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />
-                <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-                <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
-                <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-                <Route path="/my-visualizations" element={<MyVisualizationsPage />} />
-                <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-                <Route
-                  path="/projects"
-                  element={
-                    <ProtectedRoute>
-                      <ProjectsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/upload"
-                  element={
-                    <ProtectedRoute>
-                      <UploadPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/analysis/:roomId"
-                  element={
-                    <ProtectedRoute>
-                      <AnalysisPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/tiles/:roomId"
-                  element={
-                    <ProtectedRoute>
-                      <TilesPage />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Unprotected: the API itself decides access (owner, or anonymous
-                    if the visualization was made public) — see vizGet.ts. */}
-                <Route path="/result/:visualizationId" element={<ResultPage />} />
-              </Routes>
-              </Suspense>
-              </ErrorBoundary>
-            </div>
-            <Footer />
-            <SmokeEffect />
-          </div>
+          <AppShell />
         </BrowserRouter>
       </WorkflowProvider>
     </AuthProvider>
