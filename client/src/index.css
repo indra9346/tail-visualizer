@@ -9,13 +9,13 @@
   }
   body {
     font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-    color: #14110e;
-    background-color: #faf4eb;
+    color: #303B33;
+    background-color: #F3F6F1;
     background-image: 
       radial-gradient(ellipse 100% 50% at 50% 0%, rgba(255, 255, 255, 0.95) 0%, rgba(254, 250, 242, 0.7) 40%, transparent 100%),
       radial-gradient(circle 800px at 12% 25%, rgba(255, 252, 246, 0.85) 0%, transparent 60%),
       radial-gradient(circle 750px at 88% 65%, rgba(246, 233, 214, 0.75) 0%, transparent 60%),
-      linear-gradient(180deg, #fefdfb 0%, #faf3e8 30%, #f6e9d6 65%, #ebd7be 100%);
+      linear-gradient(180deg, #FAF9F5 0%, #F3F6F1 30%, #E8EEE7 65%, #D9D0C2 100%);
     background-attachment: fixed;
     min-height: 100vh;
   }
@@ -27,7 +27,7 @@
   h6,
   .font-display {
     font-family: "Fraunces", ui-serif, Georgia, serif;
-    color: #14110e;
+    color: #303B33;
     letter-spacing: -0.02em;
   }
   :focus-visible {
@@ -73,12 +73,12 @@
 }
 
 /* Dark-on-light remap so sections written for a dark background read well on a bright tile scene. */
-.on-light .text-white { color: #1c1917; }
+.on-light .text-white { color: #303B33; }
 .on-light .text-stone-200,
 .on-light .text-stone-300 { color: #44403c; }
 .on-light .text-stone-400 { color: #57534e; }
 .on-light .text-clay-300,
-.on-light .text-clay-400 { color: #8f6740; }
+.on-light .text-clay-400 { color: #536B5D; }
 .on-light .text-red-400 { color: #b91c1c; }
 .on-light .text-emerald-300,
 .on-light .text-emerald-400 { color: #047857; }
@@ -89,7 +89,7 @@
 .on-light .border-white\/10,
 .on-light .border-white\/20 { border-color: rgba(28, 25, 23, 0.14); }
 .on-light .hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.95); }
-.on-light .text-clay-200 { color: #725136; }
+.on-light .text-clay-200 { color: #44574B; }
 
 /* Hero room (components/ui/RealTiles.tsx) */
 @keyframes floor-glide {

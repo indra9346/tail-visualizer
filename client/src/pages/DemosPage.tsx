@@ -128,7 +128,7 @@ export function DemosPage() {
   return (
     <div className="min-h-screen bg-transparent pb-24 text-stone-950">
       {/* Top Banner */}
-      <section className="border-b border-stone-300/70 bg-[#faf4eb]/70 backdrop-blur-md py-12">
+      <section className="border-b border-stone-300/70 bg-[#F3F6F1]/70 backdrop-blur-md py-12">
         <div className="container-page">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -425,7 +425,7 @@ export function DemosPage() {
 
                 <div className="lg:col-span-7">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-stone-300/80 bg-[#faf5ed]/90 p-4 shadow-sm">
+                    <div className="rounded-2xl border border-stone-300/80 bg-[#F3F6F1]/90 p-4 shadow-sm">
                       <div className="flex items-center justify-between text-xs font-semibold text-stone-600 uppercase tracking-wider mb-2">
                         <span>Current Space</span>
                         <span className="rounded bg-stone-200/90 px-1.5 py-0.5 text-[10px] text-stone-700 font-bold">Before</span>
@@ -443,7 +443,7 @@ export function DemosPage() {
                         <span>Virtual Preview</span>
                         <span className="rounded bg-clay-200 px-1.5 py-0.5 text-[10px] text-clay-950 font-bold">SDS TILES & CERAMICS</span>
                       </div>
-                      <div className="aspect-[4/3] rounded-xl bg-[#fdfbf7] overflow-hidden relative border border-clay-300 flex items-center justify-center text-stone-900 text-xs p-4 text-center shadow-inner">
+                      <div className="aspect-[4/3] rounded-xl bg-[#FAF9F5] overflow-hidden relative border border-clay-300 flex items-center justify-center text-stone-900 text-xs p-4 text-center shadow-inner">
                         <p className="font-medium text-stone-800">{currentScenario.transformedDescription}</p>
                       </div>
                       <p className="mt-3 text-xs text-clay-800 font-medium">
@@ -460,7 +460,7 @@ export function DemosPage() {
 
       {/* Comparison: Traditional vs SDS TILES & CERAMICS */}
       <section className="container-page mt-24">
-        <div className="on-light relative overflow-hidden rounded-3xl bg-[#efe6d8] p-6 text-stone-900 sm:p-12">
+        <div className="on-light relative overflow-hidden rounded-3xl bg-[#F1ECE3] p-6 text-stone-900 sm:p-12">
           <TileScene scene="plank" className="absolute inset-0 h-full w-full" />
           <div className="absolute inset-0 bg-white/55" />
           <div className="relative">

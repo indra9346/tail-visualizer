@@ -73,7 +73,7 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-2">
-      <div className="relative hidden overflow-hidden bg-[#efe6d8] lg:block">
+      <div className="relative hidden overflow-hidden bg-[#F1ECE3] lg:block">
         <TileScene scene="terrazzo" className="absolute inset-0 h-full w-full" />
         <div className="relative flex h-full flex-col justify-between p-10 text-stone-900">
           <div className="flex items-center">

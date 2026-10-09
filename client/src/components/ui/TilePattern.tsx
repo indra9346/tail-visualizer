@@ -2,7 +2,7 @@
 export function TilePattern({ className }: { className?: string }) {
   const cols = 8;
   const rows = 8;
-  const tones = ["#d4b892", "#c19a68", "#e6d5c1", "#ab8050", "#f3ebe1", "#8f6740"];
+  const tones = ["#D9D0C2", "#D6BC8D", "#E8EEE7", "#C4A873", "#F3F6F1", "#536B5D"];
   return (
     <svg className={className} viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       {Array.from({ length: rows * cols }).map((_, i) => {

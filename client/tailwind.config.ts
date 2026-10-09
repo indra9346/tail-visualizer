@@ -5,21 +5,48 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Deliberately dark, muted eucalyptus tones rather than near-black —
+        // the brand avoids pure-black panels (see sage/champagne design system).
         stone: {
-          925: "#161412",
-          950: "#0d0c0b",
+          900: "#3A473E",
+          925: "#34413A",
+          950: "#28332C",
         },
+        // "clay" keeps its historical role as the primary accent scale (badges,
+        // CTAs, active states) but now renders the sage + champagne palette:
+        // 50-300 = card/sage surfaces, 400-600 = champagne accent,
+        // 700-900 = deep eucalyptus / main text.
         clay: {
-          50: "#faf6f1",
-          100: "#f3ebe1",
-          200: "#e6d5c1",
-          300: "#d4b892",
-          400: "#c19a68",
-          500: "#ab8050",
-          600: "#8f6740",
-          700: "#725136",
-          800: "#5c4230",
-          900: "#4c3829",
+          50: "#FAF9F5",
+          100: "#F3F6F1",
+          200: "#E8EEE7",
+          300: "#D9D0C2",
+          400: "#D6BC8D",
+          500: "#C4A873",
+          600: "#A98F5E",
+          700: "#718575",
+          800: "#536B5D",
+          900: "#303B33",
+        },
+        sage: {
+          50: "#FAF9F5",
+          100: "#F3F6F1",
+          200: "#E8EEE7",
+          300: "#D8DED5",
+          400: "#B6C3B9",
+          500: "#718575",
+          600: "#5D7367",
+          700: "#536B5D",
+          800: "#44574B",
+          900: "#303B33",
+        },
+        champagne: {
+          100: "#F1ECE3",
+          200: "#E6D9C4",
+          300: "#DFC9A3",
+          400: "#D6BC8D",
+          500: "#C4A873",
+          600: "#A98F5E",
         },
       },
       fontFamily: {

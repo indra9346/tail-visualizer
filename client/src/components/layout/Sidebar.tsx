@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { SDSIcon } from "@/components/ui/SDSLogo";
+import { DoorNavLink } from "@/components/layout/DoorNavLink";
 import { cn } from "@/lib/cn";
 import { publicNavItems, authNavItems } from "@/lib/navItems";
 
@@ -42,9 +43,9 @@ export function Sidebar() {
       className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0 lg:flex-col lg:border-r lg:border-white/5 lg:bg-stone-950"
     >
       <div className="flex items-center gap-2.5 px-4 py-5">
-        <NavLink to="/" className="flex shrink-0 items-center" aria-label="SDS Tiles home">
+        <DoorNavLink to="/" roomLabel="HOME" className="flex shrink-0 items-center" aria-label="SDS Tiles home">
           <SDSIcon className="h-9 w-9" />
-        </NavLink>
+        </DoorNavLink>
         {!collapsed && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -64,9 +65,10 @@ export function Sidebar() {
         <ul className="flex flex-col gap-1">
           {items.map((item) => (
             <li key={item.to}>
-              <NavLink
+              <DoorNavLink
                 to={item.to}
                 end={item.end}
+                roomLabel={item.label.toUpperCase()}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   cn(
@@ -98,7 +100,7 @@ export function Sidebar() {
                     )}
                   </>
                 )}
-              </NavLink>
+              </DoorNavLink>
             </li>
           ))}
         </ul>

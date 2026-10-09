@@ -31,7 +31,7 @@ export function HeroRoom() {
         style={{ y: wallY, backgroundImage: `url(${WALL_IMAGES.stoneMosaic})` }}
         className="absolute inset-x-0 -top-20 bottom-[20%] bg-[length:230px] bg-repeat"
       />
-      <div className="absolute inset-x-0 top-0 bottom-[20%] bg-gradient-to-b from-[#fbf6ee]/80 via-[#fbf6ee]/60 to-[#fbf6ee]/25" />
+      <div className="absolute inset-x-0 top-0 bottom-[20%] bg-gradient-to-b from-[#F3F6F1]/80 via-[#F3F6F1]/60 to-[#F3F6F1]/25" />
       {/* Light falling across the wall */}
       <div className="room-light absolute inset-x-0 top-0 bottom-[20%]" />
 

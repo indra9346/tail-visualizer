@@ -6,9 +6,10 @@ const HOLD_MS = 400;
 const EXIT_MS = 350;
 
 /**
- * Full-screen boot intro shown once per browser session: an expanding-ring
- * burst (same beat as Jio Hotstar's launch animation) followed by the SDS
- * mark zooming in, holding, then zooming out and dissolving to reveal the app.
+ * Stage A of the arrival sequence: a restrained brand introduction on a
+ * light limestone/sage field with a soft champagne glow — never a dark or
+ * black screen. Logo fades + scales in, holds briefly, then dissolves into
+ * Stage B (PromoBanner).
  */
 export function SplashScreen({ onFinish }: { onFinish: () => void }) {
   const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
@@ -38,56 +39,62 @@ export function SplashScreen({ onFinish }: { onFinish: () => void }) {
     <AnimatePresence>
       <motion.div
         key="splash"
-        className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-stone-950"
+        className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#F3F6F1]"
         initial={{ opacity: 1 }}
         animate={{ opacity: phase === "out" ? 0 : 1 }}
         transition={{ duration: EXIT_MS / 1000, ease: "easeInOut" }}
         aria-hidden="true"
       >
-          {/* Expanding burst rings */}
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              className="absolute rounded-full border border-clay-400/40"
-              initial={{ width: 0, height: 0, opacity: 0.9 }}
-              animate={{ width: 900, height: 900, opacity: 0 }}
-              transition={{ duration: 1.6, delay: i * 0.22, ease: "easeOut", repeat: phase === "in" ? Infinity : 0, repeatDelay: 0.3 }}
-            />
-          ))}
+        {/* Warm limestone field, matching the body's own base gradient */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, #FAF9F5 0%, #F3F6F1 35%, #E8EEE7 70%, #D9D0C2 100%)",
+          }}
+        />
 
-          {/* Soft ambient glow */}
-          <motion.div
-            className="absolute h-[60vmax] w-[60vmax] rounded-full bg-clay-500/20 blur-3xl"
-            initial={{ scale: 0.6, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
-          />
+        {/* Restrained champagne glow, centered behind the mark */}
+        <motion.div
+          className="absolute h-[55vmax] w-[55vmax] rounded-full bg-champagne-400/35 blur-3xl"
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+        />
 
-          {/* Logo: zoom in -> hold -> zoom out & disappear */}
-          <motion.div
-            className="relative flex flex-col items-center gap-4"
-            initial={{ scale: 0.2, opacity: 0 }}
-            animate={
-              phase === "out"
-                ? { scale: 1.45, opacity: 0 }
-                : { scale: 1, opacity: 1 }
-            }
-            transition={
-              phase === "out"
-                ? { duration: EXIT_MS / 1000, ease: "easeIn" }
-                : { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
-            }
+        {/* A single soft expanding ring instead of a dark burst pattern */}
+        <motion.span
+          className="absolute rounded-full border border-sage-500/25"
+          initial={{ width: 0, height: 0, opacity: 0.6 }}
+          animate={{ width: 520, height: 520, opacity: 0 }}
+          transition={{ duration: 1.3, ease: "easeOut", repeat: phase === "in" ? Infinity : 0, repeatDelay: 0.4 }}
+        />
+
+        {/* Logo: fade + scale in -> hold -> dissolve */}
+        <motion.div
+          className="relative flex flex-col items-center gap-4"
+          initial={{ scale: 0.82, opacity: 0 }}
+          animate={
+            phase === "out"
+              ? { scale: 1.06, opacity: 0 }
+              : { scale: 1, opacity: 1 }
+          }
+          transition={
+            phase === "out"
+              ? { duration: EXIT_MS / 1000, ease: "easeIn" }
+              : { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
+          }
+        >
+          <SDSIcon className="h-24 w-24 drop-shadow-[0_8px_30px_rgba(214,188,141,0.45)]" />
+          <motion.p
+            className="font-display text-xl font-black tracking-tight text-sage-900"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: phase === "out" ? 0 : 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.4 }}
           >
-            <SDSIcon className="h-24 w-24 drop-shadow-[0_0_30px_rgba(193,154,104,0.45)]" />
-            <motion.p
-              className="font-display text-xl font-black tracking-tight text-white"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: phase === "out" ? 0 : 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.4 }}
-            >
-              SDS <span className="text-clay-400">TILES &amp; CERAMICS</span>
-            </motion.p>
-          </motion.div>
+            SDS <span className="text-champagne-600">TILES &amp; CERAMICS</span>
+          </motion.p>
+        </motion.div>
       </motion.div>
     </AnimatePresence>
   );

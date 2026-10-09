@@ -90,8 +90,8 @@ const SHADE: Record<FaceRole, string> = {
 
 const PREVIEW_COLOR: Record<FaceRole, string> = {
   tread: "#b8c9c4",
-  riser: "#d9c2a7",
-  left: "#d9c2a7",
+  riser: "#D6BC8D",
+  left: "#D6BC8D",
   right: "#e6d3bb",
   back: "#efe0cc",
   floor: "#b8c9c4",
@@ -113,7 +113,7 @@ function faceBackground(face: SceneFace, cell: number, preview: boolean): CSSPro
     };
   }
   if (face.state === "tiled" || face.state === "empty") {
-    return { background: "repeating-linear-gradient(45deg, rgba(180,95,60,.30) 0 8px, rgba(180,95,60,.12) 8px 16px)", backgroundColor: "#f5e3d6" };
+    return { background: "repeating-linear-gradient(45deg, rgba(180,95,60,.30) 0 8px, rgba(180,95,60,.12) 8px 16px)", backgroundColor: "#E8EEE7" };
   }
   return { background: "repeating-linear-gradient(135deg, #ece9e6 0 6px, #d6d3d1 6px 12px)" };
 }

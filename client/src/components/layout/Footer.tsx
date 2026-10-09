@@ -10,7 +10,7 @@ export function Footer() {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="relative z-10 border-t border-stone-300/70 bg-[#fdfbf7]/85 backdrop-blur-md py-10"
+      className="relative z-10 border-t border-stone-300/70 bg-[#FAF9F5]/85 backdrop-blur-md py-10"
     >
       <div className="container-page flex flex-col items-center justify-between gap-4 text-sm text-stone-500 sm:flex-row">
         <div className="flex items-center gap-3">

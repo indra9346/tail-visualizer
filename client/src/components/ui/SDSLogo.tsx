@@ -37,13 +37,13 @@ export function SDSIcon({
       <defs>
         {/* Luxury Gold & Ceramic Gradients */}
         <linearGradient id={id("sds-gold-bevel")} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f5e6cf" />
-          <stop offset="45%" stopColor="#d4a362" />
-          <stop offset="100%" stopColor="#8f6740" />
+          <stop offset="0%" stopColor="#E8EEE7" />
+          <stop offset="45%" stopColor="#D6BC8D" />
+          <stop offset="100%" stopColor="#536B5D" />
         </linearGradient>
 
         <linearGradient id={id("sds-tile-marble")} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fdfbf7" />
+          <stop offset="0%" stopColor="#FAF9F5" />
           <stop offset="100%" stopColor="#e2cfb9" />
         </linearGradient>
 
@@ -80,7 +80,7 @@ export function SDSIcon({
         width="44"
         height="44"
         rx="12"
-        fill="#181513"
+        fill="#28332C"
         stroke={`url(#${id("sds-gold-bevel")})`}
         strokeWidth="1.2"
       />
@@ -148,7 +148,7 @@ export function SDSIcon({
           height="18"
           rx="3.5"
           transform="rotate(45)"
-          fill="#1c1815"
+          fill="#28332C"
           stroke={`url(#${id("sds-gold-bevel")})`}
           strokeWidth="1.2"
         />
@@ -167,7 +167,7 @@ export function SDSIcon({
           x="0"
           y="2.6"
           textAnchor="middle"
-          fill="#1c1815"
+          fill="#28332C"
           fontFamily="system-ui, -apple-system, sans-serif"
           fontWeight="900"
           fontSize="6.5"

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { SDSLogo } from "@/components/ui/SDSLogo";
+import { DoorNavLink } from "@/components/layout/DoorNavLink";
 import { cn } from "@/lib/cn";
 import { publicNavItems, authNavItems } from "@/lib/navItems";
 
@@ -30,11 +31,11 @@ export function Navbar() {
   }, [mobileOpen]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[#fdfbf7]/90 backdrop-blur-md lg:hidden">
+    <header className="sticky top-0 z-40 border-b border-stone-200/80 bg-[#FAF9F5]/90 backdrop-blur-md lg:hidden">
       <div className="container-page flex h-16 items-center justify-between">
-        <NavLink to="/" className="flex items-center py-1 group" onClick={() => setMobileOpen(false)}>
+        <DoorNavLink to="/" roomLabel="HOME" className="flex items-center py-1 group" onClick={() => setMobileOpen(false)}>
           <SDSLogo size="md" variant="dark" />
-        </NavLink>
+        </DoorNavLink>
 
         <button
           type="button"
@@ -86,7 +87,7 @@ export function Navbar() {
                   animate={{ x: 0 }}
                   exit={{ x: "100%" }}
                   transition={{ type: "spring", damping: 30, stiffness: 320 }}
-                  className="relative z-10 flex h-full w-[min(21rem,calc(100vw-2rem))] flex-col border-l border-stone-200/90 bg-[#fefdfb] shadow-2xl"
+                  className="relative z-10 flex h-full w-[min(21rem,calc(100vw-2rem))] flex-col border-l border-stone-200/90 bg-[#FAF9F5] shadow-2xl"
                 >
                   {/* Drawer Header */}
                   <div className="flex items-center justify-between border-b border-stone-200/80 px-5 py-4">
@@ -143,9 +144,10 @@ export function Navbar() {
                         }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
                       >
-                        <NavLink
+                        <DoorNavLink
                           to={item.to}
                           end={item.end}
+                          roomLabel={item.label.toUpperCase()}
                           data-nav-item={item.label.toLowerCase().replace(/\s+/g, "-")}
                           onClick={() => setMobileOpen(false)}
                           className={({ isActive }) =>
@@ -196,7 +198,7 @@ export function Navbar() {
                               )}
                             </>
                           )}
-                        </NavLink>
+                        </DoorNavLink>
                       </motion.div>
                     ))}
                   </motion.nav>

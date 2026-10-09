@@ -84,7 +84,7 @@ export function PatternDemo({ pattern, fills, className, label }: Props) {
       body = (
         <>
           {grid((_col, r) => (r >= ROWS / 2 ? 0 : 1))}
-          <line x1={0} x2={VW} y1={VH / 2} y2={VH / 2} stroke="#1c1917" strokeWidth={1.4} />
+          <line x1={0} x2={VW} y1={VH / 2} y2={VH / 2} stroke="#303B33" strokeWidth={1.4} />
         </>
       );
       break;
@@ -154,7 +154,7 @@ export function PatternDemo({ pattern, fills, className, label }: Props) {
         </clipPath>
       </defs>
       <g clipPath={`url(#${uid}-clip)`}>{body}</g>
-      <rect x={0.5} y={0.5} width={VW - 1} height={VH - 1} rx={3} fill="none" stroke="#1c1917" strokeOpacity={0.55} strokeWidth={1} />
+      <rect x={0.5} y={0.5} width={VW - 1} height={VH - 1} rx={3} fill="none" stroke="#303B33" strokeOpacity={0.55} strokeWidth={1} />
     </svg>
   );
 }

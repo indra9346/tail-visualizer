@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { TileScene } from "@/components/ui/TileScene";
 import { HeroRoom, TileWall, TiltCard, WALL_IMAGES } from "@/components/ui/RealTiles";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { TilePattern } from "@/components/ui/TilePattern";
+import { DoorDivider } from "@/components/ui/DoorDivider";
 
 interface SpaceCategory {
   id: string;
@@ -133,6 +134,17 @@ export function LandingPage() {
   const [heroVideoProgress, setHeroVideoProgress] = useState<number>(0);
   const heroSliderRef = useRef<HTMLDivElement | null>(null);
   const heroVideoRef = useRef<HTMLVideoElement | null>(null);
+  const heroSectionRef = useRef<HTMLElement | null>(null);
+
+  // Subtle depth-of-field as the visitor scrolls past the entrance: the
+  // glow layers drift slower than the page, suggesting forward motion
+  // through the room rather than a flat page scroll.
+  const { scrollYProgress: heroScroll } = useScroll({
+    target: heroSectionRef,
+    offset: ["start start", "end start"],
+  });
+  const blobOneY = useTransform(heroScroll, [0, 1], [0, 70]);
+  const blobTwoY = useTransform(heroScroll, [0, 1], [0, -50]);
 
   const toggleHeroPlay = () => {
     if (!heroVideoRef.current) return;
@@ -164,18 +176,27 @@ export function LandingPage() {
   return (
     <div className="bg-transparent text-stone-950 selection:bg-clay-300">
       {/* Hero Section: the "open straight into the tool" dashboard panel */}
-      <section className="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden pt-10 pb-16 sm:pt-14 sm:pb-20 lg:min-h-[calc(100svh-1px)]">
+      <section
+        ref={heroSectionRef}
+        className="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden pt-10 pb-16 sm:pt-14 sm:pb-20 lg:min-h-[calc(100svh-1px)]"
+      >
         <HeroRoom />
-        <div className="pointer-events-none absolute -right-32 -top-32 h-[32rem] w-[32rem] rounded-full bg-clay-200/40 blur-3xl" />
-        <div className="pointer-events-none absolute -left-32 top-1/2 h-[28rem] w-[28rem] rounded-full bg-clay-300/30 blur-3xl" />
+        <motion.div
+          style={{ y: blobOneY }}
+          className="pointer-events-none absolute -right-32 -top-32 h-[32rem] w-[32rem] rounded-full bg-clay-200/40 blur-3xl"
+        />
+        <motion.div
+          style={{ y: blobTwoY }}
+          className="pointer-events-none absolute -left-32 top-1/2 h-[28rem] w-[28rem] rounded-full bg-clay-300/30 blur-3xl"
+        />
         {/* Fades the floor tile backdrop into the footer's own panel color
-            (#fdfbf7, matched exactly below) so nothing cuts in abruptly
+            (#FAF9F5, matched exactly below) so nothing cuts in abruptly
             when the showroom is collapsed. */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-[#fdfbf7]/85 to-[#fdfbf7]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-b from-transparent via-[#FAF9F5]/85 to-[#FAF9F5]"
         />
 
         <div className="container-page relative grid gap-12 lg:grid-cols-12 lg:items-center lg:gap-14">
@@ -502,6 +523,8 @@ export function LandingPage() {
         </motion.div>
       </section>
 
+      <DoorDivider label="The Living Hall" />
+
       {/* Real tiles on real surfaces */}
       <section className="container-page py-20">
         <div className="mx-auto max-w-2xl text-center">
@@ -539,7 +562,7 @@ export function LandingPage() {
       </section>
 
       {/* The Core Formula Section */}
-      <section className="border-y border-stone-300/70 bg-[#faf4eb]/70 backdrop-blur-md py-16">
+      <section className="border-y border-stone-300/70 bg-[#F3F6F1]/70 backdrop-blur-md py-16">
         <div className="container-page">
           <div className="text-center max-w-2xl mx-auto">
             <span className="rounded-full bg-clay-200/80 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-clay-950 border border-clay-300">
@@ -706,6 +729,8 @@ export function LandingPage() {
         </div>
       </section>
 
+      <DoorDivider label="The Showroom" />
+
       {/* Comparison Experience: Try 3 Tiles, Choose 1 With Confidence */}
       <section className="on-light relative overflow-hidden py-20 text-stone-900">
         <TileScene scene="hex" className="absolute inset-0 h-full w-full" />
@@ -849,7 +874,7 @@ export function LandingPage() {
       </section>
 
       {/* Transparency & Accuracy Requirement Section (Section 1 & 19) */}
-      <section className="border-t border-stone-300/70 bg-[#faf4eb]/70 backdrop-blur-md py-16">
+      <section className="border-t border-stone-300/70 bg-[#F3F6F1]/70 backdrop-blur-md py-16">
         <div className="container-page">
           <div className="rounded-3xl border border-stone-300/80 bg-white/85 p-8 sm:p-12 shadow-soft backdrop-blur-sm">
             <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
@@ -864,11 +889,11 @@ export function LandingPage() {
                   We built SDS TILES & CERAMICS to provide the strongest practical visualization possible. We strictly preserve your room geometry, doors, windows, and fixtures rather than generating fantasy 3D renders.
                 </p>
                 <div className="mt-6 grid grid-cols-2 gap-4 text-xs text-stone-800">
-                  <div className="rounded-xl border border-stone-300/80 bg-[#faf5ed]/90 p-4">
+                  <div className="rounded-xl border border-stone-300/80 bg-[#F3F6F1]/90 p-4">
                     <span className="font-semibold text-stone-950 block mb-1">✓ What We Guarantee:</span>
                     <span>Accurate scale, true perspective vanishing points, genuine catalog products, and camera preservation.</span>
                   </div>
-                  <div className="rounded-xl border border-stone-300/80 bg-[#faf5ed]/90 p-4">
+                  <div className="rounded-xl border border-stone-300/80 bg-[#F3F6F1]/90 p-4">
                     <span className="font-semibold text-stone-950 block mb-1">ℹ️ Physical Variables:</span>
                     <span>Lighting, tile batch variation, physical grout thickness, and mason installation quality affect real outcomes.</span>
                   </div>
@@ -887,10 +912,12 @@ export function LandingPage() {
         </div>
       </section>
 
+      <DoorDivider label="One Last Doorway" />
+
       {/* Final Hero Banner (Section 20) */}
       <section className="container-page py-20">
         <motion.div
-          className="relative overflow-hidden rounded-3xl bg-[#efe6d8] px-5 py-12 text-center sm:px-16 sm:py-16 shadow-2xl"
+          className="relative overflow-hidden rounded-3xl bg-[#F1ECE3] px-5 py-12 text-center sm:px-16 sm:py-16 shadow-2xl"
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-60px" }}

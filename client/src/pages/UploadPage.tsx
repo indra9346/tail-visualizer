@@ -78,6 +78,7 @@ export function UploadPage() {
     <PageContainer className="max-w-3xl">
       <PageBanner
         scene="diamond"
+        tone="sage"
         badge="Step 01 • Capture Your Space"
         title="Upload Your Room Photo"
         subtitle="A clear, well-lit photo of your bathroom, kitchen, wall, or floor produces the most accurate photorealistic trial room results."

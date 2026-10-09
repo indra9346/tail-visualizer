@@ -240,7 +240,7 @@ export function BeforeAfterSlider({
             <div className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: handleLeft }}>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-lg">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M8 5l-6 7 6 7M16 5l6 7-6 7" stroke="#1c1917" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M8 5l-6 7 6 7M16 5l6 7-6 7" stroke="#303B33" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
             </div>

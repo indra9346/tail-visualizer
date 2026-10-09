@@ -9,7 +9,7 @@ export type SceneId = "mosaic" | "checker" | "subway" | "hex" | "diamond" | "pla
 
 const W = 800;
 const H = 320;
-const GROUT = "#efe6d8";
+const GROUT = "#F1ECE3";
 
 interface Shape {
   /** SVG path or points, drawn three times: shadow, glaze, highlight. */
@@ -63,7 +63,7 @@ function buildScene(id: SceneId): Scene {
 
   switch (id) {
     case "mosaic": {
-      const palette = ["#e76f51", "#f4a261", "#e9c46a", "#2a9d8f", "#3aa6d8", "#f7ede2", "#d9577b"];
+      const palette = ["#e76f51", "#f4a261", "#e9c46a", "#2a9d8f", "#3aa6d8", "#F1ECE3", "#d9577b"];
       const items: Array<Omit<Shape, "rank">> = [];
       for (let row = 0; row < 8; row++) for (let col = 0; col < 20; col++) items.push({ kind: "rect", x: col * 40 + 1.5, y: row * 40 + 1.5, w: 37, h: 37, rx: 3, color: Math.floor(r() * palette.length), rot: rot() });
       return { palette, shapes: ranked(items, (s) => s.x ?? 0, (s) => s.y ?? 0) };
@@ -129,7 +129,7 @@ function buildScene(id: SceneId): Scene {
       return { palette, shapes: ranked(items, (s) => s.x ?? 0, (s) => s.y ?? 0) };
     }
     case "terrazzo": {
-      const palette = ["#f6ecdc", "#f1dfc6", "#ee6c4d", "#3d5a80", "#2a9d8f", "#f2b134", "#d9577b"];
+      const palette = ["#F1ECE3", "#f1dfc6", "#ee6c4d", "#3d5a80", "#2a9d8f", "#f2b134", "#d9577b"];
       const items: Array<Omit<Shape, "rank">> = [];
       for (let row = 0; row < 4; row++) for (let col = 0; col < 10; col++) {
         const chips = Array.from({ length: 11 }, () => ({ x: 6 + r() * 66, y: 6 + r() * 66, s: 2 + r() * 5, color: 2 + Math.floor(r() * 5) }));

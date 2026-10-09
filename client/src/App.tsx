@@ -6,6 +6,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SplashScreen } from "@/components/layout/SplashScreen";
 import { PromoBanner } from "@/components/layout/PromoBanner";
+import { DoorReveal } from "@/components/layout/DoorReveal";
+import { RoomTransitionProvider } from "@/components/layout/RoomTransition";
 import { ConfigWarningBanner } from "@/components/layout/ConfigWarningBanner";
 import { Footer } from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -32,7 +34,7 @@ const DemosPage = lazy(() => import("@/pages/DemosPage").then((m) => ({ default:
 
 const SPLASH_KEY = "sds_splash_shown";
 
-type IntroPhase = "splash" | "promo" | "done";
+type IntroPhase = "splash" | "promo" | "doorReveal" | "done";
 
 function PageFallback() {
   return (
@@ -62,9 +64,10 @@ function AppShell() {
   };
 
   return (
-    <>
+    <RoomTransitionProvider>
       {introPhase === "splash" && <SplashScreen onFinish={() => setIntroPhase("promo")} />}
-      {introPhase === "promo" && <PromoBanner onFinish={finishIntro} />}
+      {introPhase === "promo" && <PromoBanner onFinish={() => setIntroPhase("doorReveal")} />}
+      {introPhase === "doorReveal" && <DoorReveal onComplete={finishIntro} />}
       <div className="flex min-h-screen relative">
         <Sidebar />
         <div className="flex min-h-screen flex-1 flex-col relative">
@@ -128,7 +131,7 @@ function AppShell() {
           <SmokeEffect />
         </div>
       </div>
-    </>
+    </RoomTransitionProvider>
   );
 }
 

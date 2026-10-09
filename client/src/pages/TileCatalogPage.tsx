@@ -44,6 +44,7 @@ export function TileCatalogPage() {
     <PageContainer>
       <PageBanner
         scene="subway"
+        tone="champagne"
         badge="Showroom Catalog • Verified Products"
         title="Showroom Tile Collection"
         subtitle="Explore genuine Italian marbles, porcelain slabs, handcrafted terracotta, and mosaics. Select any tile to launch an instant in-situ trial in your actual room."
