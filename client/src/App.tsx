@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { lazy, Suspense, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { WorkflowProvider } from "@/context/WorkflowContext";
 import { Navbar } from "@/components/layout/Navbar";
@@ -30,8 +30,6 @@ const CalculatorPage = lazy(() => import("@/pages/CalculatorPage").then((m) => (
 const DemosPage = lazy(() => import("@/pages/DemosPage").then((m) => ({ default: m.DemosPage })));
 
 const SPLASH_KEY = "sds_splash_shown";
-const AUTO_ADVANCE_KEY = "sds_auto_advance_shown";
-const AUTO_ADVANCE_DELAY_MS = 4800;
 
 function PageFallback() {
   return (
@@ -40,66 +38,6 @@ function PageFallback() {
       <Skeleton className="h-64 w-full" />
     </div>
   );
-}
-
-/**
- * On the very first visit of a browser session, after the splash finishes on
- * the home page, give the hero a few seconds to be seen then glide straight
- * into the live "try a visualization" demo screen — unless the person starts
- * interacting first, in which case we back off and never ask again this session.
- */
-function HomeAutoAdvance({ armed }: { armed: boolean }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const firedRef = useRef(false);
-
-  useEffect(() => {
-    if (!armed || location.pathname !== "/") return;
-    let alreadyShown = false;
-    try {
-      alreadyShown = sessionStorage.getItem(AUTO_ADVANCE_KEY) === "1";
-    } catch {
-      /* ignore */
-    }
-    if (alreadyShown || firedRef.current) return;
-
-    const markShown = () => {
-      try {
-        sessionStorage.setItem(AUTO_ADVANCE_KEY, "1");
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const timer = setTimeout(() => {
-      if (firedRef.current) return;
-      firedRef.current = true;
-      markShown();
-      navigate("/demos");
-    }, AUTO_ADVANCE_DELAY_MS);
-
-    const cancel = () => {
-      if (firedRef.current) return;
-      firedRef.current = true;
-      markShown();
-      clearTimeout(timer);
-    };
-
-    const opts: AddEventListenerOptions = { once: true, passive: true };
-    window.addEventListener("pointerdown", cancel, opts);
-    window.addEventListener("wheel", cancel, opts);
-    window.addEventListener("keydown", cancel, opts);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointerdown", cancel);
-      window.removeEventListener("wheel", cancel);
-      window.removeEventListener("keydown", cancel);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [armed, location.pathname]);
-
-  return null;
 }
 
 function AppShell() {
@@ -123,7 +61,6 @@ function AppShell() {
   return (
     <>
       {splashActive && <SplashScreen onFinish={finishSplash} />}
-      <HomeAutoAdvance armed={!splashActive} />
       <div className="flex min-h-screen relative">
         <Sidebar />
         <div className="flex min-h-screen flex-1 flex-col relative">

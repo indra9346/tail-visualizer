@@ -123,6 +123,8 @@ const COMPARISON_TILES = [
 ];
 
 export function LandingPage() {
+  const [showMore, setShowMore] = useState(false);
+  const moreRef = useRef<HTMLDivElement | null>(null);
   const [activeSpaceTab, setActiveSpaceTab] = useState<string>("bathrooms");
   const [selectedComparisonTile, setSelectedComparisonTile] = useState<string>("calacatta");
   const [heroSliderPos, setHeroSliderPos] = useState<number>(78);
@@ -158,13 +160,20 @@ export function LandingPage() {
     setHeroSliderPos(Math.min(98, Math.max(2, pct)));
   }, []);
 
+  const revealShowroom = useCallback(() => {
+    setShowMore(true);
+    requestAnimationFrame(() => {
+      moreRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
   const currentSpace = SPACE_CATEGORIES.find((s) => s.id === activeSpaceTab) || SPACE_CATEGORIES[0];
   const activeTile = COMPARISON_TILES.find((t) => t.id === selectedComparisonTile) || COMPARISON_TILES[0];
 
   return (
     <div className="bg-transparent text-stone-950 selection:bg-clay-300">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-10 pb-24 sm:pt-16 sm:pb-36">
+      {/* Hero Section: the "open straight into the tool" dashboard panel */}
+      <section className="relative flex min-h-[calc(100svh-4rem)] items-center overflow-hidden pt-10 pb-16 sm:pt-14 sm:pb-20 lg:min-h-[calc(100svh-1px)]">
         <HeroRoom />
         <div className="pointer-events-none absolute -right-32 -top-32 h-[32rem] w-[32rem] rounded-full bg-clay-200/40 blur-3xl" />
         <div className="pointer-events-none absolute -left-32 top-1/2 h-[28rem] w-[28rem] rounded-full bg-clay-300/30 blur-3xl" />
@@ -465,8 +474,46 @@ export function LandingPage() {
             </div>
           </motion.div>
         </div>
+
+        {!showMore && (
+          <motion.button
+            type="button"
+            onClick={revealShowroom}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+            className="group absolute inset-x-0 bottom-5 z-10 mx-auto flex w-fit flex-col items-center gap-1.5 text-stone-600 hover:text-stone-900"
+            aria-expanded={showMore}
+            aria-controls="landing-showroom"
+          >
+            <span className="rounded-full border border-stone-300/90 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider shadow-sm backdrop-blur transition-colors group-hover:border-clay-400 group-hover:bg-white">
+              Explore the Full Showroom
+            </span>
+            <motion.svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              animate={{ y: [0, 5, 0] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </motion.svg>
+          </motion.button>
+        )}
       </section>
 
+      {!showMore && <div className="h-px" ref={moreRef} aria-hidden="true" />}
+
+      {/* Everything below the fold stays out of the DOM until the visitor
+          explicitly asks for it — the tool panel above is the whole app on
+          first paint, like opening straight into a workspace. */}
+      {showMore && (
+        <div ref={moreRef}>
       {/* Real tiles on real surfaces */}
       <section className="container-page py-20">
         <div className="mx-auto max-w-2xl text-center">
@@ -888,6 +935,8 @@ export function LandingPage() {
           </div>
         </motion.div>
       </section>
+        </div>
+      )}
     </div>
   );
 }
