@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { cn } from "@/lib/cn";
 
 interface SDSLogoProps {
@@ -21,6 +21,9 @@ export function SDSIcon({
   className?: string;
   size?: number;
 }) {
+  const uid = useId();
+  const id = (name: string) => `${uid}-${name}`;
+
   return (
     <svg
       className={cn("shrink-0 drop-shadow-sm select-none", className)}
@@ -33,39 +36,39 @@ export function SDSIcon({
     >
       <defs>
         {/* Luxury Gold & Ceramic Gradients */}
-        <linearGradient id="sds-gold-bevel" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={id("sds-gold-bevel")} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#f5e6cf" />
           <stop offset="45%" stopColor="#d4a362" />
           <stop offset="100%" stopColor="#8f6740" />
         </linearGradient>
 
-        <linearGradient id="sds-tile-marble" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={id("sds-tile-marble")} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#fdfbf7" />
           <stop offset="100%" stopColor="#e2cfb9" />
         </linearGradient>
 
-        <linearGradient id="sds-tile-terracotta" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={id("sds-tile-terracotta")} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#d49b61" />
           <stop offset="100%" stopColor="#93572d" />
         </linearGradient>
 
-        <linearGradient id="sds-tile-bronze" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={id("sds-tile-bronze")} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#aa7845" />
           <stop offset="100%" stopColor="#5f3e20" />
         </linearGradient>
 
-        <linearGradient id="sds-tile-slate" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={id("sds-tile-slate")} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#352e29" />
           <stop offset="100%" stopColor="#161412" />
         </linearGradient>
 
-        <linearGradient id="sds-sheen" x1="0%" y1="0%" x2="100%" y2="0%">
+        <linearGradient id={id("sds-sheen")} x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
           <stop offset="50%" stopColor="#ffffff" stopOpacity="0.05" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0.2" />
         </linearGradient>
 
-        <filter id="sds-shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <filter id={id("sds-shadow")} x="-10%" y="-10%" width="120%" height="120%">
           <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.25" />
         </filter>
       </defs>
@@ -78,12 +81,12 @@ export function SDSIcon({
         height="44"
         rx="12"
         fill="#181513"
-        stroke="url(#sds-gold-bevel)"
+        stroke={`url(#${id("sds-gold-bevel")})`}
         strokeWidth="1.2"
       />
 
       {/* Decorative Ceramic Grout Matrix Pattern (4 Quadrant Tiles) */}
-      <g filter="url(#sds-shadow)">
+      <g filter={`url(#${id("sds-shadow")})`}>
         {/* Top-Left Tile: Polished Calacatta / Glazed Porcelain */}
         <rect
           x="7.5"
@@ -91,7 +94,7 @@ export function SDSIcon({
           width="15"
           height="15"
           rx="3.5"
-          fill="url(#sds-tile-marble)"
+          fill={`url(#${id("sds-tile-marble")})`}
         />
         {/* Subtle Glaze Sheen Line */}
         <line
@@ -99,7 +102,7 @@ export function SDSIcon({
           y1="8.5"
           x2="21.5"
           y2="8.5"
-          stroke="url(#sds-sheen)"
+          stroke={`url(#${id("sds-sheen")})`}
           strokeWidth="1"
           strokeLinecap="round"
         />
@@ -111,7 +114,7 @@ export function SDSIcon({
           width="15"
           height="15"
           rx="3.5"
-          fill="url(#sds-tile-terracotta)"
+          fill={`url(#${id("sds-tile-terracotta")})`}
         />
 
         {/* Bottom-Left Tile: Earthen Clay / Bronze Tile */}
@@ -121,7 +124,7 @@ export function SDSIcon({
           width="15"
           height="15"
           rx="3.5"
-          fill="url(#sds-tile-bronze)"
+          fill={`url(#${id("sds-tile-bronze")})`}
         />
 
         {/* Bottom-Right Tile: Slate / Charcoal Granito Tile */}
@@ -131,7 +134,7 @@ export function SDSIcon({
           width="15"
           height="15"
           rx="3.5"
-          fill="url(#sds-tile-slate)"
+          fill={`url(#${id("sds-tile-slate")})`}
         />
       </g>
 
@@ -146,7 +149,7 @@ export function SDSIcon({
           rx="3.5"
           transform="rotate(45)"
           fill="#1c1815"
-          stroke="url(#sds-gold-bevel)"
+          stroke={`url(#${id("sds-gold-bevel")})`}
           strokeWidth="1.2"
         />
         {/* Inner Diamond Core */}
@@ -157,7 +160,7 @@ export function SDSIcon({
           height="13"
           rx="2"
           transform="rotate(45)"
-          fill="url(#sds-gold-bevel)"
+          fill={`url(#${id("sds-gold-bevel")})`}
         />
         {/* Monogram "SDS" */}
         <text
