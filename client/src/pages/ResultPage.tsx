@@ -31,7 +31,9 @@ export function ResultPage() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshAttemptsRef = useRef(0);
   const toggleViewerExpanded = useCallback(() => {
     setViewerExpanded((current) => !current);
   }, []);
@@ -76,7 +78,49 @@ export function ResultPage() {
 
   useEffect(() => {
     setViewerExpanded(true);
+    setImageLoadError(false);
+    refreshAttemptsRef.current = 0;
   }, [visualizationId]);
+
+  // Signed image URLs are short-lived (5 minutes). On mobile, backgrounding
+  // the tab — switching apps, the phone locking — can delay the fetch past
+  // that window, so the <img> fails even though generation succeeded. Re-fetch
+  // the visualization (and room photo) to get fresh signed URLs, a couple of
+  // times automatically, then fall back to a manual "Reload" the user can tap.
+  const MAX_AUTO_IMAGE_REFRESH = 2;
+
+  const refreshImages = useCallback(async () => {
+    if (!visualizationId) return;
+    try {
+      const viz = await getVisualization(visualizationId);
+      setVisualization(viz);
+      if (viz.roomUploadId) {
+        try {
+          const roomData = await getRoom(viz.roomUploadId);
+          setRoom(roomData);
+        } catch {
+          // Room photo may not be visible to this viewer (not the owner) — fine.
+        }
+      }
+      setImageLoadError(false);
+    } catch {
+      setImageLoadError(true);
+    }
+  }, [visualizationId]);
+
+  const handleImageError = useCallback(() => {
+    if (refreshAttemptsRef.current >= MAX_AUTO_IMAGE_REFRESH) {
+      setImageLoadError(true);
+      return;
+    }
+    refreshAttemptsRef.current += 1;
+    refreshImages();
+  }, [refreshImages]);
+
+  const handleManualImageRetry = useCallback(() => {
+    refreshAttemptsRef.current = 0;
+    refreshImages();
+  }, [refreshImages]);
 
   async function handleDownload() {
     if (!visualization?.resultImageUrl) return;
@@ -202,7 +246,21 @@ export function ResultPage() {
             afterAlt="Room finished with the selected tile"
             expanded={viewerExpanded}
             onToggleExpanded={toggleViewerExpanded}
+            onAfterError={handleImageError}
+            onBeforeError={handleImageError}
           />
+          {imageLoadError && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+              <span>This image link timed out — common after a phone sits idle mid-load.</span>
+              <button
+                type="button"
+                onClick={handleManualImageRetry}
+                className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-100"
+              >
+                Reload image
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
 

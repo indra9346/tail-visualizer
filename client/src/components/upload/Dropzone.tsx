@@ -14,6 +14,7 @@ interface DropzoneProps {
 export function Dropzone({ file, onFileSelected, onClear, error, disabled }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const previewUrl = usePreviewUrl(file);
 
   const handleFiles = useCallback(
@@ -55,15 +56,33 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
             <p className="truncate text-sm font-medium text-stone-900">{file.name}</p>
             <p className="text-xs text-stone-500">{(file.size / (1024 * 1024)).toFixed(1)} MB</p>
           </div>
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={disabled}
-            className="shrink-0 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
-          >
-            Remove
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={disabled}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+            >
+              Replace
+            </button>
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={disabled}
+              className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </div>
         </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          disabled={disabled}
+          onChange={(e) => handleFiles(e.target.files)}
+        />
         {error && (
           <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700" role="alert">
             {error}
@@ -130,6 +149,32 @@ export function Dropzone({ file, onFileSelected, onClear, error, disabled }: Dro
           onChange={(e) => handleFiles(e.target.files)}
         />
       </motion.div>
+
+      {/* A single <input> can't both open the library and force the camera across
+          mobile browsers, so a second hidden input with capture="environment"
+          backs this button. Harmless on desktop: capture is simply ignored there. */}
+      <button
+        type="button"
+        onClick={() => cameraInputRef.current?.click()}
+        disabled={disabled}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="4" />
+        </svg>
+        Take a Photo
+      </button>
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        disabled={disabled}
+        onChange={(e) => handleFiles(e.target.files)}
+      />
+
       {error && (
         <p className="mt-2 text-sm text-red-700" role="alert">
           {error}

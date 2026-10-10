@@ -9,6 +9,10 @@ interface BeforeAfterSliderProps {
   afterAlt?: string;
   expanded?: boolean;
   onToggleExpanded?: () => void;
+  /** Fired when the after/before image fails to load — e.g. a short-lived
+   * signed URL that expired while the tab was backgrounded on a phone. */
+  onAfterError?: () => void;
+  onBeforeError?: () => void;
 }
 
 interface PanOffset {
@@ -37,6 +41,8 @@ export function BeforeAfterSlider({
   afterAlt = "After",
   expanded = false,
   onToggleExpanded,
+  onAfterError,
+  onBeforeError,
 }: BeforeAfterSliderProps) {
   const [position, setPosition] = useState(50);
   const [zoom, setZoom] = useState(MIN_ZOOM);
@@ -207,6 +213,7 @@ export function BeforeAfterSlider({
           style={imageStyle}
           draggable={false}
           onLoad={(event) => measureAfter(event.currentTarget)}
+          onError={onAfterError}
         />
 
         {beforeSrc && (
@@ -221,6 +228,7 @@ export function BeforeAfterSlider({
               className="h-full w-full object-cover"
               style={imageStyle}
               draggable={false}
+              onError={onBeforeError}
             />
           </div>
         )}
