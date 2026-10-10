@@ -40,7 +40,7 @@ export function Sidebar() {
       initial={false}
       animate={{ width: collapsed ? 76 : 240 }}
       transition={{ type: "spring", damping: 28, stiffness: 260 }}
-      className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0 lg:flex-col lg:border-r lg:border-hairline lg:bg-surface-card"
+      className="hidden lg:sticky lg:top-0 lg:z-20 lg:flex lg:h-screen lg:shrink-0 lg:flex-col lg:border-r lg:border-hairline lg:bg-surface-card"
     >
       <div className="flex items-center gap-2.5 px-4 py-5">
         <DoorNavLink to="/" roomLabel="HOME" className="flex shrink-0 items-center" aria-label="SDS Tiles home">
