@@ -23,6 +23,8 @@ import {
   type BillingSummary,
   type CreditPackage,
   type CreditTransaction,
+  CheckoutClosedError,
+  PaymentWidgetError,
 } from "@/api/billing";
 
 /** Package cards count in one after another. */
@@ -77,7 +79,9 @@ export function CreditsPage() {
       setJustPurchased(`${pkg.credits + pkg.bonusCredits} credits added to your account.`);
       setTimeout(() => setJustPurchased(null), 6000);
     } catch (err) {
-      setBuyError(friendlyErrorMessage(err, "We couldn't complete your purchase. If you were charged, it will be credited automatically shortly."));
+      // Closing the payment window is not an error with the purchase; say plainly that nothing was charged.
+      if (err instanceof CheckoutClosedError || err instanceof PaymentWidgetError) setBuyError(err.message);
+      else setBuyError(friendlyErrorMessage(err, "We couldn't complete your purchase. If you were charged, it will be credited automatically shortly."));
     } finally {
       setBuyingId(null);
     }

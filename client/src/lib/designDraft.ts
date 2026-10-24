@@ -1,5 +1,5 @@
-import type { SurfaceType, Tile } from "../api/types";
-import { PATTERNS, SURFACES, isValidLabel, type DesignPattern } from "./designPatterns";
+import type { Design, SurfaceType, Tile } from "../api/types";
+import { DESIGN_PATTERNS, PATTERNS, SURFACES, isValidLabel, patternFitsSurface, rolesFor, type DesignPattern } from "./designPatterns";
 import { LAYOUTS, ROOM_LAYOUTS, coversAllWalls, wallInfo, type RoomLayout, type WallId } from "./roomLayouts";
 import { sizeProblem, sizeToDimensions, type AreaSize } from "./fitRecommend";
 
@@ -98,6 +98,35 @@ export function toggleWall(areas: DraftArea[], layout: RoomLayout, wallId: WallI
   return [...areas.slice(0, at), added, ...areas.slice(at)];
 }
 
+/**
+ * A name for a new (or re-surfaced) area that no other area of the same surface uses: the first free preset,
+ * else "Floor 2", "Floor 3", ... so two areas can never end up with the same surface and location.
+ */
+export function uniqueLocation(surface: SurfaceType, areas: DraftArea[], exceptKey?: string): string {
+  const used = new Set(areas.filter((a) => a.surface === surface && a.key !== exceptKey).map((a) => a.location.trim().toLowerCase()));
+  const preset = SURFACES[surface].locations.find((p) => !used.has(p.toLowerCase()));
+  if (preset) return preset;
+  for (let n = 2; ; n++) {
+    const name = `${SURFACES[surface].label} ${n}`;
+    if (!used.has(name.toLowerCase())) return name;
+  }
+}
+
+/**
+ * Moving an area to another surface. A preset name follows the new surface (without clashing with another area);
+ * a name the owner typed is kept unless it would clash. A layout the new surface can't take (a dado on a floor)
+ * falls back to a plain single tile, keeping the tiles already chosen.
+ */
+export function withSurface(area: DraftArea, surface: SurfaceType, areas: DraftArea[]): DraftArea {
+  if (surface === area.surface) return area;
+  const others = areas.filter((a) => a.key !== area.key && a.surface === surface);
+  const typed = !SURFACES[area.surface].locations.includes(area.location) && area.location.trim() !== "";
+  const clashes = others.some((a) => a.location.trim().toLowerCase() === area.location.trim().toLowerCase());
+  const location = typed && !clashes ? area.location : uniqueLocation(surface, areas, area.key);
+  const moved: DraftArea = { ...area, surface, location };
+  return patternFitsSurface(moved.pattern, surface) ? moved : withPattern(moved, "single");
+}
+
 /** Switching pattern keeps the tiles already chosen (in order) and resizes the slot list. */
 export function withPattern(area: DraftArea, pattern: DesignPattern): DraftArea {
   const chosen = area.slots.filter((t): t is Tile => t !== null);
@@ -163,10 +192,11 @@ export function validateDraft(areas: DraftArea[], layout: RoomLayout = "open"): 
 
     const sizeIssue = sizeProblem(area.size);
     if (sizeIssue) add(area.key, sizeIssue);
+    if (!patternFitsSurface(area.pattern, area.surface)) add(area.key, `"${spec.label}" can't be laid on ${SURFACES[area.surface].label.toLowerCase()}. Choose another layout.`);
 
     const firstGap = area.slots.findIndex((t) => t === null);
     if (tiles.length < spec.min) {
-      const missing = spec.roles.slice(0, spec.min).filter((_, i) => area.slots[i] === null);
+      const missing = rolesFor(area.pattern, area.surface).slice(0, spec.min).filter((_, i) => area.slots[i] === null);
       add(area.key, `Choose ${missing.length === 1 ? "the" : "all"} required tile${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
     } else if (firstGap !== -1 && area.slots.slice(firstGap).some((t) => t !== null)) {
       add(area.key, "Fill the tile slots in order, without leaving a gap.");
@@ -177,8 +207,9 @@ export function validateDraft(areas: DraftArea[], layout: RoomLayout = "open"): 
       if (!tile.isActive) add(area.key, `"${tile.name}" is hidden in your catalog. Show it again or pick another tile.`);
     }
 
-    const dupKey = `${area.surface}|${area.location.trim().toLowerCase()}`;
-    if (seen.has(dupKey)) add(area.key, "Another area already has the same surface and location.");
+    // Same normalisation as the server, so "Back  wall" and "back wall" are caught here and not only on Preview.
+    const dupKey = `${area.surface}|${area.location.replace(/\s+/g, " ").trim().toLowerCase()}`;
+    if (seen.has(dupKey)) add(area.key, `Another ${SURFACES[area.surface].label.toLowerCase()} area is already named "${area.location.trim()}". Give this one a different name.`);
     seen.add(dupKey);
   }
   return issues;
@@ -208,10 +239,10 @@ interface KeyValueStore {
 }
 const store = (): KeyValueStore | undefined => (globalThis as { sessionStorage?: KeyValueStore }).sessionStorage;
 
-/** The unfinished design survives a refresh. Only public catalog data and the owner's own choices are stored. */
-export function saveDraft(roomId: string, areas: DraftArea[], layout: RoomLayout = "open", template?: string): void {
+/** The unfinished design (with the requirements text) survives a refresh. Only public catalog data and the owner's own choices are stored. */
+export function saveDraft(roomId: string, areas: DraftArea[], layout: RoomLayout = "open", template?: string, requirements?: string): void {
   try {
-    store()?.setItem(storageKey(roomId), JSON.stringify({ layout, ...(template ? { template } : {}), areas }));
+    store()?.setItem(storageKey(roomId), JSON.stringify({ layout, ...(template ? { template } : {}), ...(requirements ? { requirements } : {}), areas }));
   } catch {
     /* best effort */
   }
@@ -222,6 +253,8 @@ export interface LoadedDraft {
   /** The room template the draft was made from; absent in drafts saved before templates existed. */
   template?: string;
   areas: DraftArea[];
+  /** The free-text requirements typed with the draft; absent when none were typed. */
+  requirements?: string;
 }
 
 /** Reads a saved draft. Accepts the earlier format (a bare array of areas) as free naming. */
@@ -234,6 +267,7 @@ export function loadDraft(roomId: string): LoadedDraft | null {
     if (!Array.isArray(list)) return null;
     const saved = Array.isArray(parsedRaw) ? undefined : (parsedRaw as { layout?: string }).layout;
     const template = Array.isArray(parsedRaw) ? undefined : (parsedRaw as { template?: unknown }).template;
+    const requirements = Array.isArray(parsedRaw) ? undefined : (parsedRaw as { requirements?: unknown }).requirements;
     const layout: RoomLayout = (ROOM_LAYOUTS as readonly string[]).includes(saved ?? "") ? (saved as RoomLayout) : "open";
     const areas = (list as DraftArea[])
       .filter((a) => a && a.surface in SURFACES && a.pattern in PATTERNS && Array.isArray(a.slots))
@@ -245,8 +279,33 @@ export function loadDraft(roomId: string): LoadedDraft | null {
         slots: emptySlots(a.pattern).map((_, i) => a.slots[i] ?? null),
       }))
       .map(({ wall, ...rest }) => (wall ? { ...rest, wall } : rest));
-    return { layout, ...(typeof template === "string" ? { template } : {}), areas };
+    return { layout, ...(typeof template === "string" ? { template } : {}), ...(typeof requirements === "string" && requirements !== "" ? { requirements } : {}), areas };
   } catch {
     return null;
   }
+}
+
+/**
+ * Rebuilds an editable draft from a design the server already generated ("Edit design" on a result), so the owner
+ * changes that design instead of starting again. A tile that is no longer in the catalog leaves its slot empty.
+ */
+export function draftFromDesign(design: Design, tiles: Tile[]): LoadedDraft | null {
+  const byId = new Map(tiles.map((t) => [t.id, t]));
+  const layout: RoomLayout = design.layout && (ROOM_LAYOUTS as readonly string[]).includes(design.layout) ? design.layout : "open";
+  const areas = design.areas
+    .filter((a) => a.surface in SURFACES && (DESIGN_PATTERNS as readonly string[]).includes(a.pattern))
+    .map((a): DraftArea => {
+      const pattern = a.pattern as DesignPattern;
+      const wall = layout !== "open" && a.wall && wallInfo(layout, a.wall) ? a.wall : undefined;
+      return {
+        key: newKey(),
+        surface: a.surface,
+        location: a.location,
+        ...(wall ? { wall } : {}),
+        pattern,
+        patternNote: a.patternNote ?? "",
+        slots: emptySlots(pattern).map((_, i) => (a.tileIds[i] ? (byId.get(a.tileIds[i]!) ?? null) : null)),
+      };
+    });
+  return areas.length > 0 ? { layout, areas } : null;
 }

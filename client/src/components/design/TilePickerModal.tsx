@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { TileGrid } from "@/components/tiles/TileGrid";
 import { cn } from "@/lib/cn";
-import { createMyTile, searchTiles } from "@/api/tiles";
+import { createMyTile, fetchAllTiles } from "@/api/tiles";
 import { friendlyErrorMessage } from "@/api/client";
 import { validateRoomImageFile } from "@/api/rooms";
 import { SURFACES } from "@/lib/designPatterns";
@@ -36,10 +36,13 @@ export function TilePickerModal({ open, onClose, surface, slotLabel, recommended
   useEffect(() => {
     if (!open) return;
     setTab("catalog");
+    // Each opening is for a new slot (maybe another surface): a search left over from the last one would hide its tiles.
+    setQuery("");
+    setOnlyRecommended(false);
     setLoading(true);
     setError(null);
-    searchTiles({ page: 1, pageSize: 50 })
-      .then((res) => setTiles(res.tiles))
+    fetchAllTiles()
+      .then(setTiles)
       .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load your catalog.")))
       .finally(() => setLoading(false));
   }, [open]);

@@ -60,8 +60,17 @@ export function UploadPage() {
     try {
       const prepared = await preprocessRoomImage(file);
 
-      const projectId =
-        projectMode === "new" ? (await createProject(newProjectName.trim())).id : selectedProjectId;
+      let projectId = selectedProjectId;
+      if (projectMode === "new") {
+        const created = await createProject(newProjectName.trim());
+        projectId = created.id;
+        // From now on this is an existing project: if the upload below fails, trying again reuses it
+        // instead of creating another empty project with the same name.
+        setProjects((prev) => [created, ...(prev ?? [])]);
+        setSelectedProjectId(created.id);
+        setProjectMode("existing");
+        setNewProjectName("");
+      }
 
       setProject(projectId);
       const room = await uploadRoom(projectId, prepared);

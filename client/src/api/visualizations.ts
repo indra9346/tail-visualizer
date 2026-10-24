@@ -54,8 +54,13 @@ export async function getRoomVisualizations(roomUploadId: string): Promise<Visua
 }
 
 export async function listMyVisualizations(): Promise<Visualization[]> {
-  const res = await apiGet<{ visualizations: Visualization[] }>("/api/visualizations/history");
-  return res.visualizations;
+  return (await listMyVisualizationsPage()).visualizations;
+}
+
+/** One page of the owner's designs, newest first; `before` = createdAt of the oldest design already shown. */
+export async function listMyVisualizationsPage(before?: string): Promise<{ visualizations: Visualization[]; hasMore: boolean }> {
+  const res = await apiGet<{ visualizations: Visualization[]; hasMore?: boolean }>("/api/visualizations/history", { before });
+  return { visualizations: res.visualizations, hasMore: res.hasMore ?? false };
 }
 
 /**

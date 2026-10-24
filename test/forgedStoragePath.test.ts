@@ -62,7 +62,7 @@ jest.mock("../server/db/visualizations", () => ({
   getVisualizationById: async () => viz,
   listVisualizationsForRoom: async () => [viz],
 }));
-jest.mock("../server/db/generationJobs", () => ({ getLatestJobForVisualization: async () => null }));
+jest.mock("../server/db/generationJobs", () => ({ ...jest.requireActual("../server/db/generationJobs"), getLatestJobForVisualization: async () => null }));
 jest.mock("../server/db/tiles", () => ({ getTileById: async () => null }));
 jest.mock("../server/db/analyses", () => ({ getAnalysisByRoomUploadId: async () => null, insertAnalysis: jest.fn() }));
 jest.mock("../server/ai/analyzeRoom", () => ({ analyzeRoom: jest.fn() }));

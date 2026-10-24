@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -19,13 +21,19 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.1.0",
+    "@testing-library/user-event": "14.5.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "jsdom": "25.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.5.4",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "2.1.9"
   }
 }

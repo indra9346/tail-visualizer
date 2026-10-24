@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
-import { PATTERNS } from "@/lib/designPatterns";
+import { PATTERNS, rolesFor } from "@/lib/designPatterns";
 import { chosenTiles, tileFitsSurface, withPattern, type DraftArea } from "@/lib/designDraft";
 import { MM_PER_UNIT, emptySize, rankTiles, sizeToDimensions, type AreaSize, type DimUnit, type PatternSuggestion } from "@/lib/fitRecommend";
 import type { RoomType, Tile } from "@/api/types";
@@ -74,7 +74,7 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
     setSize({ width: conv(size.width), height: conv(size.height), unit });
   }
 
-  const roleOf = (slot: number) => PATTERNS[area.pattern].roles[slot] ?? `tile ${slot + 1}`;
+  const roleOf = (slot: number) => rolesFor(area.pattern, area.surface)[slot] ?? `tile ${slot + 1}`;
 
   function useTile(tile: Tile) {
     const placed = placeTile(area, tile);

@@ -1,12 +1,14 @@
 import { cn } from "@/lib/cn";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
-import { DESIGN_PATTERNS, PATTERNS, type DesignPattern } from "@/lib/designPatterns";
+import { PATTERNS, hintFor, patternsFor, rolesFor, type DesignPattern } from "@/lib/designPatterns";
 import type { PatternSuggestion } from "@/lib/fitRecommend";
-import type { Tile } from "@/api/types";
+import type { SurfaceType, Tile } from "@/api/types";
 import { DEMO_COLORS, PatternDemo, type DemoFill } from "./PatternDemo";
 
 interface Props {
   pattern: DesignPattern;
+  /** Only the layouts that make sense on this surface are offered (no dado on a floor). */
+  surface: SurfaceType;
   /** The tiles chosen so far for this area: the demos use their photos, so the preview matches the real combination. */
   tiles: Tile[];
   suggestions: PatternSuggestion[];
@@ -28,8 +30,9 @@ function fillsFor(pattern: DesignPattern, tiles: Tile[]): DemoFill[] {
  * Pick a layout by LOOKING at it: every pattern is drawn on a small wall (with the chosen tiles when there are any), and the
  * selected one is shown larger with what each tile slot does. Suggested layouts for the surface are starred, never forced.
  */
-export function PatternPicker({ pattern, tiles, suggestions, onChange }: Props) {
+export function PatternPicker({ pattern, surface, tiles, suggestions, onChange }: Props) {
   const spec = PATTERNS[pattern];
+  const roles = rolesFor(pattern, surface);
   const suggested = new Map(suggestions.map((s) => [s.pattern, s.reason]));
   return (
     <div>
@@ -52,7 +55,7 @@ export function PatternPicker({ pattern, tiles, suggestions, onChange }: Props) 
       )}
 
       <div role="radiogroup" aria-label="Layout pattern" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-        {DESIGN_PATTERNS.map((id) => {
+        {patternsFor(surface).map((id) => {
           const p = PATTERNS[id];
           const active = id === pattern;
           return (
@@ -62,7 +65,7 @@ export function PatternPicker({ pattern, tiles, suggestions, onChange }: Props) 
               role="radio"
               aria-checked={active}
               onClick={() => onChange(id)}
-              title={suggested.get(id) ?? p.hint}
+              title={suggested.get(id) ?? hintFor(id, surface)}
               className={cn(
                 "group relative flex flex-col rounded-xl border p-1.5 text-left transition-colors",
                 active ? "border-stone-900 bg-stone-900 text-white shadow" : "border-stone-200 bg-white hover:border-stone-500",
@@ -83,10 +86,10 @@ export function PatternPicker({ pattern, tiles, suggestions, onChange }: Props) 
         <PatternDemo pattern={pattern} fills={fillsFor(pattern, tiles)} className="w-full max-w-[200px] shrink-0 self-center rounded-lg sm:self-auto" label={`${spec.label} large demo`} />
         <div className="min-w-0 text-sm">
           <p className="font-semibold text-stone-900">{spec.label}</p>
-          <p className="text-stone-600">{spec.hint}</p>
+          <p className="text-stone-600">{hintFor(pattern, surface)}</p>
           {suggested.get(pattern) && <p className="mt-1 text-xs text-clay-800">★ {suggested.get(pattern)}</p>}
           <p className="mt-1.5 text-xs text-stone-500">
-            Tiles: {spec.roles.slice(0, spec.max).map((role, i) => (
+            Tiles: {roles.slice(0, spec.max).map((role, i) => (
               <span key={role}>
                 {i > 0 ? ", " : ""}
                 <span className="font-medium text-stone-700">{i + 1}</span> {role}

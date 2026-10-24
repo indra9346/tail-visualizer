@@ -111,6 +111,8 @@ export function ResultPage() {
   const handleImageError = useCallback(() => {
     if (refreshAttemptsRef.current >= MAX_AUTO_IMAGE_REFRESH) {
       setImageLoadError(true);
+      // The "Reload image" button sits under the viewer; leave full screen so it can be seen and tapped.
+      setViewerExpanded(false);
       return;
     }
     refreshAttemptsRef.current += 1;
@@ -370,7 +372,11 @@ export function ResultPage() {
           </Button>
         )}
         {visualization.isOwner && visualization.roomUploadId && (
-          <Button size="md" onClick={() => navigate(`/tiles/${visualization.roomUploadId}`)}>
+          <Button
+            size="md"
+            // The Studio reopens THIS design (areas, layouts, tiles) so the owner changes it instead of starting again.
+            onClick={() => navigate(`/tiles/${visualization.roomUploadId}`, { state: visualization.design ? { editDesign: visualization.design, editTiles: visualization.designTiles ?? [], editRequirements: visualization.requirements ?? "" } : undefined })}
+          >
             Edit Design / Try Another
           </Button>
         )}

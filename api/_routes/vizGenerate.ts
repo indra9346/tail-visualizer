@@ -9,11 +9,20 @@ import { getTileById, type TileRow } from "../../server/db/tiles.js";
 import {
   createVisualization,
   findInFlightVisualization,
+  markVisualizationFailed,
   verifyVisualizationOwnership,
   updateVisualizationStatus,
   type VisualizationRow,
 } from "../../server/db/visualizations.js";
-import { createNextGenerationJob, markJobProcessing, markJobCompleted, markJobFailed } from "../../server/db/generationJobs.js";
+import {
+  createNextGenerationJob,
+  deleteJobQuietly,
+  getLatestJobForVisualization,
+  isJobRunning,
+  markJobProcessing,
+  markJobCompleted,
+  markJobFailed,
+} from "../../server/db/generationJobs.js";
 import { downloadRoomImage, downloadTileImage, uploadImage, deleteImageQuietly, createSignedUrl } from "../../server/storage/imageStorage.js";
 import { BUCKETS, generatedVisualizationPath } from "../../server/storage/buckets.js";
 import { generateVisualization } from "../../server/ai/generateVisualization.js";
@@ -101,8 +110,19 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       }));
   }
 
-  // A retry may carry updated instructions; otherwise keep what was stored on the row.
-  const requirements = body.requirements ?? visualization.requirements ?? null;
+  // One generation per design at a time. A second press (a double tap, or a phone re-sending a dropped request)
+  // while the first is still running would call the model twice and race on the same row, so it is refused. A job
+  // left "running" by a killed function is closed so this request can take over.
+  if (visualization.status === "pending" || visualization.status === "generating") {
+    const latest = await getLatestJobForVisualization(visualization.id);
+    if (latest && isJobRunning(latest)) throw Errors.generationInProgress();
+    if (latest && (latest.status === "pending" || latest.status === "processing")) await markJobFailed(latest.id, "The previous attempt timed out.");
+  }
+
+  // Instructions the request sends (even an empty box) replace the stored ones, so deleted text is never reused.
+  // Only a request that does not mention them at all keeps what was stored on the row.
+  const requirementsSent = typeof (req.body as { requirements?: unknown } | undefined)?.requirements === "string";
+  const requirements = requirementsSent ? (body.requirements ?? null) : (visualization.requirements ?? null);
   if (requirements !== visualization.requirements) {
     await updateVisualizationStatus(visualization.id, { status: visualization.status, requirements });
   }
@@ -124,10 +144,15 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
     hold = await holdCreditsForGeneration(user.id, job.id, billingConfig.generationCreditCost);
   } catch (err) {
     const safeMessage = err instanceof Error ? err.message : "Insufficient credits.";
-    await markJobFailed(job.id, safeMessage);
-    await updateVisualizationStatus(visualization.id, { status: "failed", errorMessage: safeMessage });
+    // The model never ran: drop the job so being short of credits does not use up one of the design's attempts.
+    await deleteJobQuietly(job.id);
+    await markVisualizationFailed(visualization.id, safeMessage);
     throw err;
   }
+
+  // Set once the image is stored / the row points at it, so a later failure cleans up exactly what it should.
+  let storedPath: string | null = null;
+  let rowCompleted = false;
 
   try {
     await markJobProcessing(job.id, aiConfig.models.visualization);
@@ -159,20 +184,20 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id },
     });
 
-    const resultPath = generatedVisualizationPath(user.id, room.projectId, visualization.id, result.mimeType);
+    const resultPath = generatedVisualizationPath(user.id, room.projectId, visualization.id, result.mimeType, job.attemptNumber);
     await uploadImage(BUCKETS.generatedVisualizations, resultPath, result.imageBuffer, result.mimeType);
+    storedPath = resultPath;
 
-    try {
-      await updateVisualizationStatus(visualization.id, {
-        status: "completed",
-        resultStoragePath: resultPath,
-        completedAt: new Date().toISOString(),
-        creditsCharged: billingConfig.generationCreditCost,
-      });
-    } catch (dbErr) {
-      // Generated image is safely stored but the DB row didn't update — clean up the orphan.
-      await deleteImageQuietly(BUCKETS.generatedVisualizations, resultPath);
-      throw dbErr;
+    await updateVisualizationStatus(visualization.id, {
+      status: "completed",
+      resultStoragePath: resultPath,
+      completedAt: new Date().toISOString(),
+      creditsCharged: billingConfig.generationCreditCost,
+    });
+    rowCompleted = true;
+    // Regenerating a finished design replaces its picture: the previous file is no longer referenced.
+    if (visualization.resultStoragePath && visualization.resultStoragePath !== resultPath) {
+      await deleteImageQuietly(BUCKETS.generatedVisualizations, visualization.resultStoragePath);
     }
 
     await markJobCompleted(job.id);
@@ -197,7 +222,9 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
   } catch (err) {
     const safeMessage = err instanceof AiServiceError ? err.safeMessage : "Visualization generation failed.";
     await markJobFailed(job.id, safeMessage);
-    await updateVisualizationStatus(visualization.id, { status: "failed", errorMessage: safeMessage });
+    // An image the row never pointed at is an orphan. Once the row shows it, it stays: the customer keeps the picture.
+    if (storedPath && !rowCompleted) await deleteImageQuietly(BUCKETS.generatedVisualizations, storedPath);
+    if (!rowCompleted) await markVisualizationFailed(visualization.id, safeMessage);
     // The reservation is returned — a failed generation never permanently consumes credits.
     await releaseCreditHold(hold.transactionId, safeMessage);
     throw err;

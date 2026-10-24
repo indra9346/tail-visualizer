@@ -24,6 +24,7 @@ export type ApiErrorCode =
   | "TILE_SURFACE_INCOMPATIBLE"
   | "VISUALIZATION_NOT_FOUND"
   | "RETRY_LIMIT_EXCEEDED"
+  | "GENERATION_IN_PROGRESS"
   | "RATE_LIMITED"
   | "METHOD_NOT_ALLOWED"
   | "UPSTREAM_AI_ERROR"
@@ -48,6 +49,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   TILE_SURFACE_INCOMPATIBLE: 422,
   VISUALIZATION_NOT_FOUND: 404,
   RETRY_LIMIT_EXCEEDED: 429,
+  GENERATION_IN_PROGRESS: 409,
   RATE_LIMITED: 429,
   METHOD_NOT_ALLOWED: 405,
   UPSTREAM_AI_ERROR: 502,
@@ -97,6 +99,8 @@ export const Errors = {
   visualizationNotFound: () => new ApiError("VISUALIZATION_NOT_FOUND", "Visualization not found."),
   retryLimitExceeded: (max: number) =>
     new ApiError("RETRY_LIMIT_EXCEEDED", `Maximum of ${max} generation attempts reached for this visualization.`),
+  generationInProgress: () =>
+    new ApiError("GENERATION_IN_PROGRESS", "This design is already being generated. It will appear in your Designs in a moment."),
   rateLimited: (msg = "Too many requests. Please slow down and try again shortly.") => new ApiError("RATE_LIMITED", msg),
   methodNotAllowed: (allowed: string[]) => new ApiError("METHOD_NOT_ALLOWED", `Allowed methods: ${allowed.join(", ")}`),
   upstreamAi: (msg = "The AI service failed. Please try again.") => new ApiError("UPSTREAM_AI_ERROR", msg),

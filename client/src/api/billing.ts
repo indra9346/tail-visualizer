@@ -91,6 +91,22 @@ declare global {
 
 let checkoutScriptPromise: Promise<void> | null = null;
 
+/** Razorpay's checkout script could not be loaded (offline, blocked). Nothing was charged. */
+export class PaymentWidgetError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PaymentWidgetError";
+  }
+}
+
+/** The owner closed the payment window (or every attempt in it failed). Nothing was charged. */
+export class CheckoutClosedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CheckoutClosedError";
+  }
+}
+
 /** Loads Razorpay's hosted checkout.js widget script once. The Gemini/Razorpay SECRET keys never appear in this file or anywhere in the browser. */
 export function loadRazorpayCheckoutScript(): Promise<void> {
   if (window.Razorpay) return Promise.resolve();
@@ -99,7 +115,12 @@ export function loadRazorpayCheckoutScript(): Promise<void> {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Could not load the payment widget. Check your connection and try again."));
+    script.onerror = () => {
+      // Forget the failed load, so the next tap on Buy tries again instead of failing until a page reload.
+      checkoutScriptPromise = null;
+      script.remove();
+      reject(new PaymentWidgetError("Could not load the payment window. Check your connection and try again."));
+    };
     document.body.appendChild(script);
   });
   return checkoutScriptPromise;
@@ -115,9 +136,12 @@ export function loadRazorpayCheckoutScript(): Promise<void> {
 export function openRazorpayCheckout(checkout: CheckoutInfo, userEmail: string | undefined): Promise<{ razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }> {
   return new Promise((resolve, reject) => {
     if (!window.Razorpay) {
-      reject(new Error("Payment widget did not load."));
+      reject(new PaymentWidgetError("The payment window did not load. Please try again."));
       return;
     }
+    // A failed attempt does NOT end the checkout: Razorpay keeps its window open so the customer can retry (for
+    // example UPI fails, then a card works). Settling on the failure would ignore that later success and never verify it.
+    let attemptFailed = false;
     const rzp = new window.Razorpay({
       key: checkout.keyId,
       order_id: checkout.orderId,
@@ -128,9 +152,13 @@ export function openRazorpayCheckout(checkout: CheckoutInfo, userEmail: string |
       prefill: userEmail ? { email: userEmail } : undefined,
       theme: { color: "#1c1917" },
       handler: (response: unknown) => resolve(response as { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }),
-      modal: { ondismiss: () => reject(new Error("Payment cancelled.")) },
+      modal: {
+        ondismiss: () => reject(new CheckoutClosedError(attemptFailed ? "The payment did not go through. No charge was made." : "Payment cancelled. No charge was made.")),
+      },
     });
-    rzp.on("payment.failed", () => reject(new Error("Payment failed. No charge was made.")));
+    rzp.on("payment.failed", () => {
+      attemptFailed = true;
+    });
     rzp.open();
   });
 }

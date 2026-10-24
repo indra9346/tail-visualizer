@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { friendlyErrorMessage } from "@/api/client";
-import { deleteVisualization, listMyVisualizations, setVisualizationVisibility } from "@/api/visualizations";
+import { deleteVisualization, listMyVisualizationsPage, setVisualizationVisibility } from "@/api/visualizations";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
 import { cn } from "@/lib/cn";
 import { PATTERNS, SURFACES } from "@/lib/designPatterns";
@@ -21,6 +21,20 @@ const STATUS: Record<string, { tone: "success" | "warning" | "danger" | "neutral
 };
 const IN_PROGRESS = new Set(["pending", "generating"]);
 const POLL_MS = 5000;
+/** Image links are signed for 5 minutes; a broken image asks for fresh links at most this often. */
+const IMAGE_REFRESH_GAP_MS = 20_000;
+
+/**
+ * The newest page replaces the top of the list; designs already loaded from older pages stay below it, so a
+ * refresh while generating never drops the older designs the owner opened with "Show older designs".
+ */
+export function mergeNewestPage(prev: Visualization[] | null, newest: Visualization[]): Visualization[] {
+  // No previous list, or no designs at all any more (the newest page is empty only when nothing is left).
+  if (!prev || newest.length === 0) return newest;
+  const oldestShown = newest[newest.length - 1]!.createdAt;
+  const ids = new Set(newest.map((v) => v.id));
+  return [...newest, ...prev.filter((v) => !ids.has(v.id) && v.createdAt < oldestShown)];
+}
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -40,19 +54,63 @@ export function VisualizationHistory() {
   const [showDetailOnPhone, setShowDetailOnPhone] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Visualization | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const olderLoaded = useRef(false);
+  const lastImageRefresh = useRef(0);
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
     try {
-      const next = await listMyVisualizations();
+      const page = await listMyVisualizationsPage();
       if (mounted.current) {
-        setItems(next);
+        setItems((prev) => mergeNewestPage(prev, page.visualizations));
+        if (!olderLoaded.current) setHasMore(page.hasMore);
         setError(null);
       }
     } catch (err) {
       if (mounted.current) setError(friendlyErrorMessage(err, "We couldn't load your designs."));
     }
   }, []);
+
+  /** History is paged (50 at a time): older designs are added below, so none is out of reach. */
+  async function loadOlder() {
+    const oldest = items?.[items.length - 1];
+    if (!oldest) return;
+    setLoadingOlder(true);
+    try {
+      const page = await listMyVisualizationsPage(oldest.createdAt);
+      if (!mounted.current) return;
+      olderLoaded.current = true;
+      setItems((prev) => [...(prev ?? []), ...page.visualizations.filter((v) => !(prev ?? []).some((p) => p.id === v.id))]);
+      setHasMore(page.hasMore);
+    } catch (err) {
+      if (mounted.current) setError(friendlyErrorMessage(err, "We couldn't load older designs."));
+    } finally {
+      if (mounted.current) setLoadingOlder(false);
+    }
+  }
+
+  /** A picture failed: its 5-minute link has most likely expired. Fetch fresh links for every loaded design. */
+  const onImageError = useCallback(async () => {
+    if (Date.now() - lastImageRefresh.current < IMAGE_REFRESH_GAP_MS) return;
+    lastImageRefresh.current = Date.now();
+    try {
+      const fresh: Visualization[] = [];
+      let before: string | undefined;
+      const oldestLoaded = items?.[items.length - 1]?.createdAt;
+      for (let i = 0; i < 20; i++) {
+        const page = await listMyVisualizationsPage(before);
+        fresh.push(...page.visualizations);
+        const last = page.visualizations[page.visualizations.length - 1];
+        if (!page.hasMore || !last || (oldestLoaded && last.createdAt <= oldestLoaded)) break;
+        before = last.createdAt;
+      }
+      if (mounted.current) setItems(fresh.filter((v) => !oldestLoaded || v.createdAt >= oldestLoaded));
+    } catch {
+      /* the next visibility change or poll tries again */
+    }
+  }, [items]);
 
   useEffect(() => {
     mounted.current = true;
@@ -178,7 +236,7 @@ export function VisualizationHistory() {
                           className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors", active ? "bg-clay-100" : "hover:bg-stone-100")}
                         >
                           <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-stone-200">
-                            {v.resultImageUrl ? <img src={v.resultImageUrl} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
+                            {v.resultImageUrl ? <img src={v.resultImageUrl} alt="" loading="lazy" className="h-full w-full object-cover" onError={onImageError} /> : null}
                             <span className={cn("absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white", status.dot)} aria-hidden="true" />
                           </span>
                           <span className="min-w-0 flex-1">
@@ -204,6 +262,13 @@ export function VisualizationHistory() {
               </section>
             ))
           )}
+          {items && items.length > 0 && hasMore && !query.trim() && (
+            <div className="p-2">
+              <Button size="sm" variant="outline" className="w-full" onClick={loadOlder} loading={loadingOlder}>
+                Show older designs
+              </Button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -217,6 +282,7 @@ export function VisualizationHistory() {
         {selected ? (
           <Detail
             v={selected}
+            onImageError={onImageError}
             toggling={togglingId === selected.id}
             onBack={() => setShowDetailOnPhone(false)}
             onDelete={() => setPendingDelete(selected)}
@@ -240,7 +306,21 @@ export function VisualizationHistory() {
   );
 }
 
-function Detail({ v, toggling, onBack, onDelete, onToggle }: { v: Visualization; toggling: boolean; onBack: () => void; onDelete: () => void; onToggle: () => void }) {
+function Detail({
+  v,
+  toggling,
+  onBack,
+  onDelete,
+  onToggle,
+  onImageError,
+}: {
+  v: Visualization;
+  toggling: boolean;
+  onBack: () => void;
+  onDelete: () => void;
+  onToggle: () => void;
+  onImageError: () => void;
+}) {
   const status = STATUS[v.status] ?? STATUS.pending!;
   const areas = v.design?.areas ?? [];
   return (
@@ -258,7 +338,7 @@ function Detail({ v, toggling, onBack, onDelete, onToggle }: { v: Visualization;
 
       <div className="bg-stone-100">
         {v.resultImageUrl ? (
-          <img src={v.resultImageUrl} alt={`Visualization: ${visualizationTitle(v)}`} className="mx-auto max-h-[60vh] w-full object-contain" />
+          <img src={v.resultImageUrl} alt={`Visualization: ${visualizationTitle(v)}`} className="mx-auto max-h-[60vh] w-full object-contain" onError={onImageError} />
         ) : (
           <div className="flex aspect-[16/9] items-center justify-center px-6 text-center text-sm text-stone-500">
             {IN_PROGRESS.has(v.status) ? (
@@ -316,7 +396,7 @@ function Detail({ v, toggling, onBack, onDelete, onToggle }: { v: Visualization;
             </Link>
           )}
           {v.roomUploadId && (
-            <Link to={`/tiles/${v.roomUploadId}`}>
+            <Link to={`/tiles/${v.roomUploadId}`} state={v.design ? { editDesign: v.design, editRequirements: v.requirements ?? "" } : undefined}>
               <Button size="md" variant="outline">
                 Edit design
               </Button>

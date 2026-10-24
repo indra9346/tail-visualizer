@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/cn";
-import { PATTERNS, SURFACES, SURFACE_ORDER } from "@/lib/designPatterns";
-import { chosenTiles, withPattern, type DraftArea } from "@/lib/designDraft";
+import { PATTERNS, SURFACES, SURFACE_ORDER, rolesFor } from "@/lib/designPatterns";
+import { chosenTiles, withPattern, withSurface, type DraftArea } from "@/lib/designDraft";
 import { recommendPatterns, sizeToDimensions } from "@/lib/fitRecommend";
 import type { RoomType, SurfaceType, Tile } from "@/api/types";
 import { AreaSizeAssist } from "./AreaSizeAssist";
@@ -11,6 +11,8 @@ import { TileThumb } from "./TileThumb";
 interface Props {
   index: number;
   area: DraftArea;
+  /** Every area of the design, so a new surface or name never clashes with another area. */
+  allAreas: DraftArea[];
   issues: string[];
   onChange: (next: DraftArea) => void;
   onRemove: () => void;
@@ -87,19 +89,19 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
  * One surface of the room (e.g. "C1 left wall"). Three clear steps: (1) optional size and suggestions, (2) pick a layout by
  * looking at it, (3) choose the tiles. Only the active surface is open, so a long design stays easy to scan.
  */
-export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, lockedNote, open, onToggleOpen, roomType, catalog, recommendedIds }: Props) {
+export function AreaCard({ index, area, allAreas, issues, onChange, onRemove, onPickTile, lockedNote, open, onToggleOpen, roomType, catalog, recommendedIds }: Props) {
   const spec = PATTERNS[area.pattern];
   const surface = SURFACES[area.surface];
   const idBase = `area-${area.key}`;
   const tiles = chosenTiles(area);
   const suggestions = recommendPatterns(area.surface, sizeToDimensions(area.size), roomType);
   const locked = Boolean(area.wall || lockedNote);
+  const roles = rolesFor(area.pattern, area.surface);
+  // Names another area of this surface already has: offering them again would only create a duplicate.
+  const takenNames = new Set(allAreas.filter((a) => a.key !== area.key && a.surface === area.surface).map((a) => a.location.trim().toLowerCase()));
 
   function setSurface(next: SurfaceType) {
-    const nextInfo = SURFACES[next];
-    // Keep the typed location only if the user changed it; otherwise follow the new surface's default.
-    const wasPreset = SURFACES[area.surface].locations.includes(area.location);
-    onChange({ ...area, surface: next, location: wasPreset ? nextInfo.defaultLocation : area.location });
+    onChange(withSurface(area, next, allAreas));
   }
 
   const ready = tiles.length >= spec.min;
@@ -171,19 +173,28 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, 
               </div>
 
               <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Quick location names">
-                {surface.locations.map((loc) => (
-                  <button
-                    key={loc}
-                    type="button"
-                    onClick={() => onChange({ ...area, location: loc })}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                      area.location === loc ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 text-stone-600 hover:bg-stone-100",
-                    )}
-                  >
-                    {loc}
-                  </button>
-                ))}
+                {surface.locations.map((loc) => {
+                  const taken = takenNames.has(loc.toLowerCase());
+                  return (
+                    <button
+                      key={loc}
+                      type="button"
+                      disabled={taken}
+                      title={taken ? "Another area already has this name" : undefined}
+                      onClick={() => onChange({ ...area, location: loc })}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        area.location === loc
+                          ? "border-stone-900 bg-stone-900 text-white"
+                          : taken
+                            ? "cursor-not-allowed border-stone-200 text-stone-300 line-through"
+                            : "border-stone-300 text-stone-600 hover:bg-stone-100",
+                      )}
+                    >
+                      {loc}
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
@@ -200,7 +211,7 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, 
           />
 
           <Step n={1} title="Choose a layout (look at the demo)">
-            <PatternPicker pattern={area.pattern} tiles={tiles} suggestions={suggestions} onChange={(p) => onChange(withPattern(area, p))} />
+            <PatternPicker pattern={area.pattern} surface={area.surface} tiles={tiles} suggestions={suggestions} onChange={(p) => onChange(withPattern(area, p))} />
           </Step>
 
           <Step n={2} title="Choose the tiles" id={`${idBase}-tiles`}>
@@ -208,7 +219,7 @@ export function AreaCard({ index, area, issues, onChange, onRemove, onPickTile, 
               {area.slots.map((tile, i) => (
                 <Slot
                   key={i}
-                  role={spec.roles[i] ?? `tile ${i + 1}`}
+                  role={roles[i] ?? `tile ${i + 1}`}
                   required={i < spec.min}
                   tile={tile}
                   onPick={() => onPickTile(i)}

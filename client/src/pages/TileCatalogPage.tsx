@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { TileGrid } from "@/components/tiles/TileGrid";
@@ -21,20 +21,44 @@ export function TileCatalogPage() {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [filters, setFilters] = useState<TileSearchFilters>({ page: 1, pageSize: 20 });
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Every search gets a number; a reply for an older search (the owner kept typing) is ignored.
+  const requestSeq = useRef(0);
 
   const loadTiles = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
-      const res = await searchTiles(filters);
+      const res = await searchTiles({ ...filters, page: 1 });
+      if (seq !== requestSeq.current) return;
       setTiles(res.tiles);
       setTotal(res.total);
+      setPage(1);
     } catch (err) {
-      setError(friendlyErrorMessage(err, "We couldn't load the tile catalog."));
+      if (seq === requestSeq.current) setError(friendlyErrorMessage(err, "We couldn't load the tile catalog."));
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [filters]);
+
+  /** The next page of the same search, added below the tiles already shown. */
+  async function loadMore() {
+    const seq = requestSeq.current;
+    setLoadingMore(true);
+    try {
+      const res = await searchTiles({ ...filters, page: page + 1 });
+      if (seq !== requestSeq.current) return;
+      setTiles((prev) => [...prev, ...res.tiles.filter((t) => !prev.some((p) => p.id === t.id))]);
+      setTotal(res.total);
+      setPage(page + 1);
+    } catch (err) {
+      if (seq === requestSeq.current) setError(friendlyErrorMessage(err, "We couldn't load more tiles."));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     void loadTiles();
@@ -74,11 +98,21 @@ export function TileCatalogPage() {
         </div>
       ) : (
         <>
-          <p className="mt-4 text-sm text-stone-400">{loading ? "Loading…" : `${total} tile${total === 1 ? "" : "s"} found`}</p>
+          <p className="mt-4 text-sm text-stone-400">
+            {loading ? "Loading…" : `${total} tile${total === 1 ? "" : "s"} found${tiles.length < total ? `, showing ${tiles.length}` : ""}`}
+          </p>
 
           <div className="mt-4">
             <TileGrid tiles={tiles} selectedTileId={selectedTile?.id} onSelect={selectTile} loading={loading} />
           </div>
+
+          {!loading && tiles.length < total && (
+            <div className="mt-6 flex justify-center">
+              <Button size="lg" variant="outline" onClick={loadMore} loading={loadingMore}>
+                Show more tiles ({total - tiles.length} more)
+              </Button>
+            </div>
+          )}
         </>
       )}
 

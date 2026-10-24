@@ -126,11 +126,11 @@ jest.mock("../server/db/analyses", () => ({
 jest.mock("../server/db/tiles", () => ({
   getTileById: (tileId: string) => tileImpl(tileId),
 }));
-let uploadImageImpl: () => Promise<void> = async () => undefined;
+let uploadImageImpl: (bucket: string, path: string) => Promise<void> = async () => undefined;
 jest.mock("../server/storage/imageStorage", () => ({
   downloadRoomImage: async () => ({ buffer: Buffer.from("room"), mimeType: "image/jpeg" }),
   downloadTileImage: async () => ({ buffer: Buffer.from("tile"), mimeType: "image/jpeg" }),
-  uploadImage: () => uploadImageImpl(),
+  uploadImage: (bucket: string, path: string) => uploadImageImpl(bucket, path),
   deleteImageQuietly: async () => undefined,
   createSignedUrl: async () => "https://example.test/signed",
 }));
@@ -391,7 +391,8 @@ describe("POST /api/_routes/vizGenerate", () => {
       expect(heldTransactions.size).toBe(0);
       expect(committedTransactions.size).toBe(0);
       expect(fakeClient._dump("visualizations")[0]!.status).toBe("failed");
-      expect(fakeClient._dump("generation_jobs")[0]!.status).toBe("failed");
+      // The model never ran, so no attempt is used up.
+      expect(fakeClient._dump("generation_jobs")).toHaveLength(0);
     });
 
     test("a failed Gemini call RELEASES the hold (never permanently loses credits) and never commits it", async () => {
@@ -743,5 +744,177 @@ describe("POST /api/_routes/vizGenerate - multi-tile per-area design", () => {
       await handler(buildReq(free), makeRes());
       expect(fakeClient._dump("visualizations")).toHaveLength(2);
     });
+  });
+});
+
+describe("POST /api/_routes/vizGenerate - duplicate presses, retries and attempts", () => {
+  const ok = async () => ({ imageBuffer: Buffer.from("img"), mimeType: "image/png", model: "m", finishReason: null, durationMs: 1 });
+  const legacyBody = (tileId: string, extra: Record<string, unknown> = {}) => ({ roomUploadId: ROOM_ID, tileId, surfaces: ["floor"], ...extra });
+
+  beforeEach(() => {
+    fakeClient._reset();
+    currentUserId = USER_ID;
+    analysisImpl = async () => fakeAnalysis;
+    holdShouldFail = false;
+    heldTransactions.clear();
+    committedTransactions.clear();
+    releasedTransactions.clear();
+    uploadImageImpl = async () => undefined;
+  });
+
+  test("being short of credits never uses up the design's attempts: after buying credits it still generates", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    holdShouldFail = true;
+    for (let i = 0; i < 4; i++) {
+      const res = makeRes();
+      await handler(buildReq(legacyBody(tile.id)), res);
+      expect((res._json as any).error.code).toBe("INSUFFICIENT_CREDITS");
+    }
+    holdShouldFail = false;
+    generateVisualizationImpl = ok;
+    const res = makeRes();
+    await handler(buildReq(legacyBody(tile.id)), res);
+    expect(res.statusCode).toBe(200);
+    expect(fakeClient._dump("visualizations")).toHaveLength(1);
+    expect(fakeClient._dump("visualizations")[0]!.status).toBe("completed");
+  });
+
+  test("a second press while the first is still generating is refused (409) and the model runs once; the first still completes", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    let release!: () => void;
+    let started!: () => void;
+    const startedP = new Promise<void>((r) => (started = r));
+    let calls = 0;
+    generateVisualizationImpl = async () => {
+      calls++;
+      started();
+      await new Promise<void>((r) => (release = r));
+      return ok();
+    };
+
+    const first = makeRes();
+    const firstDone = handler(buildReq(legacyBody(tile.id)), first);
+    await startedP;
+
+    const second = makeRes();
+    await handler(buildReq(legacyBody(tile.id)), second);
+    expect(second.statusCode).toBe(409);
+    expect((second._json as any).error.code).toBe("GENERATION_IN_PROGRESS");
+
+    release();
+    await firstDone;
+    expect(first.statusCode).toBe(200);
+    expect(calls).toBe(1);
+    expect(fakeClient._dump("visualizations")[0]!.status).toBe("completed");
+    expect(committedTransactions.size).toBe(1);
+  });
+
+  test("a job left running by a killed function is closed and a new request takes over", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    generateVisualizationImpl = async () => {
+      throw new Error("first attempt dies");
+    };
+    await handler(buildReq(legacyBody(tile.id)), makeRes());
+    const viz = fakeClient._dump("visualizations")[0]!;
+    // Simulate the function being killed mid-generation ten minutes ago.
+    const longAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+    fakeClient._seed("visualizations", [{ ...viz, status: "generating" }]);
+    fakeClient._seed("generation_jobs", [{ ...fakeClient._dump("generation_jobs")[0]!, status: "processing", started_at: longAgo, created_at: longAgo }]);
+
+    generateVisualizationImpl = ok;
+    const res = makeRes();
+    await handler(buildReq(legacyBody(tile.id)), res);
+    expect(res.statusCode).toBe(200);
+    expect(fakeClient._dump("generation_jobs").map((j) => j.status).sort()).toEqual(["completed", "failed"]);
+  });
+
+  test("every attempt stores its image under its own name, so an earlier stored image never blocks a retry", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    const paths: string[] = [];
+    uploadImageImpl = async (_bucket, path) => {
+      paths.push(path);
+      if (paths.length === 1) throw new Error("storage hiccup");
+    };
+    generateVisualizationImpl = ok;
+    await handler(buildReq(legacyBody(tile.id)), makeRes());
+    const res = makeRes();
+    await handler(buildReq(legacyBody(tile.id)), res);
+    expect(res.statusCode).toBe(200);
+    expect(paths).toHaveLength(2);
+    expect(paths[0]).not.toBe(paths[1]);
+    expect(paths[1]).toMatch(/-a2\.png$/);
+    expect(fakeClient._dump("visualizations")[0]!.result_storage_path).toBe(paths[1]);
+  });
+
+  test("deleting the requirements before a retry really removes them (an empty box is sent, never the old text)", async () => {
+    const tile = makeFloorTile();
+    tileImpl = async () => tile;
+    generateVisualizationImpl = async () => {
+      throw new Error("fails once");
+    };
+    await handler(buildReq(legacyBody(tile.id, { requirements: "add a mirror" })), makeRes());
+    expect(fakeClient._dump("visualizations")[0]!.requirements).toBe("add a mirror");
+
+    generateVisualizationImpl = ok;
+    const res = makeRes();
+    await handler(buildReq(legacyBody(tile.id, { requirements: "" })), res);
+    expect(res.statusCode).toBe(200);
+    expect(lastGenerateInput.requirements).toBeNull();
+    expect(fakeClient._dump("visualizations")[0]!.requirements).toBeNull();
+  });
+});
+
+describe("what the owner is shown for a generation that was killed part-way", () => {
+  const { presentStatus, STALE_GENERATION_MESSAGE, STALE_JOB_MS } = require("../server/db/generationJobs");
+  const now = Date.parse("2026-10-24T12:00:00Z");
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+  const viz = (status: string, createdMsAgo = 0) => ({ id: "v", status, errorMessage: null, createdAt: iso(createdMsAgo) });
+  const job = (status: string, startedMsAgo: number, errorMessage: string | null = null) => ({
+    id: "j",
+    visualizationId: "v",
+    status,
+    attemptNumber: 1,
+    generationModel: null,
+    errorMessage,
+    startedAt: iso(startedMsAgo),
+    completedAt: null,
+    createdAt: iso(startedMsAgo),
+  });
+
+  test("a running job keeps showing as generating", async () => {
+    expect((await presentStatus(viz("generating"), job("processing", 30_000), now)).status).toBe("generating");
+  });
+  test("a job running longer than the function may live is shown as failed, not charged", async () => {
+    expect(await presentStatus(viz("generating"), job("processing", STALE_JOB_MS + 1), now)).toEqual({ status: "failed", errorMessage: STALE_GENERATION_MESSAGE });
+  });
+  test("a failed job shows its own reason", async () => {
+    expect(await presentStatus(viz("generating"), job("failed", 5_000, "The AI service failed."), now)).toEqual({ status: "failed", errorMessage: "The AI service failed." });
+  });
+  test("a row whose request died before starting a job stops spinning once it is old", async () => {
+    expect((await presentStatus(viz("pending", 1_000), null, now)).status).toBe("pending");
+    expect((await presentStatus(viz("pending", STALE_JOB_MS + 1), null, now)).status).toBe("failed");
+  });
+  test("finished rows are never changed", async () => {
+    expect((await presentStatus(viz("completed"), job("processing", STALE_JOB_MS * 9), now)).status).toBe("completed");
+  });
+});
+
+describe("markVisualizationFailed never undoes a finished result", () => {
+  test("a completed row stays completed; a generating row becomes failed", async () => {
+    const { markVisualizationFailed } = require("../server/db/visualizations");
+    fakeClient._seed("visualizations", [
+      { id: "done", status: "completed", error_message: null },
+      { id: "busy", status: "generating", error_message: null },
+    ]);
+    await markVisualizationFailed("done", "late duplicate failed");
+    await markVisualizationFailed("busy", "AI failed");
+    const rows = Object.fromEntries(fakeClient._dump("visualizations").map((r) => [r.id, r]));
+    expect(rows.done!.status).toBe("completed");
+    expect(rows.busy!.status).toBe("failed");
+    expect(rows.busy!.error_message).toBe("AI failed");
   });
 });

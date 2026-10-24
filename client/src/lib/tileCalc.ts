@@ -83,6 +83,11 @@ export const LAYOUT_WASTE: Record<Layout, { label: string; pct: number; hint: st
   mosaic: { label: "Mosaic / patterned", pct: 10, hint: "Small pieces and pattern matching." },
 };
 
+/** The laying style an older saved entry most likely used, judged by its waste %; "straight" when none matches. */
+export function layoutForWaste(pct: number): Layout {
+  return (Object.keys(LAYOUT_WASTE) as Layout[]).find((k) => LAYOUT_WASTE[k].pct === pct) ?? "straight";
+}
+
 export const TILE_PRESETS: Array<{ label: string; w: number; h: number; perBox: number }> = [
   { label: "300 x 300 mm", w: 300, h: 300, perBox: 11 },
   { label: "300 x 450 mm", w: 300, h: 450, perBox: 8 },

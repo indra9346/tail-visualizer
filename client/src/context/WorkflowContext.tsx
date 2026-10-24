@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
 /**
@@ -21,6 +21,8 @@ interface WorkflowContextValue extends WorkflowState {
   setRoom: (roomUploadId: string) => void;
   setAnalysis: (analysis: RoomAnalysis) => void;
   selectTile: (tile: Tile) => void;
+  /** Forget the catalog tile once the Design Studio has placed it, so it is not dropped into every later room. */
+  clearSelectedTile: () => void;
   setSurfaces: (surfaces: SurfaceType[]) => void;
   reset: () => void;
 }
@@ -49,36 +51,37 @@ const WorkflowContext = createContext<WorkflowContextValue | undefined>(undefine
 export function WorkflowProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<WorkflowState>(loadInitial);
 
-  const persist = useCallback((next: WorkflowState) => {
-    setState(next);
+  useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // best-effort only — the app still works from in-memory state if storage is unavailable
     }
+  }, [state]);
+
+  // Every update builds on the LATEST state (functional updates): two calls in a row, e.g. setRoom then an
+  // async setAnalysis, must not undo each other by merging an old copy of the state.
+  const setProject = useCallback((projectId: string) => setState((s) => ({ ...s, projectId })), []);
+  // A new room drops the previous room's analysis. The tile picked in the catalog ("Try in my space") is kept:
+  // it is meant for the room being uploaded now.
+  const setRoom = useCallback(
+    (roomUploadId: string) => setState((s) => (s.roomUploadId === roomUploadId ? s : { ...s, roomUploadId, analysis: null, selectedSurfaces: [] })),
+    [],
+  );
+  const setAnalysis = useCallback((analysis: RoomAnalysis) => setState((s) => ({ ...s, roomUploadId: analysis.roomUploadId, analysis })), []);
+  const selectTile = useCallback((tile: Tile) => {
+    const defaultSurfaces: SurfaceType[] = tile.category === "both" ? ["floor", "wall"] : [tile.category];
+    setState((s) => ({ ...s, selectedTile: tile, selectedSurfaces: defaultSurfaces }));
+  }, []);
+  const clearSelectedTile = useCallback(() => setState((s) => (s.selectedTile ? { ...s, selectedTile: null, selectedSurfaces: [] } : s)), []);
+  const setSurfaces = useCallback((selectedSurfaces: SurfaceType[]) => setState((s) => ({ ...s, selectedSurfaces })), []);
+  const reset = useCallback(() => {
+    setState({ projectId: null, roomUploadId: null, analysis: null, selectedTile: null, selectedSurfaces: [] });
   }, []);
 
-  const setProject = useCallback((projectId: string) => persist({ ...state, projectId }), [state, persist]);
-  const setRoom = useCallback(
-    (roomUploadId: string) => persist({ ...state, roomUploadId, analysis: null, selectedTile: null, selectedSurfaces: [] }),
-    [state, persist],
-  );
-  const setAnalysis = useCallback((analysis: RoomAnalysis) => persist({ ...state, analysis }), [state, persist]);
-  const selectTile = useCallback(
-    (tile: Tile) => {
-      const defaultSurfaces: SurfaceType[] = tile.category === "both" ? ["floor", "wall"] : [tile.category];
-      persist({ ...state, selectedTile: tile, selectedSurfaces: defaultSurfaces });
-    },
-    [state, persist],
-  );
-  const setSurfaces = useCallback((selectedSurfaces: SurfaceType[]) => persist({ ...state, selectedSurfaces }), [state, persist]);
-  const reset = useCallback(() => {
-    persist({ projectId: null, roomUploadId: null, analysis: null, selectedTile: null, selectedSurfaces: [] });
-  }, [persist]);
-
   const value = useMemo(
-    () => ({ ...state, setProject, setRoom, setAnalysis, selectTile, setSurfaces, reset }),
-    [state, setProject, setRoom, setAnalysis, selectTile, setSurfaces, reset],
+    () => ({ ...state, setProject, setRoom, setAnalysis, selectTile, clearSelectedTile, setSurfaces, reset }),
+    [state, setProject, setRoom, setAnalysis, selectTile, clearSelectedTile, setSurfaces, reset],
   );
 
   return <WorkflowContext.Provider value={value}>{children}</WorkflowContext.Provider>;

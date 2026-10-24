@@ -6,6 +6,19 @@ export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export const MAX_GENERATION_ATTEMPTS = 3;
 
+/**
+ * Longer than the generate function may run (maxDuration 120 s, api/visualizations.ts). A job still pending or
+ * processing after this was killed (timeout, out of memory) and will never finish on its own.
+ */
+export const STALE_JOB_MS = 150_000;
+
+/** True while a job may still be producing an image; false once it ended or was evidently killed. */
+export function isJobRunning(job: Pick<GenerationJobRow, "status" | "startedAt" | "createdAt">, now: number = Date.now()): boolean {
+  if (job.status !== "pending" && job.status !== "processing") return false;
+  const since = Date.parse(job.startedAt ?? job.createdAt);
+  return Number.isFinite(since) && now - since < STALE_JOB_MS;
+}
+
 export interface GenerationJobRow {
   id: string;
   visualizationId: string;
@@ -146,4 +159,35 @@ export async function markJobFailed(jobId: string, safeErrorMessage: string): Pr
     apiLogger.error("markJobFailed failed", { operation: "markJobFailed", jobId, errorCategory: error.code });
     // Do not throw further here — we are already in a failure path; throwing would mask the original error.
   }
+}
+
+/**
+ * Removes a job that never started (the credit check refused it), so a showroom that was short of credits does not
+ * lose one of the design's limited attempts. Best effort: a leftover row only costs that one attempt.
+ */
+export async function deleteJobQuietly(jobId: string): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase.from("generation_jobs").delete().eq("id", jobId);
+  if (error) apiLogger.error("deleteJobQuietly failed", { operation: "deleteJobQuietly", jobId, errorCategory: error.code });
+}
+
+/** Shown to the owner when a generation was killed part-way; no credits are charged for an unfinished image. */
+export const STALE_GENERATION_MESSAGE = "This preview took too long and was stopped. You were not charged. Please try again.";
+
+/**
+ * The status to SHOW for a visualization. A row left "generating" by a killed function would otherwise spin on the
+ * result page and in History for ever; once its latest job is no longer running it is shown as failed.
+ */
+export async function presentStatus<T extends { id: string; status: string; errorMessage: string | null; createdAt: string }>(
+  visualization: T,
+  latestJob?: GenerationJobRow | null,
+  now: number = Date.now(),
+): Promise<{ status: T["status"] | "failed"; errorMessage: string | null }> {
+  const unchanged = { status: visualization.status, errorMessage: visualization.errorMessage };
+  if (visualization.status !== "pending" && visualization.status !== "generating") return unchanged;
+  const job = latestJob === undefined ? await getLatestJobForVisualization(visualization.id) : latestJob;
+  // No job yet: the request that created the row is about to start one, unless that was long ago.
+  if (!job) return now - Date.parse(visualization.createdAt) < STALE_JOB_MS ? unchanged : { status: "failed", errorMessage: STALE_GENERATION_MESSAGE };
+  if (isJobRunning(job, now)) return unchanged;
+  return { status: "failed", errorMessage: job.status === "failed" && job.errorMessage ? job.errorMessage : STALE_GENERATION_MESSAGE };
 }

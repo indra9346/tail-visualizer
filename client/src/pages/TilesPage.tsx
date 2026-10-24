@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -10,7 +10,7 @@ import { RoomTemplatePicker } from "@/components/design/RoomTemplatePicker";
 import { TilePickerModal } from "@/components/design/TilePickerModal";
 import { RequirementsInput } from "@/components/visualization/RequirementsInput";
 import { getRoom, getRoomAnalysis } from "@/api/rooms";
-import { getTileRecommendations, searchTiles } from "@/api/tiles";
+import { fetchAllTiles, getTileRecommendations } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
 import { getBillingSummary, getCreditPackages } from "@/api/billing";
 import { ApiClientError, friendlyErrorMessage } from "@/api/client";
@@ -20,31 +20,40 @@ import {
   MAX_AREAS,
   chosenTiles,
   distinctTileCount,
+  draftFromDesign,
   loadDraft,
   newArea,
   saveDraft,
   tileFitsSurface,
   toPayload,
+  uniqueLocation,
   validateDraft,
   type DraftArea,
+  type LoadedDraft,
 } from "@/lib/designDraft";
 import type { RoomLayout } from "@/lib/roomLayouts";
 import { TEMPLATES, applyTemplate, ensureFace, faceOfArea, isTemplateId, keptLabels, templateForLayout, toggleFace, type TemplateId } from "@/lib/roomTemplates";
-import type { RoomAnalysis, SurfaceType, Tile } from "@/api/types";
+import type { Design, RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
 const GENERATION_STAGES = ["Preparing your room", "Placing each tile in its area", "Laying out your patterns", "Rendering realistic lighting", "Finalizing visualization"];
 
-/** First unused preset name for a surface, so a second wall area doesn't collide with "All walls". */
-function nextLocation(surface: SurfaceType, areas: DraftArea[]): string {
-  const used = new Set(areas.filter((a) => a.surface === surface).map((a) => a.location.trim().toLowerCase()));
-  const presets = SURFACES[surface].locations;
-  return presets.find((p) => !used.has(p.toLowerCase())) ?? "";
+/** What "Edit Design / Try Another" on a result passes along: the design that was generated, to change it. */
+interface EditState {
+  editDesign?: Design;
+  editTiles?: Tile[];
+  editRequirements?: string;
 }
 
 export function TilesPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
-  const { analysis: cachedAnalysis, selectedTile, setAnalysis } = useWorkflow();
+  const location = useLocation();
+  const { analysis: workflowAnalysis, selectedTile, setAnalysis, clearSelectedTile } = useWorkflow();
+  // The cached analysis is only this room's when its id says so: opening another room from Projects or History must
+  // never seed its design (or show its warnings) from the previous room's photo.
+  const cachedAnalysis = workflowAnalysis && workflowAnalysis.roomUploadId === roomId ? workflowAnalysis : null;
+  // Read once: a refresh must restore the owner's latest draft, not this design again.
+  const [editState] = useState<EditState | null>(() => (location.state as EditState | null) ?? null);
 
   const [analysis, setLocalAnalysis] = useState<RoomAnalysis | null>(cachedAnalysis);
   const [analysisLoading, setAnalysisLoading] = useState(!cachedAnalysis);
@@ -59,16 +68,18 @@ export function TilesPage() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   // The showroom's tiles, for the optional best-fit suggestions (the tile picker loads its own copy).
   const [catalog, setCatalog] = useState<Tile[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   // Only this surface is open for editing; the others show a one-line summary.
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const closedAll = useRef(false);
 
   useEffect(() => {
-    searchTiles({ page: 1, pageSize: 50 })
-      .then((res) => setCatalog(res.tiles))
+    fetchAllTiles()
+      .then(setCatalog)
       .catch(() => {
         /* suggestions are optional; the tile picker still works */
-      });
+      })
+      .finally(() => setCatalogLoaded(true));
   }, []);
 
   const [requirements, setRequirements] = useState("");
@@ -133,28 +144,35 @@ export function TilesPage() {
       });
   }, [roomId, analysis]);
 
-  // Starting design: the draft from a refresh, else one area per surface the analysis found worth tiling.
+  // Starting design: the result being edited, else the draft from a refresh, else one area per surface the analysis found worth tiling.
   useEffect(() => {
     if (!roomId || !analysis || areas !== null) return;
-    const draft = loadDraft(roomId);
+    // A design opened from History carries no tile details: they come from the catalog, so wait for it.
+    if (editState?.editDesign && !editState.editTiles && !catalogLoaded) return;
+    const edited = editState?.editDesign ? draftFromDesign(editState.editDesign, editState.editTiles ?? catalog) : null;
+    const draft: LoadedDraft | null = edited ? { ...edited, requirements: editState?.editRequirements ?? "" } : loadDraft(roomId);
+    if (edited) navigate(location.pathname, { replace: true, state: null });
     if (draft && draft.areas.length > 0) {
       setTemplateId(isTemplateId(draft.template) ? draft.template : templateForLayout(draft.layout));
       setAreas(draft.areas);
+      if (draft.requirements) setRequirements(draft.requirements);
       return;
     }
-    const surfaces: SurfaceType[] = analysis.recommendedSurfaces.length > 0 ? analysis.recommendedSurfaces : ["wall"];
+    const surfaces: SurfaceType[] = analysis.recommendedSurfaces.length > 0 ? [...new Set(analysis.recommendedSurfaces)] : ["wall"];
     const seeded = surfaces.map((s) => newArea(s));
-    // A tile picked on the catalog page ("Try in my space") goes straight into the first area it fits.
+    // A tile picked on the catalog page ("Try in my space") goes straight into the first area it fits, once.
     if (selectedTile && selectedTile.isActive) {
       const target = seeded.find((a) => tileFitsSurface(selectedTile, a.surface));
       if (target) target.slots[0] = selectedTile;
+      clearSelectedTile();
     }
     setAreas(seeded);
-  }, [roomId, analysis, areas, selectedTile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, analysis, areas, catalogLoaded]);
 
   useEffect(() => {
-    if (roomId && areas) saveDraft(roomId, areas, layout, templateId);
-  }, [roomId, areas, layout, templateId]);
+    if (roomId && areas) saveDraft(roomId, areas, layout, templateId, requirements.trim() !== "" ? requirements : undefined);
+  }, [roomId, areas, layout, templateId, requirements]);
 
   // Always keep one surface open: the first one, unless the owner closed them all on purpose or the open one was removed.
   useEffect(() => {
@@ -197,7 +215,7 @@ export function TilesPage() {
   }
 
   function addArea(surface: SurfaceType) {
-    const created = newArea(surface, nextLocation(surface, areas ?? []));
+    const created = newArea(surface, uniqueLocation(surface, areas ?? []));
     setAreas((prev) => {
       const list = prev ?? [];
       return list.length >= MAX_AREAS ? list : [...list, created];
@@ -237,14 +255,24 @@ export function TilesPage() {
       const visualization = await generateVisualization({
         roomUploadId: roomId,
         design: toPayload(areas, layout),
-        ...(requirements.trim().length > 0 ? { requirements: requirements.trim() } : {}),
+        // Always sent, even empty: an emptied box must clear instructions given on an earlier try of this design.
+        requirements: requirements.trim(),
       });
       clearInterval(stageTimer);
       navigate(`/result/${visualization.id}`);
     } catch (err) {
       clearInterval(stageTimer);
-      if (err instanceof ApiClientError && err.code === "INSUFFICIENT_CREDITS") setInsufficientCredits(true);
-      else setGenerationError(friendlyErrorMessage(err, "We couldn't generate the visualization this time. Please try again."));
+      if (err instanceof ApiClientError && err.code === "INSUFFICIENT_CREDITS") {
+        setInsufficientCredits(true);
+        // Show the real balance, so the next press is not let through by a stale number.
+        getBillingSummary()
+          .then((summary) => setBalance(summary.balance))
+          .catch(() => undefined);
+      } else if (err instanceof ApiClientError && err.code === "GENERATION_IN_PROGRESS") {
+        // The same design is already being made (e.g. a double tap): History shows it and updates by itself.
+        navigate("/my-visualizations");
+        return;
+      } else setGenerationError(friendlyErrorMessage(err, "We couldn't generate the visualization this time. Please try again."));
       setGenerating(false);
     }
   }
@@ -328,6 +356,7 @@ export function TilesPage() {
                 index={i}
                 area={area}
                 issues={showIssues ? (issues[area.key] ?? []) : []}
+                allAreas={areas}
                 onChange={(next) => updateArea(area.key, next)}
                 onRemove={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}
                 onPickTile={(slot) => setPicker({ areaKey: area.key, slot })}

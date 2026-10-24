@@ -30,6 +30,26 @@ export async function searchTiles(filters: TileSearchFilters = {}): Promise<Tile
   });
 }
 
+/** The search API returns at most this many tiles per page. */
+export const TILE_PAGE_SIZE = 50;
+/** Safety cap so a runaway catalog can never loop forever (40 pages = 2000 tiles). */
+const MAX_CATALOG_PAGES = 40;
+
+/**
+ * Every active tile in the owner's catalog, newest first. The search API is paged (50 per page), so a picker that
+ * read only the first page silently hid every older tile once a showroom had more than 50.
+ */
+export async function fetchAllTiles(): Promise<Tile[]> {
+  const all: Tile[] = [];
+  for (let page = 1; page <= MAX_CATALOG_PAGES; page++) {
+    const res = await searchTiles({ page, pageSize: TILE_PAGE_SIZE });
+    all.push(...res.tiles);
+    if (res.tiles.length < TILE_PAGE_SIZE || all.length >= res.total) break;
+  }
+  // A tile added while paging can shift one onto two pages; keep the first copy.
+  return all.filter((t, i) => all.findIndex((o) => o.id === t.id) === i);
+}
+
 /** Never triggers duplicate work: the API itself reuses prior recommendations for the same room analysis. */
 export async function getTileRecommendations(roomUploadId: string): Promise<{ recommendations: TileRecommendation[]; reused: boolean }> {
   return apiGet<{ recommendations: TileRecommendation[]; reused: boolean }>("/api/tiles/recommend", { roomUploadId });

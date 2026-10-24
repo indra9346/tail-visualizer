@@ -8,6 +8,8 @@
  * UI (the client cannot import server code); test/designPatterns.test.ts fails if
  * the two ever drift apart.
  */
+import { SURFACE_TYPES, surfaceKind, type SurfaceType } from "./types.js";
+
 export const DESIGN_PATTERNS = [
   "single",
   "checkerboard",
@@ -29,7 +31,17 @@ export interface PatternSpec {
   max: number;
   roles: string[];
   prompt: string;
+  /** Surfaces this layout can be laid on. A dado or a strip "at eye level" has no meaning on a floor or a stair step. */
+  surfaces: readonly SurfaceType[];
+  /** Wording for a flat surface (floor, stair tread) where the wall wording ("full-height", "from the bottom upward") would mislead. */
+  floorPrompt?: string;
+  /** Role names for a flat surface, when they differ from the wall ones. Same length as `roles`. */
+  floorRoles?: string[];
 }
+
+const ALL_SURFACES = SURFACE_TYPES;
+/** Large flat or upright fields; not the narrow face of a stair step. */
+const FIELD_SURFACES: readonly SurfaceType[] = ["floor", "wall", "backsplash", "shower_wall"];
 
 export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
   single: {
@@ -38,6 +50,7 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     max: 1,
     roles: ["main tile"],
     prompt: "Cover the whole area uniformly with the tile, laid in a regular straight grid with even grout lines.",
+    surfaces: ALL_SURFACES,
   },
   checkerboard: {
     label: "Checkerboard",
@@ -46,6 +59,7 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["first tile", "second tile"],
     prompt:
       "Lay the two tiles alternately like a chessboard: every tile of one design is surrounded on its four sides by tiles of the other design, in both directions.",
+    surfaces: ALL_SURFACES,
   },
   horizontal_bands: {
     label: "Horizontal bands",
@@ -54,6 +68,10 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["bottom band", "second band", "third band", "top band"],
     prompt:
       "Lay full-width horizontal bands (rows). Repeat the listed tiles in order from the bottom of the area upward, each band one tile row high, keeping the grout lines continuous.",
+    surfaces: FIELD_SURFACES,
+    floorRoles: ["front band (nearest the camera)", "second band", "third band", "back band"],
+    floorPrompt:
+      "Lay full-width bands running across the floor from side to side, parallel to the far wall. Repeat the listed tiles in order starting at the front of the area (nearest the camera) and moving away from the camera, each band one tile row deep, keeping the grout lines continuous.",
   },
   vertical_stripes: {
     label: "Vertical stripes",
@@ -62,6 +80,9 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["first stripe", "second stripe", "third stripe", "fourth stripe"],
     prompt:
       "Lay full-height vertical stripes (columns). Repeat the listed tiles in order from left to right, each stripe one tile wide, keeping the grout lines continuous.",
+    surfaces: ALL_SURFACES,
+    floorPrompt:
+      "Lay stripes that run along the floor, away from the camera towards the far wall, each stripe one tile wide. Repeat the listed tiles in order from left to right across the floor, keeping the grout lines continuous.",
   },
   dado: {
     label: "Dado (lower + upper)",
@@ -70,6 +91,7 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["lower section (dado)", "upper section"],
     prompt:
       "Split the area horizontally in two. The lower section (dado) uses the first tile up to a typical dado height of about one metre (about 3 ft) unless the pattern note gives another height; the upper section above it uses the second tile. Finish the join with a clean, straight transition line.",
+    surfaces: ["wall", "shower_wall"],
   },
   highlighter_strip: {
     label: "Highlighter strip",
@@ -78,6 +100,7 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["main field", "highlighter strip", "upper field (optional)"],
     prompt:
       "Cover the area with the first tile and run ONE continuous horizontal highlighter strip, a single tile row high, of the second tile across the full width at roughly mid-height unless the pattern note says otherwise. If a third tile is given, use it for the field above the strip.",
+    surfaces: ["wall", "backsplash", "shower_wall"],
   },
   border_frame: {
     label: "Border frame",
@@ -86,6 +109,9 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["field", "border"],
     prompt:
       "Cover the inside of the area with the first tile and frame it with a continuous border, one tile wide, of the second tile along the edges of the area.",
+    surfaces: FIELD_SURFACES,
+    floorPrompt:
+      "Cover the inside of the floor area with the first tile and frame it with a continuous border, one tile wide, of the second tile running along the edges of the area where the floor meets the walls, skirting and fixtures.",
   },
   feature_panel: {
     label: "Feature panel",
@@ -94,6 +120,9 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["field", "feature panel"],
     prompt:
       "Cover the area with the first tile and create one neat rectangular feature panel of the second tile, centred on the area and about one third of its width, from near the floor line (or bottom edge) up to about two thirds of its height unless the pattern note says otherwise.",
+    surfaces: FIELD_SURFACES,
+    floorPrompt:
+      "Cover the floor area with the first tile and set one neat rectangular inset panel of the second tile into it, like a rug, centred on the area and about one third of its width and depth unless the pattern note says otherwise.",
   },
   herringbone: {
     label: "Herringbone",
@@ -102,6 +131,7 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["main tile", "alternate tile (optional)"],
     prompt:
       "Lay the tile in a herringbone arrangement (rectangular tiles interlocking at right angles in a zig-zag). If a second tile is given, alternate the two by plank.",
+    surfaces: ALL_SURFACES,
   },
   diagonal: {
     label: "Diagonal (45°)",
@@ -110,6 +140,7 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["main tile", "alternate tile (optional)"],
     prompt:
       "Lay the tile on the diagonal at 45 degrees to the walls, with straight even grout lines. If a second tile is given, alternate the two like a diagonal checkerboard.",
+    surfaces: ALL_SURFACES,
   },
   random_mix: {
     label: "Random mix",
@@ -118,9 +149,26 @@ export const PATTERN_SPECS: Record<DesignPattern, PatternSpec> = {
     roles: ["tile 1", "tile 2", "tile 3", "tile 4"],
     prompt:
       "Mix the listed tiles in a pleasing random arrangement in roughly equal proportions, avoiding two identical tiles touching where possible.",
+    surfaces: ALL_SURFACES,
   },
 };
 
 export function isDesignPattern(value: string): value is DesignPattern {
   return Object.prototype.hasOwnProperty.call(PATTERN_SPECS, value);
+}
+
+export function patternFitsSurface(pattern: DesignPattern, surface: SurfaceType): boolean {
+  return PATTERN_SPECS[pattern].surfaces.includes(surface);
+}
+
+/** The layout instruction for this surface: flat surfaces get floor wording where the wall wording would mislead. */
+export function patternPrompt(pattern: DesignPattern, surface: SurfaceType): string {
+  const spec = PATTERN_SPECS[pattern];
+  return surfaceKind(surface) === "floor" && spec.floorPrompt ? spec.floorPrompt : spec.prompt;
+}
+
+/** Role names in tile order for this surface. */
+export function patternRoles(pattern: DesignPattern, surface: SurfaceType): string[] {
+  const spec = PATTERN_SPECS[pattern];
+  return surfaceKind(surface) === "floor" && spec.floorRoles ? spec.floorRoles : spec.roles;
 }

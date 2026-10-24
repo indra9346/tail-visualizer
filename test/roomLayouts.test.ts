@@ -241,7 +241,7 @@ describe("Design Studio draft: connected walls", () => {
     expect(Object.keys(validateDraft([wallArea("L1")], "c_shape"))).toHaveLength(1);
     expect(Object.keys(validateDraft([fill(newArea("wall", "Back wall"), tile("a"))], "c_shape"))).toHaveLength(1);
     const dup = [wallArea("C1"), { ...wallArea("C1"), key: "other" }];
-    expect(Object.values(validateDraft(dup, "c_shape")).flat().join(" ")).toMatch(/appears twice|same surface and location/);
+    expect(Object.values(validateDraft(dup, "c_shape")).flat().join(" ")).toMatch(/appears twice|already named/);
     const all = fill(newArea("wall", "All walls"), tile("a"));
     const back = fill(newArea("wall", "Back wall"), tile("b"));
     expect(Object.keys(validateDraft([all, back], "open"))).toContain(all.key);

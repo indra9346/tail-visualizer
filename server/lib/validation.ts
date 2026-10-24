@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ROOM_TYPES, SURFACE_TYPES, TILE_CATEGORIES, TILE_STOCK_STATUSES } from "../ai/types.js";
 import { aiConfig } from "../ai/config.js";
-import { DESIGN_PATTERNS, PATTERN_SPECS } from "../ai/designPatterns.js";
+import { DESIGN_PATTERNS, PATTERN_SPECS, patternFitsSurface } from "../ai/designPatterns.js";
 import { LAYOUT_SPECS, ROOM_LAYOUTS, WALL_IDS, coversAllWalls, wallSpec } from "../ai/roomLayouts.js";
 import { Errors } from "./apiError.js";
 
@@ -131,6 +131,13 @@ export const designAreaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["tileIds"],
         message: `"${spec.label}" needs ${spec.min === spec.max ? spec.min : `${spec.min} to ${spec.max}`} tile(s) for "${area.location}".`,
+      });
+    }
+    if (!patternFitsSurface(area.pattern, area.surface)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pattern"],
+        message: `"${spec.label}" can't be laid on a ${area.surface.replace(/_/g, " ")}. Choose another layout for "${area.location}".`,
       });
     }
   });

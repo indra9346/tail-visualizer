@@ -10,6 +10,7 @@ import {
   LAYOUT_WASTE,
   TILE_PRESETS,
   calculate,
+  layoutForWaste,
   type CalcArea,
   type CalcInput,
   type Layout,
@@ -102,6 +103,8 @@ export function CalculatorPage() {
 
   function openEntry(entry: CalcEntry) {
     loadInput(entry.input);
+    // The laying style goes with the waste %: an old herringbone job must not reopen as "Straight".
+    setLayout(entry.layout ?? layoutForWaste(entry.input.wastePct));
     setActiveId(entry.id);
     setSaved(false);
     setShowHistoryOnPhone(false);
@@ -109,6 +112,7 @@ export function CalculatorPage() {
 
   function startNew() {
     loadInput({ ...DEFAULT_INPUT, areas: [{ id: newId(), label: "Floor", length: 0, width: 0, openings: 0 }] });
+    setLayout(layoutForWaste(DEFAULT_INPUT.wastePct));
     setActiveId(null);
     setSaved(false);
     setShowHistoryOnPhone(false);
@@ -123,6 +127,7 @@ export function CalculatorPage() {
       createdAt: existing?.createdAt ?? new Date().toISOString(),
       name: existing?.name ?? defaultName(input),
       input,
+      layout,
       summary: summarize(input),
     };
     setHistory(saveEntry(userId, history, entry));

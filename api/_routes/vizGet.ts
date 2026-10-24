@@ -5,7 +5,7 @@ import { Errors } from "../../server/lib/apiError.js";
 import { parseOrThrow, uuidSchema } from "../../server/lib/validation.js";
 import { getVisualizationById, deleteOwnedVisualization } from "../../server/db/visualizations.js";
 import { removeOwnedImagesQuietly } from "../../server/storage/cleanup.js";
-import { getLatestJobForVisualization } from "../../server/db/generationJobs.js";
+import { getLatestJobForVisualization, presentStatus } from "../../server/db/generationJobs.js";
 import { getTileById } from "../../server/db/tiles.js";
 import { createSignedUrl } from "../../server/storage/imageStorage.js";
 import { BUCKETS } from "../../server/storage/buckets.js";
@@ -54,13 +54,16 @@ export default createHandler({ methods: ["GET", "DELETE"], operation: "getVisual
     ? await createSignedUrl(BUCKETS.generatedVisualizations, visualization.resultStoragePath, visualization.userId)
     : null;
 
+  // A generation killed part-way is shown as failed, so the result page stops waiting for it.
+  const shown = await presentStatus(visualization, latestJob);
+
   res.status(200).json({
     visualization: {
       id: visualization.id,
       roomUploadId: visualization.roomUploadId,
-      status: visualization.status,
+      status: shown.status,
       appliedSurfaces: visualization.appliedSurfaces,
-      errorMessage: visualization.errorMessage,
+      errorMessage: shown.errorMessage,
       requirements: visualization.requirements,
       isPublic: visualization.isPublic,
       isOwner,

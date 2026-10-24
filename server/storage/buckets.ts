@@ -23,13 +23,19 @@ export function roomImagePath(userId: string, projectId: string, roomUploadId: s
   return `${userId}/${projectId}/${roomUploadId}.${extensionForMimeType(mimeType)}`;
 }
 
+/**
+ * Each attempt gets its own file (`<id>-a2.png`): uploads never overwrite (upsert false), so a shared name made every
+ * later attempt fail once any earlier attempt had stored an image. The first attempt keeps the original name.
+ */
 export function generatedVisualizationPath(
   userId: string,
   projectId: string,
   visualizationId: string,
   mimeType: string,
+  attemptNumber = 1,
 ): string {
-  return `${userId}/${projectId}/${visualizationId}.${extensionForMimeType(mimeType)}`;
+  const suffix = attemptNumber > 1 ? `-a${attemptNumber}` : "";
+  return `${userId}/${projectId}/${visualizationId}${suffix}.${extensionForMimeType(mimeType)}`;
 }
 
 export function tileImagePath(ownerId: string, tileId: string, mimeType: string): string {

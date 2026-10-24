@@ -186,7 +186,7 @@ describe("draft validation (what the Design Studio blocks before sending)", () =
     expect(Object.keys(validateDraft([fill(newArea("wall"), tile("a", "wall", { isActive: false }))]))).toHaveLength(1);
     const x = fill(newArea("wall", "Back wall"), tile("a", "wall"));
     const y = fill(newArea("wall", "back wall"), tile("a", "wall"));
-    expect(validateDraft([x, y])[y.key]!.join(" ")).toMatch(/same surface and location/);
+    expect(validateDraft([x, y])[y.key]!.join(" ")).toMatch(/already named .* different name/);
     expect(Object.keys(validateDraft([fill(newArea("wall", 'bad"label'), tile("a", "wall"))]))).toHaveLength(1);
   });
 

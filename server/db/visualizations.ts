@@ -263,6 +263,23 @@ export async function updateVisualizationStatus(
   }
 }
 
+/**
+ * Marks a generation failed, unless the row already completed: a slower duplicate request that fails must never
+ * turn a finished, paid result into "failed".
+ */
+export async function markVisualizationFailed(visualizationId: string, errorMessage: string): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from("visualizations")
+    .update({ status: "failed", error_message: errorMessage })
+    .eq("id", visualizationId)
+    .neq("status", "completed");
+  if (error) {
+    apiLogger.error("markVisualizationFailed failed", { operation: "markVisualizationFailed", visualizationId, errorCategory: error.code });
+    throw Errors.internal("Failed to update visualization status.");
+  }
+}
+
 export async function listVisualizationsForRoom(roomUploadId: string): Promise<VisualizationRow[]> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
@@ -279,22 +296,24 @@ export async function listVisualizationsForRoom(roomUploadId: string): Promise<V
   return (data ?? []).map(mapRow);
 }
 
-/** All visualizations owned by this user (for "My Visualizations" history), newest first. */
-export async function listVisualizationsForUser(userId: string, limit = 50): Promise<VisualizationRow[]> {
+/**
+ * One page of the user's visualizations (for the "Designs" history), newest first. `before` is the createdAt of the
+ * last row already shown, so older designs can be loaded page by page instead of stopping at the first page.
+ */
+export async function listVisualizationsForUser(userId: string, limit = 50, before?: string): Promise<{ rows: VisualizationRow[]; hasMore: boolean }> {
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("visualizations")
-    .select(SELECT_COLUMNS)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  let query = supabase.from("visualizations").select(SELECT_COLUMNS).eq("user_id", userId);
+  if (before) query = query.lt("created_at", before);
+  // One extra row tells whether another page exists.
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(limit + 1);
 
   if (error) {
     apiLogger.error("listVisualizationsForUser failed", { operation: "listVisualizationsForUser", errorCategory: error.code });
     throw Errors.internal("Failed to list your visualizations.");
   }
 
-  return (data ?? []).map(mapRow);
+  const rows = (data ?? []).map(mapRow);
+  return { rows: rows.slice(0, limit), hasMore: rows.length > limit };
 }
 
 /**

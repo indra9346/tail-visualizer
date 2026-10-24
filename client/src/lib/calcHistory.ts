@@ -1,10 +1,12 @@
-import { calculate, type CalcInput } from "./tileCalc";
+import { calculate, type CalcInput, type Layout } from "./tileCalc";
 
 export interface CalcEntry {
   id: string;
   createdAt: string;
   name: string;
   input: CalcInput;
+  /** The laying style chosen with it; absent in entries saved before it was stored. */
+  layout?: Layout;
   /** Short summary shown in the list, e.g. "42 tiles · 11 boxes". */
   summary: string;
 }
