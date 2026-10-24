@@ -48,6 +48,7 @@ export function MyTilesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   function load() {
     setLoadError(null);
@@ -114,11 +115,13 @@ export function MyTilesPage() {
   }
 
   async function toggle(tile: Tile) {
+    setToggleError(null);
     try {
       const updated = await setMyTileActive(tile.id, !tile.isActive);
       setTiles((prev) => prev?.map((t) => (t.id === updated.id ? updated : t)) ?? prev);
     } catch (err) {
-      setLoadError(friendlyErrorMessage(err, "We couldn't update that tile."));
+      // Shown above the grid; the catalog itself stays on screen.
+      setToggleError(friendlyErrorMessage(err, `We couldn't ${tile.isActive ? "hide" : "show"} "${tile.name}". Please try again.`));
     }
   }
 
@@ -279,6 +282,11 @@ export function MyTilesPage() {
         <div>
           <h2 className="font-display text-xl text-stone-900">Your Showroom Catalog{tiles ? ` (${tiles.length})` : ""}</h2>
           <div className="mt-4">
+            {toggleError && (
+              <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                {toggleError}
+              </p>
+            )}
             {loadError ? (
               <ErrorState message={loadError} onRetry={load} />
             ) : tiles === null ? (

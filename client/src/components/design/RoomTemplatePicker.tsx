@@ -13,6 +13,8 @@ interface Props {
   onPickFace: (faceKey: string) => void;
   /** The area being edited; its face is outlined in the 3D box. */
   activeAreaKey?: string | null;
+  /** A one-line message about the last click in the 3D box (e.g. that a kept wall was switched on). */
+  notice?: string | null;
 }
 
 /** Short tag drawn on the 3D picture. */
@@ -38,7 +40,7 @@ function sceneFaces(template: RoomTemplate, areas: DraftArea[], onPick: (key: st
  * "What are you designing?": ready-made room templates (washroom, kitchen, any room) drawn as a 3D CAD box. Each surface of
  * the box is switched on (it gets a tile design below) or off (it stays exactly as it is in the customer's photo).
  */
-export function RoomTemplatePicker({ templateId, areas, onTemplateChange, onToggleFace, onPickFace, activeAreaKey }: Props) {
+export function RoomTemplatePicker({ templateId, areas, onTemplateChange, onToggleFace, onPickFace, activeAreaKey, notice }: Props) {
   const template = TEMPLATES[templateId];
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-soft" aria-label="Room template and surfaces">
@@ -83,7 +85,12 @@ export function RoomTemplatePicker({ templateId, areas, onTemplateChange, onTogg
         <div className="mt-5 grid gap-5 md:grid-cols-[minmax(0,360px)_1fr] md:items-center">
           <div>
             <RoomScene3D scene={template.scene} faces={sceneFaces(template, areas, onPickFace, activeAreaKey)} />
-            <p className="mt-2 text-center text-[11px] text-stone-500">Drag to rotate through 360°. Click a surface to edit it.</p>
+            <p className="mt-2 text-center text-[11px] text-stone-500">Drag to rotate through 360°. Click a surface to tile it.</p>
+            {notice && (
+              <p role="status" className="mt-2 rounded-lg bg-clay-50 px-3 py-2 text-center text-xs text-clay-900">
+                {notice}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Surfaces (walls numbered left to right as in your photo)</p>

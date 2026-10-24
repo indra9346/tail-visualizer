@@ -181,7 +181,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       layout: design.layout ?? "open",
       requirements,
       roomType: body.roomType ?? analysis.roomType,
-      context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id },
+      context: { roomUploadId: room.id, visualizationId: visualization.id, generationJobId: job.id, attemptNumber: job.attemptNumber },
     });
 
     const resultPath = generatedVisualizationPath(user.id, room.projectId, visualization.id, result.mimeType, job.attemptNumber);

@@ -18,6 +18,8 @@ export interface DraftArea {
   pattern: DesignPattern;
   patternNote: string;
   slots: Array<Tile | null>;
+  /** Created by the app (a template surface, or the first guess from the photo), not added by the owner. */
+  auto?: boolean;
 }
 
 let counter = 0;
@@ -49,6 +51,7 @@ export function newWallArea(layout: RoomLayout, wallId: WallId, template?: Draft
   return {
     ...base,
     wall: wallId,
+    auto: true,
     pattern,
     patternNote: template?.patternNote ?? "",
     slots: emptySlots(pattern).map((_, i) => template?.slots[i] ?? null),
@@ -199,7 +202,8 @@ export function validateDraft(areas: DraftArea[], layout: RoomLayout = "open"): 
       const missing = rolesFor(area.pattern, area.surface).slice(0, spec.min).filter((_, i) => area.slots[i] === null);
       add(area.key, `Choose ${missing.length === 1 ? "the" : "all"} required tile${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}.`);
     } else if (firstGap !== -1 && area.slots.slice(firstGap).some((t) => t !== null)) {
-      add(area.key, "Fill the tile slots in order, without leaving a gap.");
+      const role = rolesFor(area.pattern, area.surface)[firstGap] ?? `tile ${firstGap + 1}`;
+      add(area.key, `Choose a tile for "${role}", or remove the tiles after it: the tiles are laid in slot order.`);
     }
     if (new Set(tiles.map((t) => t.id)).size !== tiles.length) add(area.key, "Use a different tile in each slot of the same area.");
     for (const tile of tiles) {

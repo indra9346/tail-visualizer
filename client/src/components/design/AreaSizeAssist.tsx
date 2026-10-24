@@ -60,18 +60,31 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
   const aiPicks = dims ? [] : catalog.filter((t) => t.isActive && recommendedIds.has(t.id) && tileFitsSurface(t, area.surface)).slice(0, 3);
   const m2 = dims ? (dims.widthMm * dims.heightMm) / 1_000_000 : 0;
   const [suggestIndex, setSuggestIndex] = useState(0);
-  // What the last tap did, with the area as it was before so it can be undone.
-  const [note, setNote] = useState<{ text: string; before: DraftArea } | null>(null);
+  // The suggestion applied last, so the banner names what is on screen (not the next one in line).
+  const [applied, setApplied] = useState<PatternSuggestion | null>(null);
+  // What the last tap did, with the area before (to undo) and after it (Undo is offered only while nothing changed since).
+  const [note, setNote] = useState<{ text: string; before: DraftArea; after: DraftArea } | null>(null);
+  // The last unit switch, so switching straight back restores exactly what was typed (10 ft -> m -> ft stays 10).
+  const [lastConversion, setLastConversion] = useState<{ from: AreaSize; to: AreaSize } | null>(null);
 
   const setSize = (next: AreaSize) => onChange({ ...area, size: next });
   function changeUnit(unit: DimUnit) {
     if (unit === size.unit) return;
-    // Keep what the owner typed the same physical length: 10 ft becomes 3.05 m.
+    const same = (a: AreaSize, b: AreaSize) => a.width === b.width && a.height === b.height && a.unit === b.unit;
+    if (lastConversion && same(size, lastConversion.to) && lastConversion.from.unit === unit) {
+      setSize(lastConversion.from);
+      setLastConversion(null);
+      return;
+    }
+    // Keep what the owner typed the same physical length: 10 ft becomes 3.048 m.
+    const places = unit === "m" ? 1000 : 100;
     const conv = (v: string) => {
       const n = Number(v.replace(",", "."));
-      return v.trim() === "" || !Number.isFinite(n) ? v : String(Math.round(((n * MM_PER_UNIT[size.unit]) / MM_PER_UNIT[unit]) * 100) / 100);
+      return v.trim() === "" || !Number.isFinite(n) ? v : String(Math.round(((n * MM_PER_UNIT[size.unit]) / MM_PER_UNIT[unit]) * places) / places);
     };
-    setSize({ width: conv(size.width), height: conv(size.height), unit });
+    const next = { width: conv(size.width), height: conv(size.height), unit };
+    setLastConversion({ from: size, to: next });
+    setSize(next);
   }
 
   const roleOf = (slot: number) => rolesFor(area.pattern, area.surface)[slot] ?? `tile ${slot + 1}`;
@@ -80,11 +93,11 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
     const placed = placeTile(area, tile);
     if (!placed) {
       // Already in this area: say so and show where it is, instead of silently doing nothing.
-      setNote({ text: `"${tile.name}" is already one of the tiles for this surface (see "Choose the tiles" below).`, before: area });
+      setNote({ text: `"${tile.name}" is already one of the tiles for this surface (see "Choose the tiles" below).`, before: area, after: area });
       onApplied?.();
       return;
     }
-    setNote({ text: `Added "${tile.name}" as ${roleOf(placed.slot)}.`, before: area });
+    setNote({ text: `Added "${tile.name}" as ${roleOf(placed.slot)}.`, before: area, after: placed.area });
     onChange(placed.area);
     onApplied?.();
   }
@@ -103,10 +116,11 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
     }
     setSuggestIndex(idx + 1);
     if (!result) {
-      setNote({ text: "There are not enough tiles in your catalog for this surface yet. Add tiles in My Tiles first.", before: area });
+      setNote({ text: "There are not enough tiles in your catalog for this surface yet. Add tiles in My Tiles first.", before: area, after: area });
       return;
     }
-    setNote({ text: `Applied "${PATTERNS[result.pattern].label}" with ${result.tiles.map((t) => `"${t.name}"`).join(" and ")}. Change anything below, or tap again for another suggestion.`, before: area });
+    setApplied(suggestions.find((s) => s.pattern === result.pattern) ?? null);
+    setNote({ text: `Applied "${PATTERNS[result.pattern].label}" with ${result.tiles.map((t) => `"${t.name}"`).join(" and ")}. Change anything below, or tap again for another suggestion.`, before: area, after: result.area });
     onChange(result.area);
     onApplied?.();
   }
@@ -183,7 +197,8 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
         {suggestions.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-clay-50 px-3 py-2.5">
             <p className="min-w-0 text-xs text-clay-900">
-              <strong>{PATTERNS[suggestions[suggestIndex % suggestions.length]!.pattern].label}</strong>: {suggestions[suggestIndex % suggestions.length]!.reason}
+              {applied && <span className="mr-1 font-semibold">Applied:</span>}
+              <strong>{PATTERNS[(applied ?? suggestions[0]!).pattern].label}</strong>: {(applied ?? suggestions[0]!).reason}
             </p>
             <button type="button" disabled={distinctPool.length === 0} onClick={suggestDesign} className="shrink-0 rounded-lg bg-clay-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-clay-800 disabled:opacity-50">
               {suggestIndex === 0 ? "Suggest a design for me" : "Try another suggestion"}
@@ -194,6 +209,8 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
         {note && (
           <div role="status" className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
             <span>{note.text}</span>
+            {/* Undo only while the area is exactly as the tap left it: restoring the old copy would wipe later edits. */}
+            {area === note.after && note.before !== note.after && (
             <button
               type="button"
               className="shrink-0 font-semibold underline"
@@ -204,6 +221,7 @@ export function AreaSizeAssist({ area, roomType, catalog, recommendedIds, sugges
             >
               Undo
             </button>
+            )}
           </div>
         )}
       </div>

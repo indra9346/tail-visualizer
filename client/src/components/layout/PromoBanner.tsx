@@ -40,7 +40,8 @@ export function PromoBanner({ onFinish }: { onFinish: () => void }) {
   return (
     <motion.div
       key="promo"
-      className="fixed inset-0 z-[100] overflow-y-auto overflow-x-hidden bg-[#FAF9F5] sm:overflow-hidden"
+      // Always scrollable: a phone held sideways is wider than "sm" but too short, and clipping hid "Start Your Visit".
+      className="fixed inset-0 z-[100] overflow-y-auto overflow-x-hidden bg-[#FAF9F5]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -48,7 +49,7 @@ export function PromoBanner({ onFinish }: { onFinish: () => void }) {
       role="status"
       aria-label="SDS Tiles and Ceramics: the virtual trial room for your home"
     >
-      <div className="grid min-h-full grid-cols-1 sm:grid-cols-[52%_48%] sm:h-full">
+      <div className="grid min-h-full grid-cols-1 sm:grid-cols-[52%_48%]">
         {/* Text column */}
         <div className="relative flex items-center px-6 py-12 sm:px-12 sm:py-10 lg:px-20">
           <div

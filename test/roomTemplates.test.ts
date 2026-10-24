@@ -133,10 +133,13 @@ describe("room templates", () => {
     expect(labelsOf(applyTemplate(washroom, "washroom")).sort()).toEqual(labelsOf(washroom).sort());
   });
 
-  test("switching to free naming keeps a floor / backsplash as plain areas and collapses the walls to one 'All walls'", () => {
+  test("switching to free naming keeps a floor / backsplash as plain areas and names each wall (never one 'All walls')", () => {
     const kitchen = fillAll(applyTemplate([newArea("wall")], "kitchen"));
     const free = applyTemplate(kitchen, "free");
-    expect(free.filter((a) => a.surface === "wall").map((a) => a.location)).toEqual(["All walls"]);
+    expect(free.filter((a) => a.surface === "wall").map((a) => a.location)).toEqual(["Left wall", "Back wall", "Right wall"]);
+    // A wall switched off in the template stays off: it is not swallowed by an "All walls" area.
+    const noBack = applyTemplate(toggleFace(kitchen, "kitchen", "C2"), "free", "kitchen");
+    expect(noBack.filter((a) => a.surface === "wall").map((a) => a.location)).toEqual(["Left wall", "Right wall"]);
     expect(free.some((a) => a.surface === "backsplash")).toBe(true);
     expect(free.some((a) => a.surface === "floor")).toBe(true);
     expect(validateDraft(fillAll(free), "open")).toEqual({});
@@ -183,10 +186,12 @@ describe("puja mandir, balcony, feature wall and staircase templates", () => {
     expect(balcony.map((a) => a.wall ?? a.surface)).toEqual(expect.arrayContaining(["L1", "L2", "floor"]));
   });
 
-  test("feature wall tiles only the middle wall and keeps the others", () => {
+  test("feature wall starts with the back wall only; the side walls are offered but kept until switched on", () => {
     const areas = applyTemplate([], "feature_wall");
     expect(areas.filter((a) => a.wall).map((a) => a.wall)).toEqual(["C2"]);
-    expect(keptFaces(TEMPLATES.feature_wall, areas)).toEqual([]);
+    expect(keptFaces(TEMPLATES.feature_wall, areas).map((f) => f.key)).toEqual(["C1", "C3"]);
+    const leftInstead = toggleFace(toggleFace(areas, "feature_wall", "C2"), "feature_wall", "C1");
+    expect(leftInstead.filter((a) => a.wall).map((a) => a.wall)).toEqual(["C1"]);
     const draft = areas.map((a) => withPattern(a, "single"));
     const payload = toPayload(draft, "c_shape");
     expect(payload.areas.filter((a) => a.wall).length).toBe(1);

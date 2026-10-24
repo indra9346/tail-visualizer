@@ -331,6 +331,8 @@ export async function applyRefund(providerOrderId: string, refundId: string): Pr
     await rpc("payment_apply_refund", { p_order_id: providerOrderId, p_refund_id: refundId });
   } catch (err) {
     apiLogger.error("payment_apply_refund failed", { operation: "applyRefund", providerOrderId, errorCategory: err instanceof Error ? err.message : "unknown" });
+    // Thrown so the webhook answers with an error and Razorpay delivers the event again.
+    throw err;
   }
 }
 
@@ -346,6 +348,13 @@ export async function recordWebhookEventOnce(providerEventId: string, eventType:
     throw Errors.internal("Failed to record webhook event.");
   }
   return true;
+}
+
+/** Forgets a recorded event id after its processing failed, so Razorpay's redelivery of it is processed, not skipped. */
+export async function forgetWebhookEvent(providerEventId: string): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase.from("payment_events").delete().eq("provider_event_id", providerEventId);
+  if (error) apiLogger.error("forgetWebhookEvent failed", { operation: "forgetWebhookEvent", errorCategory: error.code });
 }
 
 export function newIdempotencyKey(): string {

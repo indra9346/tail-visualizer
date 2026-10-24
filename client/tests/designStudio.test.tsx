@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 import { TilesPage } from "@/pages/TilesPage";
 import { WorkflowProvider, useWorkflow } from "@/context/WorkflowContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { installFakeBackend, lastJson, makeAnalysis, OTHER_ROOM_ID, ROOM_ID, type FakeBackend } from "./fakeBackend";
 
 /**
@@ -16,6 +17,7 @@ import { installFakeBackend, lastJson, makeAnalysis, OTHER_ROOM_ID, ROOM_ID, typ
 function renderStudio(state?: unknown) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: `/tiles/${ROOM_ID}`, state }]}>
+      <AuthProvider>
       <WorkflowProvider>
         <Routes>
           <Route path="/tiles/:roomId" element={<TilesPage />} />
@@ -24,16 +26,18 @@ function renderStudio(state?: unknown) {
           <Route path="/analysis/:roomId" element={<p>Analysis page</p>} />
         </Routes>
       </WorkflowProvider>
+      </AuthProvider>
     </MemoryRouter>,
   );
 }
 
 const area = (n: number, name: string) => screen.getByRole("region", { name: `Area ${n}: ${name}` });
+/** The first area's card is already open when it appears (TilesPage opens it in the same render). */
 const findArea = (n: number, name: string) => screen.findByRole("region", { name: `Area ${n}: ${name}` });
 const tileById = (b: FakeBackend, n: number) => b.tiles.find((t) => t.name === `Tile ${n}`)!;
 
 async function pickTile(user: ReturnType<typeof userEvent.setup>, region: HTMLElement, role: string, tileName: string) {
-  await user.click(within(region).getByRole("button", { name: `Choose tile for ${role}` }));
+  await user.click(await within(region).findByRole("button", { name: `Choose tile for ${role}` }));
   const dialog = await screen.findByRole("dialog");
   await user.type(within(dialog).getByLabelText("Search tiles"), tileName);
   await user.click(await within(dialog).findByText(tileName, { exact: true }));
@@ -212,7 +216,11 @@ describe("the right room, the right tiles, nothing lost", () => {
 });
 
 describe("workflow state", () => {
-  const wrapper = ({ children }: { children: ReactNode }) => <WorkflowProvider>{children}</WorkflowProvider>;
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <AuthProvider>
+      <WorkflowProvider>{children}</WorkflowProvider>
+    </AuthProvider>
+  );
 
   test("setRoom then setAnalysis in a row never undo each other (no stale copy of the state)", () => {
     const { result } = renderHook(() => useWorkflow(), { wrapper });

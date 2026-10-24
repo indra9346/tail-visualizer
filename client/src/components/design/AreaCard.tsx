@@ -21,6 +21,10 @@ interface Props {
   lockedNote?: string;
   /** Only the active surface is open; the others show a one-line summary. */
   open: boolean;
+  /** Name shown instead of the location, e.g. "Back wall (C2)" for a numbered wall of a template. */
+  title?: string;
+  /** Surfaces this (extra) area may switch to; its own surface is always kept in the list. */
+  surfaceOptions?: SurfaceType[];
   onToggleOpen: () => void;
   roomType?: RoomType;
   /** The showroom's tiles, for the optional best-fit suggestions. */
@@ -89,7 +93,8 @@ function Slot({ role, required, tile, onPick, onClear }: { role: string; require
  * One surface of the room (e.g. "C1 left wall"). Three clear steps: (1) optional size and suggestions, (2) pick a layout by
  * looking at it, (3) choose the tiles. Only the active surface is open, so a long design stays easy to scan.
  */
-export function AreaCard({ index, area, allAreas, issues, onChange, onRemove, onPickTile, lockedNote, open, onToggleOpen, roomType, catalog, recommendedIds }: Props) {
+export function AreaCard({ index, area, allAreas, issues, onChange, onRemove, onPickTile, lockedNote, open, title, surfaceOptions, onToggleOpen, roomType, catalog, recommendedIds }: Props) {
+  const name = title ?? (area.location || "New area");
   const spec = PATTERNS[area.pattern];
   const surface = SURFACES[area.surface];
   const idBase = `area-${area.key}`;
@@ -110,13 +115,13 @@ export function AreaCard({ index, area, allAreas, issues, onChange, onRemove, on
     <section
       id={idBase}
       className={cn("scroll-mt-24 rounded-2xl border bg-white shadow-soft", open ? "p-5" : "p-3", issues.length > 0 ? "border-amber-300" : open ? "border-stone-300" : "border-stone-200")}
-      aria-label={`Area ${index + 1}: ${area.location}`}
+      aria-label={`Area ${index + 1}: ${title ?? area.location}`}
     >
       <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onToggleOpen} aria-expanded={open} aria-controls={`${idBase}-body`} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
           <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-sm text-white">{index + 1}</span>
           <span className="min-w-0">
-            <span className="block truncate font-display text-lg leading-tight text-stone-900">{area.location || "New area"}</span>
+            <span className="block truncate font-display text-lg leading-tight text-stone-900">{name}</span>
             {!open && (
               <span className="mt-0.5 flex items-center gap-2 text-xs text-stone-500">
                 <span className="truncate">{spec.label}</span>
@@ -159,7 +164,7 @@ export function AreaCard({ index, area, allAreas, issues, onChange, onRemove, on
                 <div>
                   <label htmlFor={`${idBase}-surface`} className={fieldLabel}>Surface</label>
                   <select id={`${idBase}-surface`} className={field} value={area.surface} onChange={(e) => setSurface(e.target.value as SurfaceType)}>
-                    {SURFACE_ORDER.map((s) => (
+                    {SURFACE_ORDER.filter((s) => s === area.surface || !surfaceOptions || surfaceOptions.includes(s)).map((s) => (
                       <option key={s} value={s}>
                         {SURFACES[s].label}
                       </option>

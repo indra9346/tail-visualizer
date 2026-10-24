@@ -17,9 +17,14 @@ interface Props {
 
 const tileCountText = (min: number, max: number) => (min === max ? `${min} tile${min === 1 ? "" : "s"}` : `${min} to ${max} tiles`);
 
-/** Demo fills for a pattern: the owner's chosen tiles first, then neutral colours for the roles not chosen yet. */
+/**
+ * Demo fills for a pattern: the owner's chosen tiles first, then neutral colours for the REQUIRED roles not chosen yet.
+ * Optional roles left empty are not drawn, so the demo shows what will actually be laid (two bands repeat A, B; a
+ * herringbone with one tile is one colour). With nothing chosen yet every role is shown, to explain the layout.
+ */
 function fillsFor(pattern: DesignPattern, tiles: Tile[]): DemoFill[] {
-  const need = Math.max(1, PATTERNS[pattern].max);
+  const spec = PATTERNS[pattern];
+  const need = tiles.length === 0 ? Math.max(1, spec.max) : Math.min(spec.max, Math.max(tiles.length, spec.min));
   return Array.from({ length: need }, (_, i) => {
     const tile = tiles[i];
     return tile ? { color: DEMO_COLORS[i % DEMO_COLORS.length]!, image: getPublicTileImageUrl(tile.storagePath) } : { color: DEMO_COLORS[i % DEMO_COLORS.length]! };

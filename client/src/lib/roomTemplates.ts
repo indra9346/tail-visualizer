@@ -1,6 +1,6 @@
 import type { SurfaceType } from "../api/types";
 import { LAYOUTS, type RoomLayout, type WallId } from "./roomLayouts";
-import { applyLayout, newArea, toggleWall, type DraftArea } from "./designDraft";
+import { applyLayout, chosenTiles, newArea, toggleWall, type DraftArea } from "./designDraft";
 
 /**
  * Room templates: ready-made room boxes (washroom, kitchen, ...) shown as a 3D CAD-style box in the
@@ -33,6 +33,8 @@ export interface FaceSpec {
   location: string;
   /** Explains what the face covers; shown on its area card. */
   note: string;
+  /** Offered in the switch list but switched off when the template is chosen (e.g. the walls that are not the feature wall). */
+  startsOff?: boolean;
 }
 
 export interface RoomTemplate {
@@ -117,7 +119,8 @@ export const TEMPLATES: Record<TemplateId, RoomTemplate> = {
     layout: "c_shape",
     scene: "box",
     faces: [
-      { ...floor, label: "Platform / floor", note: "Template surface: the mandir platform or prayer-room floor. Only this floor is changed here." },
+      // Its own name, so the AI tiles the platform and not the whole room floor around it.
+      { ...floor, label: "Platform / floor", location: "Mandir platform", note: "Template surface: the mandir platform. Only the platform is changed here; rename it (e.g. Prayer room floor) if the whole floor should be tiled." },
       { key: "C1", role: "left", label: "Left panel (C1)", surface: "wall", wall: "C1", location: "C1 (left wall)", note: "" },
       { key: "C2", role: "back", label: "Back panel (C2)", surface: "wall", wall: "C2", location: "C2 (middle wall)", note: "" },
       { key: "C3", role: "right", label: "Right panel (C3)", surface: "wall", wall: "C3", location: "C3 (right wall)", note: "" },
@@ -138,12 +141,14 @@ export const TEMPLATES: Record<TemplateId, RoomTemplate> = {
   feature_wall: {
     id: "feature_wall",
     label: "Feature wall",
-    blurb: "One accent wall (living room, TV unit, bed head) + floor",
+    blurb: "One accent wall (living room, TV unit, bed head) + floor. Switch on whichever wall is the feature wall",
     layout: "c_shape",
     scene: "box",
     faces: [
       floor,
-      { key: "C2", role: "back", label: "Feature wall (C2)", surface: "wall", wall: "C2", location: "C2 (middle wall)", note: "" },
+      { key: "C1", role: "left", label: "Left wall (C1)", surface: "wall", wall: "C1", location: "C1 (left wall)", note: "", startsOff: true },
+      { key: "C2", role: "back", label: "Back wall (C2)", surface: "wall", wall: "C2", location: "C2 (middle wall)", note: "" },
+      { key: "C3", role: "right", label: "Right wall (C3)", surface: "wall", wall: "C3", location: "C3 (right wall)", note: "", startsOff: true },
     ],
   },
   staircase: {
@@ -176,6 +181,34 @@ export function templateForLayout(layout: RoomLayout): TemplateId {
   return layout === "c_shape" ? "three_walls" : layout === "l_shape" ? "corner" : "free";
 }
 
+/**
+ * The template a generated design most likely came from ("Edit design" reopens it). The server stores only the
+ * layout and the areas, so the room type and the surfaces decide: a C-shape with a backsplash is the kitchen.
+ */
+export function templateForDesign(layout: RoomLayout, areas: DraftArea[], roomType?: string): TemplateId {
+  if (layout === "c_shape") {
+    if (areas.some((a) => a.surface === "backsplash")) return "kitchen";
+    return roomType === "bathroom" ? "washroom" : "three_walls";
+  }
+  if (layout === "l_shape") return roomType === "bathroom" ? "washroom_corner" : roomType === "balcony" ? "balcony" : "corner";
+  return areas.length > 0 && areas.every((a) => a.surface === "step_tread" || a.surface === "step_riser") ? "staircase" : "free";
+}
+
+/** Free-naming name of a numbered wall: leaving a template must never turn the walls into one "All walls". */
+const FREE_WALL_NAME: Record<WallId, string> = { C1: "Left wall", C2: "Back wall", C3: "Right wall", L1: "Left wall", L2: "Right wall" };
+
+/** The template's surfaces in its own order (floor, walls left to right, backsplash); extra areas keep their order after them. */
+export function sortByFaces(template: RoomTemplate, areas: DraftArea[]): DraftArea[] {
+  const rank = (a: DraftArea) => {
+    const i = template.faces.findIndex((f) => faceMatchesArea(f, a));
+    return i === -1 ? template.faces.length : i;
+  };
+  return areas
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
+    .map((x) => x.a);
+}
+
 export function faceMatchesArea(face: FaceSpec, area: DraftArea): boolean {
   return face.wall ? area.wall === face.wall : !area.wall && area.surface === face.surface;
 }
@@ -195,30 +228,47 @@ export function keptFaces(template: RoomTemplate, areas: DraftArea[]): FaceSpec[
 }
 
 /**
- * Choosing a template. Wall areas become the template's numbered walls (each starting from the first
- * wall design that has tiles); the floor / backsplash faces are added when missing. Everything starts
- * switched on - the owner then switches off whatever must stay as it is. Extra areas are untouched, except the
- * surfaces of the PREVIOUS template that the new one does not have (e.g. the kitchen backsplash when moving to a
- * washroom): they would otherwise stay behind as stray areas still needing a tile.
+ * Choosing a template.
+ * - Same wall shape as before (Washroom -> Kitchen): every wall keeps its own tiles and its on/off choice.
+ * - Another shape: wall areas become the template's numbered walls (each starting from the first wall design that
+ *   has tiles), all switched on except the faces marked startsOff.
+ * - Free naming: each numbered wall becomes a named wall ("Left wall"), so walls the owner kept are never tiled.
+ * The floor / backsplash faces are added when missing. Left behind: the surfaces of the PREVIOUS template the new one
+ * does not have (e.g. the kitchen backsplash when moving to a washroom), and any area the app itself created (a
+ * template face or the first guess from the photo) that never got a tile. What the owner added or tiled stays.
  */
 export function applyTemplate(areas: DraftArea[], id: TemplateId, previous?: TemplateId): DraftArea[] {
   const template = TEMPLATES[id];
   const before = previous && previous !== id ? TEMPLATES[previous] : undefined;
-  const kept =
-    before && template.faces.length > 0
-      ? areas.filter((a) => a.wall || !faceOfArea(before, a) || faceOfArea(template, a))
-      : areas;
-  let next = applyLayout(kept, template.layout);
+  const stray = (a: DraftArea) =>
+    !a.wall && !faceOfArea(template, a) && ((before !== undefined && Boolean(faceOfArea(before, a))) || (a.auto === true && chosenTiles(a).length === 0));
+  const kept = template.faces.length > 0 ? areas.filter((a) => !stray(a)) : areas;
+
+  let next: DraftArea[];
+  if (before && before.layout === template.layout && template.layout !== "open") {
+    next = kept;
+    // A wall the previous template did not offer at all starts the way this template says.
+    const offeredBefore = new Set(before.faces.map((f) => f.wall).filter((w): w is WallId => Boolean(w)));
+    for (const face of template.faces) {
+      if (face.wall && !face.startsOff && !offeredBefore.has(face.wall) && !next.some((a) => a.wall === face.wall)) next = toggleWall(next, template.layout, face.wall);
+    }
+  } else if (template.layout === "open" && kept.some((a) => a.wall)) {
+    next = kept.map(({ wall, ...a }) => (wall ? { ...a, location: FREE_WALL_NAME[wall] } : a));
+  } else {
+    next = applyLayout(kept, template.layout);
+    const off = new Set(template.faces.filter((f) => f.wall && f.startsOff).map((f) => f.wall));
+    if (off.size > 0) next = next.filter((a) => !(a.wall && off.has(a.wall)));
+  }
   // A template that names its walls (e.g. one feature wall) keeps only those; a template with no wall faces (stairs) keeps none.
   if (template.faces.length > 0) {
     const walls = template.faces.filter((f) => f.wall).map((f) => f.wall);
     next = next.filter((a) => (a.surface !== "wall" && a.surface !== "step_riser") || (a.wall ? walls.includes(a.wall) : a.surface === "step_riser"));
   }
   for (const face of template.faces) {
-    if (face.wall || areaOfFace(next, face)) continue;
-    next = [...next, newArea(face.surface, face.location)];
+    if (face.wall || face.startsOff || areaOfFace(next, face)) continue;
+    next = [...next, { ...newArea(face.surface, face.location), auto: true }];
   }
-  return next;
+  return sortByFaces(template, next);
 }
 
 /** Switch one face on (add its area) or off (remove it: the surface is kept as in the photo). */
@@ -226,9 +276,9 @@ export function toggleFace(areas: DraftArea[], id: TemplateId, faceKey: string):
   const template = TEMPLATES[id];
   const face = template.faces.find((f) => f.key === faceKey);
   if (!face) return areas;
-  if (face.wall) return toggleWall(areas, template.layout, face.wall);
+  if (face.wall) return sortByFaces(template, toggleWall(areas, template.layout, face.wall));
   const existing = areaOfFace(areas, face);
-  return existing ? areas.filter((a) => a.key !== existing.key) : [...areas, newArea(face.surface, face.location)];
+  return existing ? areas.filter((a) => a.key !== existing.key) : sortByFaces(template, [...areas, { ...newArea(face.surface, face.location), auto: true }]);
 }
 
 /** The area of a face, adding it first when the face was switched off (clicking a face in the 3D box means "tile this"). */

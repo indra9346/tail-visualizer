@@ -67,6 +67,7 @@ export interface FakeBackend {
   /** Answer the next generate call with this error instead of success. */
   generateError: { status: number; code: string; message: string } | null;
   history: Visualization[];
+  payments: unknown[];
   /** Extra or overriding routes for one test. */
   extra: Handler | null;
 }
@@ -81,6 +82,7 @@ export function installFakeBackend(): FakeBackend {
     calls: [],
     generateError: null,
     history: [],
+    payments: [],
     extra: null,
   };
 
@@ -113,6 +115,16 @@ export function installFakeBackend(): FakeBackend {
         return reply(200, { tiles: list.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total: list.length });
       }
       if (p === "/api/tiles/recommend") return reply(200, { recommendations: [], reused: true });
+      if (p === "/api/tiles/manage" && method === "GET") return reply(200, { tiles: state.tiles });
+      if (p === "/api/tiles/manage" && method === "PATCH") {
+        const { tileId, isActive } = body as { tileId: string; isActive: boolean };
+        const t = state.tiles.find((x) => x.id === tileId);
+        if (!t) return error(404, "TILE_NOT_FOUND", "Tile not found.");
+        t.isActive = isActive;
+        return reply(200, { tile: t });
+      }
+      if (p === "/api/billing/payments") return reply(200, { payments: state.payments });
+      if (p === "/api/billing/transactions") return reply(200, { transactions: [] });
       if (p === "/api/billing/summary") return reply(200, { summary: { balance: state.balance, used: {}, generations: {}, payments: {} } });
       if (p === "/api/billing/packages") return reply(200, { packages: [], generationCreditCost: 10 });
       if (p === "/api/visualizations/history") {

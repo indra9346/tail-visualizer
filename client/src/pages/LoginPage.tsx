@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams, Navigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
@@ -18,7 +18,7 @@ const perks = [
 ];
 
 export function LoginPage() {
-  const { user, signInWithPassword, signUpWithPassword, resendConfirmation } = useAuth();
+  const { user, signInWithPassword, signUpWithPassword, resendConfirmation, sendPasswordReset } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
 
@@ -30,6 +30,15 @@ export function LoginPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+
+  // "Create a free account" in the menu changes only the URL when this page is already open: follow it.
+  const urlMode = params.get("mode");
+  useEffect(() => {
+    setMode(SIGNUP_ENABLED && urlMode === "signup" ? "signup" : "signin");
+    setError(null);
+    setInfo(null);
+  }, [urlMode]);
 
   const destination = location.state?.from?.pathname ?? "/projects";
 
@@ -44,8 +53,11 @@ export function LoginPage() {
     try {
       if (mode === "signin") {
         const { error: err } = await signInWithPassword(email, password);
-        if (err) setError(err);
-        else navigate(destination);
+        if (err) {
+          setError(err);
+          // An account that was never confirmed can ask for the email again from here, on any visit.
+          if (/confirm/i.test(err)) setAwaitingConfirmation(true);
+        } else navigate(destination);
       } else {
         const { error: err, needsConfirmation } = await signUpWithPassword(email, password);
         if (err) {
@@ -62,6 +74,20 @@ export function LoginPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function onForgotPassword() {
+    setError(null);
+    setInfo(null);
+    if (!email) {
+      setError("Enter your email address above, then tap \"Forgot password?\" again.");
+      return;
+    }
+    setResetSending(true);
+    const { error: err } = await sendPasswordReset(email);
+    setResetSending(false);
+    if (err) setError(err);
+    else setInfo(`If an account exists for ${email}, a link to choose a new password is on its way. Check your inbox and spam folder.`);
   }
 
   async function onResend() {
@@ -151,6 +177,11 @@ export function LoginPage() {
               <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
                 {info}
               </p>
+            )}
+            {mode === "signin" && (
+              <button type="button" onClick={onForgotPassword} disabled={resetSending} className="text-sm font-medium text-clay-700 underline underline-offset-2 disabled:opacity-60">
+                {resetSending ? "Sending reset link…" : "Forgot password?"}
+              </button>
             )}
             {awaitingConfirmation && email && (
               <button type="button" onClick={onResend} className="text-sm font-medium text-clay-700 underline underline-offset-2">

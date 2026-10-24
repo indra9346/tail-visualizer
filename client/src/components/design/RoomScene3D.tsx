@@ -269,8 +269,9 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
             </span>
           )}
         </div>
-        {/* The outer side of the same wall: seen when the box is turned around, so nothing is ever see-through. */}
-        <div aria-hidden="true" className="absolute" style={{ ...base, transform: `${geo.transform} rotateY(180deg)`, background: OUTSIDE, boxShadow: "inset 0 0 0 1.5px rgba(28,25,23,.45)" }} />
+        {/* The outer side of the same wall: seen when the box is turned around, so nothing is ever see-through. It is faint
+            glass, so it never takes a tap: the tap goes to the surface the owner sees through it. */}
+        <div aria-hidden="true" className="pointer-events-none absolute" style={{ ...base, transform: `${geo.transform} rotateY(180deg)`, background: OUTSIDE, boxShadow: "inset 0 0 0 1.5px rgba(28,25,23,.45)" }} />
       </Fragment>
     );
   });
@@ -279,7 +280,10 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
     <div className={cn("mx-auto w-full", className)} style={{ maxWidth: STAGE_W }}>
       <div
         ref={wrapRef}
-        className={cn("relative w-full touch-none select-none outline-none", !preview && (dragging ? "cursor-grabbing" : "cursor-grab"), !preview && "focus-visible:ring-2 focus-visible:ring-clay-400 rounded-xl")}
+        // overflow-x-clip: rotated faces of the 3D box reach past the stage; unclipped, they widened the whole page on a phone.
+        // Previews never capture touches (the page must scroll over the template cards). The live box lets a vertical
+        // swipe scroll the page on a phone; a sideways drag still turns the room.
+        className={cn("relative w-full select-none overflow-x-clip outline-none", preview ? "touch-auto" : "touch-pan-y", !preview && (dragging ? "cursor-grabbing" : "cursor-grab"), !preview && "focus-visible:ring-2 focus-visible:ring-clay-400 rounded-xl")}
         style={{ height: STAGE_H * scale }}
         tabIndex={preview ? undefined : 0}
         aria-label={preview ? undefined : "3D room. Drag to rotate through 360 degrees, or use the arrow keys."}
@@ -302,8 +306,8 @@ export function RoomScene3D({ scene, faces, preview = false, className }: Props)
             {kitchen && (
               <>
                 {/* Counter (decorative): a worktop slab and its cabinet front along the back wall. */}
-                <div aria-hidden="true" className="absolute" style={{ left: -W / 2, top: -(H * 0.34) / 2, width: W, height: H * 0.34, background: "linear-gradient(180deg,#8a8580,#6b6661)", transform: `translate3d(0px, ${H * 0.33}px, ${-D / 2 + D * 0.3}px)`, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.45)", backfaceVisibility: "hidden" }} />
-                <div aria-hidden="true" className="absolute" style={{ left: -W / 2, top: -(D * 0.3) / 2, width: W, height: D * 0.3, background: "linear-gradient(180deg,#a8a29e,#8e8984)", transform: `translate3d(0px, ${H * 0.16}px, ${-D / 2 + D * 0.15}px) rotateX(90deg)`, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.4)" }} />
+                <div aria-hidden="true" className="pointer-events-none absolute" style={{ left: -W / 2, top: -(H * 0.34) / 2, width: W, height: H * 0.34, background: "linear-gradient(180deg,#8a8580,#6b6661)", transform: `translate3d(0px, ${H * 0.33}px, ${-D / 2 + D * 0.3}px)`, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.45)", backfaceVisibility: "hidden" }} />
+                <div aria-hidden="true" className="pointer-events-none absolute" style={{ left: -W / 2, top: -(D * 0.3) / 2, width: W, height: D * 0.3, background: "linear-gradient(180deg,#a8a29e,#8e8984)", transform: `translate3d(0px, ${H * 0.16}px, ${-D / 2 + D * 0.15}px) rotateX(90deg)`, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.4)" }} />
               </>
             )}
             {faceEls}

@@ -6,6 +6,11 @@
  * timeout number.
  */
 
+function envFloat(name: string, fallback: number, min: number, max: number): number {
+  const parsed = Number.parseFloat(process.env[name] ?? "");
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+}
+
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -42,6 +47,11 @@ export const aiConfig = {
     roomAnalysis: envInt("GEMINI_ROOM_ANALYSIS_TIMEOUT_MS", 50_000),
     tileRecommendation: envInt("GEMINI_TILE_RECOMMENDATION_TIMEOUT_MS", 15_000),
     visualization: envInt("GEMINI_VISUALIZATION_TIMEOUT_MS", 45_000),
+  },
+  sampling: {
+    // Low temperature: the edit follows the design and the tile photos instead of "creatively" re-imagining the room,
+    // and the same design looks the same when generated again (the model's default of 1.0 varied a lot between runs).
+    visualizationTemperature: envFloat("GEMINI_VISUALIZATION_TEMPERATURE", 0.4, 0, 2),
   },
   retries: {
     roomAnalysis: 1,

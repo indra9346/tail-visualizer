@@ -1,5 +1,6 @@
-import { createContext, useContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { RoomAnalysis, SurfaceType, Tile } from "@/api/types";
+import { useAuth } from "@/context/AuthContext";
 
 /**
  * Holds only IDs and already-fetched, non-sensitive data (never signed
@@ -28,6 +29,7 @@ interface WorkflowContextValue extends WorkflowState {
 }
 
 const STORAGE_KEY = "tile-visualizer:workflow";
+const EMPTY: WorkflowState = { projectId: null, roomUploadId: null, analysis: null, selectedTile: null, selectedSurfaces: [] };
 
 function loadInitial(): WorkflowState {
   try {
@@ -50,6 +52,16 @@ const WorkflowContext = createContext<WorkflowContextValue | undefined>(undefine
 
 export function WorkflowProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<WorkflowState>(loadInitial);
+
+  // Another account on the same browser (or signing out) starts clean: never the previous owner's tile or room.
+  const { user, loading } = useAuth();
+  const lastUser = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (loading) return;
+    const id = user?.id ?? null;
+    if (lastUser.current !== undefined && lastUser.current !== id) setState(EMPTY);
+    lastUser.current = id;
+  }, [user, loading]);
 
   useEffect(() => {
     try {

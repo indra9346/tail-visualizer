@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { aiConfig } from "./config.js";
 import { classifyGeminiError, getGeminiClient } from "./geminiClient.js";
 import { GeminiEmptyResponseError, GeminiRateLimitError, GeminiUpstreamError, VisualizationGenerationError } from "./errors.js";
@@ -29,12 +30,31 @@ function extractGeneratedImage(response: {
   return null;
 }
 
+/**
+ * The same room + design (+ attempt) always gets the same fence and the same seed, so generating it again gives the
+ * same picture instead of a very different one. The fence stays safe when predictable: buildDesignPrompt removes it
+ * from the customer's text, so that text can never imitate it.
+ */
+export function generationKey(input: Pick<GenerateVisualizationInput, "areas" | "requirements" | "layout" | "roomType" | "context">): { boundary: string; seed: number } {
+  const design = JSON.stringify({
+    room: input.context.roomUploadId,
+    layout: input.layout ?? "open",
+    roomType: input.roomType ?? null,
+    requirements: input.requirements ?? null,
+    areas: input.areas.map((a) => [a.surface, a.location, a.wall ?? null, a.pattern, a.patternNote ?? null, a.dimensions ?? null, a.tiles.map((t) => t.id)]),
+  });
+  const digest = createHash("sha256").update(design).digest();
+  const seedDigest = createHash("sha256").update(`${design}|attempt:${input.context.attemptNumber ?? 1}`).digest();
+  return { boundary: `REQ-${digest.subarray(0, 8).toString("hex")}`, seed: seedDigest.readUInt32BE(0) & 0x7fffffff };
+}
+
 async function attemptGeneration(input: GenerateVisualizationInput): Promise<GeneratedVisualizationResult> {
   const client = getGeminiClient();
   const model = aiConfig.models.visualization;
   // The prompt letters tiles in first-use order; attach the reference photos in that same order.
   const orderedImages = distinctTileIds(input.areas).map((id) => input.tileImages.find((t) => t.tileId === id)!.image);
-  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, undefined, input.roomType, input.layout ?? "open");
+  const { boundary, seed } = generationKey(input);
+  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, boundary, input.roomType, input.layout ?? "open");
   const start = Date.now();
 
   let response;
@@ -54,6 +74,8 @@ async function attemptGeneration(input: GenerateVisualizationInput): Promise<Gen
         ],
         config: {
           responseModalities: ["IMAGE"],
+          temperature: aiConfig.sampling.visualizationTemperature,
+          seed,
         },
       }),
       aiConfig.timeoutsMs.visualization,

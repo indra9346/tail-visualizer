@@ -30,6 +30,23 @@ function isSingleWallArea(area: DesignAreaInput, layout: RoomLayout): boolean {
   return !coversAllWalls(location) && !/^entire surface$/i.test(location);
 }
 
+/** A name that covers a whole surface ("Entire floor", "All stair treads", the legacy "entire surface"). */
+function namesWholeSurface(location: string): boolean {
+  const v = location.replace(/\s+/g, " ").trim();
+  return /^(all|every|entire|whole)\b/i.test(v) || /^entire surface$/i.test(v);
+}
+
+/**
+ * A floor area that names only PART of the floor ("Mandir platform", "Shower floor area"). Described as that part,
+ * never as "the floor", so the model does not tile the whole room floor.
+ */
+function isFloorPartArea(area: DesignAreaInput): boolean {
+  return (area.surface === "floor" || area.surface === "step_tread") && !namesWholeSurface(area.location);
+}
+
+/** Zones that are their own target areas even when they sit on a wall that is kept (a kitchen backsplash, a shower). */
+const WALL_ZONE_SURFACES = new Set(["backsplash", "shower_wall"]);
+
 /**
  * The connected-wall block for an L / C room: which numbered walls are finished and which are KEPT
  * exactly as in the photo, plus the corner rules. Empty for the free-naming layout.
@@ -41,11 +58,17 @@ export function buildLayoutBlock(layout: RoomLayout, areas: DesignAreaInput[]): 
   const finished = spec.walls.filter((w) => areas.some((a) => a.surface === "wall" && a.wall === w.id));
   const kept = keptWalls(layout, areas.filter((a) => a.surface === "wall").map((a) => a.wall));
   const names = (list: typeof spec.walls) => list.map((w) => w.label).join(", ");
+  // A backsplash or shower area on a kept wall is still tiled: say so, or "keep this wall exactly" contradicts it.
+  const zones = [...new Set(areas.filter((a) => WALL_ZONE_SURFACES.has(a.surface)).map((a) => (a.surface === "backsplash" ? "the backsplash" : "the shower area")))];
+  const zoneException =
+    kept.length > 0 && zones.length > 0
+      ? ` The only exception: ${zones.join(" and ")} listed below ${zones.length > 1 ? "are their own target areas" : "is its own target area"} and must be tiled even where ${zones.length > 1 ? "they sit" : "it sits"} on a kept wall; the rest of that wall stays exactly as in the photo.`
+      : "";
   return `ROOM LAYOUT (connected walls)
 The visible walls of this room form ${spec.shape}. The walls are numbered as they appear in the SOURCE PHOTO, from left to right:
 ${spec.walls.map((w) => `   - ${w.label}: ${w.position}`).join("\n")}
 Walls to FINISH: ${finished.length > 0 ? names(finished) : "none"}.
-Walls to KEEP EXACTLY AS IN THE SOURCE PHOTO (do not tile, repaint, extend a pattern onto, recolour or alter in any way): ${kept.length > 0 ? names(kept) : "none (every wall of this layout is finished)"}.
+Walls to KEEP EXACTLY AS IN THE SOURCE PHOTO (do not tile, repaint, extend a pattern onto, recolour or alter in any way): ${kept.length > 0 ? names(kept) : "none (every wall of this layout is finished)"}.${zoneException}
 Connected-wall rules (strict):
    - Every numbered wall is its own independent area with its own tile and its own layout pattern. Never carry one wall's tile or pattern onto a different wall.
    - Where a finished wall meets a kept wall, the new tile must stop exactly on the inside corner line (the vertical edge where the two walls meet). Nothing may wrap around the corner, overlap it, or bleed onto the kept wall.
@@ -132,7 +155,9 @@ None given. Use sensible defaults: apply each pattern to its target area only.`;
         ? `wall ${numberedWall.label} ONLY (${numberedWall.position}); no other wall is part of this area`
         : isSingleWallArea(area, layout)
           ? "ONLY the wall surface named by the label below (all of it, and nothing else). No other wall or surface is part of this area, so do not extend it to neighbouring, opposite or end walls"
-          : (SURFACE_PROMPT_LABELS[area.surface] ?? area.surface);
+          : isFloorPartArea(area)
+            ? `ONLY the part of ${SURFACE_PROMPT_LABELS[area.surface]} named by the label below (for example a platform, the shower area or the area near the entrance). The rest of ${SURFACE_PROMPT_LABELS[area.surface]} is not part of this area`
+            : (SURFACE_PROMPT_LABELS[area.surface] ?? area.surface);
       const flat = area.surface === "floor" || area.surface === "step_tread";
       const sizeLine = area.dimensions
         ? `\n   Measured size of this area: about ${area.dimensions.widthMm} mm ${flat ? "long" : "wide"} by ${area.dimensions.heightMm} mm ${flat ? "deep" : "high"} (the owner's measurement). Use it with each tile's real size to lay a believable number of tiles at the correct scale.`
@@ -151,12 +176,15 @@ ${roleLines}`;
   const finishedWalls = layout !== "open" ? areas.filter((a) => a.surface === "wall" && a.wall).map((a) => a.wall as string) : [];
   // Free naming: a wall area that names ONE wall ("Left wall") must not turn into "the walls" in the output line either.
   const singleWallLabels = areas.filter((a) => isSingleWallArea(a, layout)).map((a) => `"${a.location}"`);
+  // Parts of a floor are named on their own in the output line, unless a whole-floor area of that surface also exists.
+  const floorParts = areas.filter((a) => isFloorPartArea(a) && !areas.some((o) => o.surface === a.surface && !isFloorPartArea(o)));
   const surfaceList = [
     ...new Set(
       areas.flatMap((a) =>
-        a.surface === "wall" && (layout !== "open" || isSingleWallArea(a, layout)) ? [] : [SURFACE_PROMPT_LABELS[a.surface] ?? a.surface],
+        (a.surface === "wall" && (layout !== "open" || isSingleWallArea(a, layout))) || floorParts.includes(a) ? [] : [SURFACE_PROMPT_LABELS[a.surface] ?? a.surface],
       ),
     ),
+    ...(floorParts.length > 0 ? [`only the part${floorParts.length > 1 ? "s" : ""} of the floor labelled ${floorParts.map((a) => `"${a.location}"`).join(" and ")} (the rest of the floor left unchanged)`] : []),
     ...(finishedWalls.length > 0 ? [`only the walls ${finishedWalls.join(" and ")} (every other wall left unchanged)`] : []),
     ...(singleWallLabels.length > 0 ? [`only the wall${singleWallLabels.length > 1 ? "s" : ""} labelled ${singleWallLabels.join(" and ")} (every other wall left unchanged)`] : []),
   ].join(" and ");
@@ -164,9 +192,15 @@ ${roleLines}`;
   const unlistedWalls = areas.some((a) => isSingleWallArea(a, layout))
     ? "\nWalls that are not listed below are NOT target areas: this includes the wall at the end of the room facing the camera, either side wall, and any other wall you can see. They must keep their original material, colour, texture and fittings exactly as in the source photo. Do not tile, recolour or extend a pattern onto them."
     : "";
-  const backsplashRule =
-    areas.some((a) => a.surface === "backsplash") && areas.some((a) => a.surface === "wall")
+  const backsplashRule = !areas.some((a) => a.surface === "backsplash")
+    ? ""
+    : areas.some((a) => a.surface === "wall")
       ? "\nBacksplash rule: the backsplash zone (the wall between the counter and the wall cabinets or shelf) belongs ONLY to the backsplash area. A wall area covers the rest of that wall and must not overwrite the backsplash zone."
+      : "\nBacksplash rule: only the backsplash zone (the wall between the counter and the wall cabinets or shelf) changes. The rest of every wall keeps its original finish exactly as in the source photo.";
+  // A part of the floor is tiled on its own: the remaining floor must not be redone with it.
+  const floorPartRule =
+    floorParts.length > 0
+      ? `\nFloor rule: only the named part${floorParts.length > 1 ? "s" : ""} of the floor (${floorParts.map((a) => `"${a.location}"`).join(", ")}) change${floorParts.length > 1 ? "" : "s"}. The rest of the floor keeps its original material exactly as in the source photo.`
       : "";
   // Several areas on one surface (e.g. "Entire floor" + "Shower floor area"): the named part wins and the general area covers the rest.
   const sharedSurfaces = [...new Set(areas.map((a) => a.surface))].filter(
@@ -188,7 +222,7 @@ ${tileBlock}
 Room context from an earlier analysis of the source photo: room type ${roomType ?? roomAnalysis.roomType}; construction state ${roomAnalysis.constructionState}; perspective ${roomAnalysis.perspective ?? "unknown"}; lighting ${roomAnalysis.lighting ?? "unknown"}; doors visible ${roomAnalysis.doorCount}; windows visible ${roomAnalysis.windowCount}; fixtures ${roomAnalysis.fixtures.join(", ") || "none noted"}.
 
 ${layoutBlock ? `${layoutBlock}\n\n` : ""}3. TARGET AREAS
-Finish ONLY the following areas, each with exactly the tiles and layout given for it. Replace only that area's existing material. Leave every other surface, and every area not listed, exactly as in the source photo. If an area is not visible in the photo, skip it: never invent a view of it.${unlistedWalls}${backsplashRule}${sharedRule}
+Finish ONLY the following areas, each with exactly the tiles and layout given for it. Replace only that area's existing material. Leave every other surface, and every area not listed, exactly as in the source photo. If an area is not visible in the photo, skip it: never invent a view of it.${unlistedWalls}${backsplashRule}${floorPartRule}${sharedRule}
 
 ${areaBlock}
 
@@ -207,6 +241,11 @@ ${requirementsBlock}
 - Render every tile at a believable physical scale for its stated size, with straight, evenly spaced grout lines of a suitable colour and width, and with the pattern aligned to the surface (no warping, no stretched tiles).
 - Match shadows, ambient occlusion, reflections (more on glossy finishes, softer on matt) and highlights to the existing light so the new surfaces are physically integrated.
 - Preserve each tile's real colour, pattern, veining and finish from its reference image. If a reference cannot show something, stay as close to it as possible rather than inventing an unrelated pattern.
+
+7. FINAL CHECK (before returning the image)
+- Every target area above clearly shows its own tile${single ? "" : "s"} in its own layout pattern across the whole area: not faint, not partial, not a different or invented design.
+- Every surface that is not a target area looks exactly as it does in the source photo.
+- Tile colours, patterns and veining match the tile reference images, not a guess from the tile names.
 
 OUTPUT: a single photorealistic image of the same room from the same viewpoint with ${surfaceList} finished as specified. Return the image only.`;
 }

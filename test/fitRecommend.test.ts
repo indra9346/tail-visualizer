@@ -25,7 +25,9 @@ describe("measurements", () => {
     expect(toMm("10", "ft")).toBe(3048);
     expect(toMm("2.4", "m")).toBe(2400);
     expect(toMm("2,4", "m")).toBe(2400);
-    for (const bad of ["", "  ", "abc", "0", "0.5", "-3", "200", "9999"]) expect(toMm(bad, bad === "200" || bad === "9999" ? "m" : "ft")).toBeNull();
+    for (const bad of ["", "  ", "abc", "0", "0.2", "-3", "200", "9999"]) expect(toMm(bad, bad === "200" || bad === "9999" ? "m" : "ft")).toBeNull();
+    // A stair riser is often only half a foot high: still a valid measurement.
+    expect(toMm("0.5", "ft")).toBe(152);
     expect(toMm("200", "ft")).toBeNull(); // 61 m
   });
 
@@ -145,7 +147,7 @@ describe("server: optional measured size", () => {
   });
 
   test.each([
-    ["too small", { widthMm: 100, heightMm: 2400 }],
+    ["too small", { widthMm: 99, heightMm: 2400 }],
     ["too large", { widthMm: 3000, heightMm: 99999 }],
     ["not whole mm", { widthMm: 3000.5, heightMm: 2400 }],
     ["missing a side", { widthMm: 3000 }],

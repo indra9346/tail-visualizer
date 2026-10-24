@@ -116,7 +116,8 @@ export const designAreaSchema = z
     wall: z.enum(WALL_IDS).optional(),
     /** Optional measurement of the area (millimetres). Walls: width x height. Floors: length x depth. Lets the model lay a believable number of tiles at the right scale. */
     dimensions: z
-      .object({ widthMm: z.number().int().min(300).max(30000), heightMm: z.number().int().min(300).max(30000) })
+      // 100 mm minimum: a stair riser is often only about 150 mm high.
+      .object({ widthMm: z.number().int().min(100).max(30000), heightMm: z.number().int().min(100).max(30000) })
       .strict()
       .optional(),
     pattern: z.enum(DESIGN_PATTERNS).default("single"),

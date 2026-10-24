@@ -12,6 +12,9 @@ interface AuthContextValue {
     password: string,
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   resendConfirmation: (email: string) => Promise<{ error: string | null }>;
+  /** Emails a link that signs the owner in on /reset-password to choose a new password. */
+  sendPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -27,8 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
+      // A reset link that landed anywhere else (e.g. the site's home page) still ends on the new-password form.
+      if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/reset-password") window.location.replace("/reset-password");
     });
 
     return () => subscription.subscription.unsubscribe();
@@ -55,13 +60,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   }
 
+  async function sendPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+    return { error: error?.message ?? null };
+  }
+
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error: error?.message ?? null };
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
   }
 
   return (
     <AuthContext.Provider
-      value={{ user: session?.user ?? null, session, loading, signInWithPassword, signUpWithPassword, resendConfirmation, signOut }}
+      value={{ user: session?.user ?? null, session, loading, signInWithPassword, signUpWithPassword, resendConfirmation, sendPasswordReset, updatePassword, signOut }}
     >
       {children}
     </AuthContext.Provider>

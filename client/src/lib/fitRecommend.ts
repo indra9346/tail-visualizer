@@ -16,7 +16,8 @@ export interface AreaSize {
   unit: DimUnit;
 }
 
-export const MIN_AREA_MM = 300;
+/** 100 mm: a stair riser is often only 150 mm high, and it must still be measurable. Mirrors the server schema. */
+export const MIN_AREA_MM = 100;
 export const MAX_AREA_MM = 30000;
 
 export function emptySize(unit: DimUnit = "ft"): AreaSize {
@@ -45,7 +46,9 @@ export function sizeToDimensions(size?: AreaSize): { widthMm: number; heightMm: 
 
 export function sizeProblem(size?: AreaSize): string | null {
   if (sizeIsEmpty(size)) return null;
-  return sizeToDimensions(size) ? null : "Enter both measurements as numbers (for example 10 and 8), or clear them. They are optional.";
+  return sizeToDimensions(size)
+    ? null
+    : "Enter both measurements as numbers between 0.1 m and 30 m (4 inches to 98 ft), for example 10 and 8, or clear them. They are optional.";
 }
 
 /** "600x600", "600 x 1200", "300×600 mm" -> mm. Anything smaller than 100 mm a side (mosaic sheets, inch values) is not trusted. */

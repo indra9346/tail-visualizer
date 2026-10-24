@@ -164,6 +164,8 @@ export interface GenerateVisualizationInput {
     roomUploadId: string;
     visualizationId: string;
     generationJobId: string;
+    /** 1 for the first try of a design; a retry gets another seed so it can come out better. */
+    attemptNumber?: number;
   };
 }
 

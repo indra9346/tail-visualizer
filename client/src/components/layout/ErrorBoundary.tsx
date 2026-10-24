@@ -4,12 +4,19 @@ interface State {
   failed: boolean;
 }
 
-/** Catches a crashing page so the user sees a recovery screen instead of a blank white page. */
-export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
+/**
+ * Catches a crashing page so the user sees a recovery screen instead of a blank white page. `resetKey` (the current
+ * path) clears the error when the user goes to another page, so one broken page never blocks the whole app.
+ */
+export class ErrorBoundary extends Component<{ children: ReactNode; resetKey?: string }, State> {
   state: State = { failed: false };
 
   static getDerivedStateFromError(): State {
     return { failed: true };
+  }
+
+  componentDidUpdate(prev: { resetKey?: string }) {
+    if (this.state.failed && prev.resetKey !== this.props.resetKey) this.setState({ failed: false });
   }
 
   componentDidCatch(error: unknown) {

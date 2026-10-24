@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { verifyWebhookSignature, type RazorpayWebhookEvent } from "../server/billing/razorpay.js";
-import { applyPaidPayment, markPaymentFailed, applyRefund, recordWebhookEventOnce } from "../server/db/billing.js";
+import { applyPaidPayment, markPaymentFailed, applyRefund, recordWebhookEventOnce, forgetWebhookEvent } from "../server/db/billing.js";
 import { apiLogger } from "../server/lib/logger.js";
 
 /**
@@ -77,10 +77,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
       }
       case "refund.processed": {
         const refund = event.payload.refund?.entity;
-        const paymentId = event.payload.payment?.entity?.id ?? refund?.payment_id;
-        const orderId = event.payload.payment?.entity?.order_id;
-        if (orderId && refund) await applyRefund(orderId, refund.id);
-        else apiLogger.warn("refund.processed webhook missing order_id", { operation: "razorpayWebhook", paymentId: paymentId ?? "unknown" });
+        const payment = event.payload.payment?.entity;
+        const paymentId = payment?.id ?? refund?.payment_id;
+        const orderId = payment?.order_id;
+        // Only a FULL refund takes the pack's credits back (payment_apply_refund reclaims the whole pack). A partial
+        // refund is logged for the owner to adjust by hand (scripts/grant-credits.ts) instead of wiping every credit.
+        const refundedTotal = payment?.amount_refunded ?? refund?.amount ?? 0;
+        const fullRefund = payment !== undefined && refundedTotal >= payment.amount;
+        if (!orderId || !refund) apiLogger.warn("refund.processed webhook missing order_id", { operation: "razorpayWebhook", paymentId: paymentId ?? "unknown" });
+        else if (!fullRefund) apiLogger.warn("partial refund: credits not reclaimed automatically", { operation: "razorpayWebhook", paymentId: paymentId ?? "unknown", refundedPaise: refundedTotal, paidPaise: payment?.amount ?? 0 });
+        else await applyRefund(orderId, refund.id);
         break;
       }
       default:
@@ -89,8 +95,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     }
   } catch (err) {
     apiLogger.error("razorpay webhook processing failed", { operation: "razorpayWebhook", eventType: event.event, errorCategory: err instanceof Error ? err.message : "unknown" });
-    // Still 200: Razorpay would otherwise retry indefinitely. The failure is logged for an operator
-    // to investigate; recordWebhookEventOnce already prevents this exact event from being reprocessed.
+    // Answer with an error so Razorpay delivers this event again (it retries for about a day), and forget the event
+    // id so that redelivery is processed. Crediting is idempotent, so a retry can never credit twice; answering 200
+    // here used to drop the payment for good after one passing database error.
+    if (eventId) await forgetWebhookEvent(eventId);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Processing failed; please retry." } });
+    return;
   }
 
   res.status(200).json({ received: true });

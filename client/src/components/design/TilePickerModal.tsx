@@ -202,9 +202,9 @@ function CustomTileForm({ surface, onCreated }: { surface: SurfaceType; onCreate
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="ct-cat" className={label}>Use on *</label>
+            {/* Only the kinds that fit this slot: a wall tile created for a floor slot could never be used there. */}
             <select id="ct-cat" className="w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm" value={category} onChange={(e) => setCategory(e.target.value as TileCategory)}>
-              <option value="floor">Floor</option>
-              <option value="wall">Wall</option>
+              {SURFACES[surface].kind === "floor" ? <option value="floor">Floor</option> : <option value="wall">Wall</option>}
               <option value="both">Floor and wall</option>
             </select>
           </div>

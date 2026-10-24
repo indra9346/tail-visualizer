@@ -32,7 +32,19 @@ import {
   type LoadedDraft,
 } from "@/lib/designDraft";
 import type { RoomLayout } from "@/lib/roomLayouts";
-import { TEMPLATES, applyTemplate, ensureFace, faceOfArea, isTemplateId, keptLabels, templateForLayout, toggleFace, type TemplateId } from "@/lib/roomTemplates";
+import {
+  TEMPLATES,
+  applyTemplate,
+  areaOfFace,
+  ensureFace,
+  faceOfArea,
+  isTemplateId,
+  keptLabels,
+  templateForDesign,
+  templateForLayout,
+  toggleFace,
+  type TemplateId,
+} from "@/lib/roomTemplates";
 import type { Design, RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
 const GENERATION_STAGES = ["Preparing your room", "Placing each tile in its area", "Laying out your patterns", "Rendering realistic lighting", "Finalizing visualization"];
@@ -57,6 +69,10 @@ export function TilesPage() {
 
   const [analysis, setLocalAnalysis] = useState<RoomAnalysis | null>(cachedAnalysis);
   const [analysisLoading, setAnalysisLoading] = useState(!cachedAnalysis);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisAttempt, setAnalysisAttempt] = useState(0);
+  // Said once after a click on a kept surface of the 3D box switched it on, so the change is never silent.
+  const [faceNotice, setFaceNotice] = useState<string | null>(null);
   const [roomImage, setRoomImage] = useState<string | null>(null);
 
   const [areas, setAreas] = useState<DraftArea[] | null>(null);
@@ -117,12 +133,14 @@ export function TilesPage() {
         setLocalAnalysis(result);
         setAnalysis(result);
       })
+      // Without this the page would say "Loading room details…" for ever after a network or server error.
+      .catch((err) => !cancelled && setAnalysisError(friendlyErrorMessage(err, "We couldn't load this room. Check your connection and try again.")))
       .finally(() => !cancelled && setAnalysisLoading(false));
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId]);
+  }, [roomId, analysisAttempt]);
 
   // The customer's photo stays on screen so the owner can see which wall is which while designing.
   useEffect(() => {
@@ -153,13 +171,19 @@ export function TilesPage() {
     const draft: LoadedDraft | null = edited ? { ...edited, requirements: editState?.editRequirements ?? "" } : loadDraft(roomId);
     if (edited) navigate(location.pathname, { replace: true, state: null });
     if (draft && draft.areas.length > 0) {
-      setTemplateId(isTemplateId(draft.template) ? draft.template : templateForLayout(draft.layout));
+      if (edited) {
+        // The server keeps only the layout: reuse the template of this room's draft when it matches, else infer it.
+        const saved = loadDraft(roomId);
+        setTemplateId(saved && saved.layout === draft.layout && isTemplateId(saved.template) ? saved.template : templateForDesign(draft.layout, draft.areas, analysis.roomType));
+      } else setTemplateId(isTemplateId(draft.template) ? draft.template : templateForLayout(draft.layout));
       setAreas(draft.areas);
+      // Opened in the same render as the design appears, so the first card never flashes closed.
+      setActiveKey(draft.areas[0]!.key);
       if (draft.requirements) setRequirements(draft.requirements);
       return;
     }
     const surfaces: SurfaceType[] = analysis.recommendedSurfaces.length > 0 ? [...new Set(analysis.recommendedSurfaces)] : ["wall"];
-    const seeded = surfaces.map((s) => newArea(s));
+    const seeded: DraftArea[] = surfaces.map((s) => ({ ...newArea(s), auto: true }));
     // A tile picked on the catalog page ("Try in my space") goes straight into the first area it fits, once.
     if (selectedTile && selectedTile.isActive) {
       const target = seeded.find((a) => tileFitsSurface(selectedTile, a.surface));
@@ -167,6 +191,7 @@ export function TilesPage() {
       clearSelectedTile();
     }
     setAreas(seeded);
+    setActiveKey(seeded[0]?.key ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, analysis, areas, catalogLoaded]);
 
@@ -188,6 +213,16 @@ export function TilesPage() {
   const ready = areas !== null && Object.keys(issues).length === 0;
   const tileTotal = areas ? distinctTileCount(areas) : 0;
   const lowCredits = balance !== null && generationCost !== null && balance < generationCost;
+  // Surfaces an extra area may use: not the template's own surfaces (they are switched on above), and in an L / C
+  // room no loose "Wall" (the walls are the numbered ones).
+  const extraSurfaces = SURFACE_ORDER.filter((s) => !template.faces.some((f) => !f.wall && f.surface === s) && (layout === "open" || s !== "wall"));
+  // What still blocks Preview, said plainly in the bar (too many areas or tiles, a missing tile, a bad name).
+  const firstIssue = (() => {
+    if (!areas) return null;
+    if (issues["_"]?.[0]) return issues["_"][0];
+    const bad = areas.find((a) => issues[a.key]);
+    return bad ? `${bad.location || "New area"}: ${issues[bad.key]![0]}` : null;
+  })();
 
   const updateArea = useCallback((key: string, next: DraftArea) => setAreas((prev) => prev?.map((a) => (a.key === key ? next : a)) ?? prev), []);
 
@@ -195,6 +230,7 @@ export function TilesPage() {
     setAreas((prev) => applyTemplate(prev ?? [], next, templateId));
     setTemplateId(next);
     setShowIssues(false);
+    setFaceNotice(null);
   }
 
   /** Open a surface for editing and bring it into view. */
@@ -208,9 +244,12 @@ export function TilesPage() {
   /** Clicking a surface of the 3D box: switch it on if it was kept, then edit it. */
   function pickFace(faceKey: string) {
     if (!areas) return;
+    const face = template.faces.find((f) => f.key === faceKey);
+    const wasKept = face ? !areaOfFace(areas, face) : false;
     const { areas: next, area } = ensureFace(areas, templateId, faceKey);
     if (!area) return;
     setAreas(next);
+    setFaceNotice(wasKept && face ? `${face.label} is now switched on for tiling. Switch it off in the list to keep it as in the photo.` : null);
     openArea(area.key);
   }
 
@@ -315,11 +354,22 @@ export function TilesPage() {
         </div>
       )}
 
-      {analysisLoading || areas === null ? (
+      {analysisError ? (
+        <div className="mt-8">
+          <ErrorState
+            message={analysisError}
+            onRetry={() => {
+              setAnalysisError(null);
+              setAnalysisLoading(true);
+              setAnalysisAttempt((n) => n + 1);
+            }}
+          />
+        </div>
+      ) : analysisLoading || areas === null ? (
         <p className="mt-8 text-stone-400">Loading room details…</p>
       ) : (
         <div className="mt-8 grid gap-8 lg:grid-cols-[320px_1fr]">
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
             <Card className="overflow-hidden">
               {roomImage ? (
                 <img src={roomImage} alt="The customer's room photo you are designing" className="max-h-72 w-full object-cover lg:max-h-none" />
@@ -340,12 +390,17 @@ export function TilesPage() {
             </Card>
           </aside>
 
-          <div className="space-y-5">
+          {/* min-w-0: a grid item never shrinks below its content otherwise; a long area name widened the page on a phone. */}
+          <div className="min-w-0 space-y-5">
             <RoomTemplatePicker
               templateId={templateId}
               areas={areas}
               onTemplateChange={changeTemplate}
-              onToggleFace={(key) => setAreas((prev) => toggleFace(prev ?? [], templateId, key))}
+              onToggleFace={(key) => {
+                setFaceNotice(null);
+                setAreas((prev) => toggleFace(prev ?? [], templateId, key));
+              }}
+              notice={faceNotice}
               onPickFace={pickFace}
               activeAreaKey={activeKey}
             />
@@ -361,6 +416,9 @@ export function TilesPage() {
                 onRemove={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}
                 onPickTile={(slot) => setPicker({ areaKey: area.key, slot })}
                 lockedNote={faceOfArea(template, area)?.note || undefined}
+                // A numbered wall is shown by the name used in the switch list and the 3D box ("Back wall (C2)").
+                title={faceOfArea(template, area)?.wall ? faceOfArea(template, area)!.label : undefined}
+                surfaceOptions={extraSurfaces}
                 open={area.key === activeKey}
                 onToggleOpen={() => {
                   if (area.key === activeKey) {
@@ -378,8 +436,7 @@ export function TilesPage() {
               <div className="rounded-2xl border border-dashed border-stone-300 p-4">
                 <p className="mb-2.5 text-sm font-medium text-stone-700">Add another area</p>
                 <div className="flex flex-wrap gap-2">
-                  {/* In an L / C room the walls are chosen in "Room shape" above, so a loose "Wall" area is not offered. */}
-                  {SURFACE_ORDER.filter((s) => layout === "open" || (s !== "wall" && !template.faces.some((f) => f.surface === s))).map((s) => (
+                  {extraSurfaces.map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -421,9 +478,17 @@ export function TilesPage() {
               <p className="line-clamp-2 hidden text-xs text-stone-500 sm:block">
                 {ready
                   ? areas.map((a) => `${a.location}: ${chosenTiles(a).map((t) => t.name).join(" + ")}`).join("  |  ")
-                  : "Choose the required tiles for every area to continue."}
+                  : (firstIssue ?? "Choose the required tiles for every area to continue.")}
               </p>
-              {!ready && <p className="truncate text-xs text-stone-500 sm:hidden">Choose a tile for every area to continue.</p>}
+              {!ready && <p className="line-clamp-2 text-xs text-stone-500 sm:hidden">{firstIssue ?? "Choose a tile for every area to continue."}</p>}
+              {lowCredits && (
+                <p className="text-xs font-medium text-amber-800">
+                  Not enough credits.{" "}
+                  <Link to="/credits" className="underline">
+                    Buy credits
+                  </Link>
+                </p>
+              )}
               {keptLabelList.length > 0 && <p className="truncate text-xs font-medium text-stone-600">Kept as in the photo: {keptLabelList.join(", ")}</p>}
               {generationCost !== null && (
                 <p className="truncate text-[11px] text-stone-400 sm:text-xs">
@@ -431,7 +496,7 @@ export function TilesPage() {
                 </p>
               )}
             </div>
-            <Button size="md" className="shrink-0 sm:px-7 sm:py-3.5 sm:text-base" onClick={handleGenerate} disabled={lowCredits && ready}>
+            <Button size="md" className="shrink-0 sm:px-7 sm:py-3.5 sm:text-base" onClick={handleGenerate}>
               Preview<span className="hidden sm:inline">&nbsp;This Design</span>
             </Button>
           </CardBody>

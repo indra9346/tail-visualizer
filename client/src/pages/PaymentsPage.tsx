@@ -66,7 +66,8 @@ export function PaymentsPage() {
                     <td className="px-4 py-3 text-stone-500">razorpay</td>
                     <td className="px-4 py-3 text-xs text-stone-400">{p.providerPaymentId ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status}</Badge>
+                      {/* "created" = the payment window was opened but no payment arrived (closed, or still open). */}
+                      <Badge tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status === "created" ? "not completed" : p.status}</Badge>
                     </td>
                   </tr>
                 ))}

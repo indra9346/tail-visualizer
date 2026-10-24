@@ -137,7 +137,7 @@ export function DashboardPage() {
 
             <MetricTile className="lg:col-span-3" tone="sky" title="Credits used" items={[["Today", summary.used.today], ["This week", summary.used.week], ["This month", summary.used.month], ["All time", summary.used.total]]} note={summary.used.reserved > 0 ? `${summary.used.reserved} credits reserved for running previews` : undefined} />
             <MetricTile className="lg:col-span-3" tone="soft" title="Trial renderings" items={[["Total", summary.generations.total], ["Successful", summary.generations.completed], ["Failed", summary.generations.failed], ["In progress", summary.generations.inProgress]]} />
-            <MetricTile className="lg:col-span-6" tone="sun" title="Payments & passes" items={[["Total paid", `₹${(summary.payments.paidPaise / 100).toLocaleString()}`], ["Successful", summary.payments.paid], ["Pending", summary.payments.pending], ["Failed", summary.payments.failed]]} />
+            <MetricTile className="lg:col-span-6" tone="sun" title="Payments & passes" items={[["Total paid", `₹${(summary.payments.paidPaise / 100).toLocaleString()}`], ["Successful", summary.payments.paid], ["Not completed", summary.payments.pending], ["Failed", summary.payments.failed]]} />
           </motion.div>
 
           <section className="mt-10">

@@ -85,6 +85,16 @@ const DEMO_SCENARIOS: DemoScenario[] = [
   },
 ];
 
+/** Where each part of the recording starts (checked frame by frame against conversiondemo.mp4). */
+const DEMO_CHAPTERS = [
+  { at: 0, label: "Start" },
+  { at: 4, label: "Room before / after" },
+  { at: 8, label: "Using the app" },
+];
+
+/** 75 -> "1:15". */
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+
 export function DemosPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -92,6 +102,8 @@ export function DemosPage() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [selectedScenario, setSelectedScenario] = useState<string>("washroom-wall");
   const [videoTime, setVideoTime] = useState(0);
+  // The real length of the clip (it is about 46 s), read from the file instead of assumed.
+  const [videoDuration, setVideoDuration] = useState(0);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -198,6 +210,9 @@ export function DemosPage() {
                   setVideoTime(videoRef.current.currentTime);
                 }
               }}
+              onLoadedMetadata={() => {
+                if (videoRef.current && Number.isFinite(videoRef.current.duration)) setVideoDuration(videoRef.current.duration);
+              }}
             >
               <source src="/videos/conversiondemo.mp4" type="video/mp4" />
               <source src="/conversiondemo.mp4" type="video/mp4" />
@@ -256,37 +271,18 @@ export function DemosPage() {
                   </button>
 
                   <span className="text-xs font-mono text-stone-300">
-                    {Math.floor(videoTime)}s / 10s
+                    {clock(videoTime)}{videoDuration > 0 ? ` / ${clock(videoDuration)}` : ""}
                   </span>
                 </div>
 
                 {/* Timeline quick jump markers */}
                 <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400">
                   <span className="mr-1">Jump to:</span>
-                  <button
-                    onClick={() => jumpToTime(0)}
-                    className="rounded bg-white/10 px-2 py-1 text-stone-300 hover:bg-white/20 transition"
-                  >
-                    00:00 Original
-                  </button>
-                  <button
-                    onClick={() => jumpToTime(3)}
-                    className="rounded bg-white/10 px-2 py-1 text-stone-300 hover:bg-white/20 transition"
-                  >
-                    00:03 Surface Scan
-                  </button>
-                  <button
-                    onClick={() => jumpToTime(6)}
-                    className="rounded bg-white/10 px-2 py-1 text-stone-300 hover:bg-white/20 transition"
-                  >
-                    00:06 Marble Slab Trial
-                  </button>
-                  <button
-                    onClick={() => jumpToTime(9)}
-                    className="rounded bg-white/10 px-2 py-1 text-stone-300 hover:bg-white/20 transition"
-                  >
-                    00:09 Side-by-Side
-                  </button>
+                  {DEMO_CHAPTERS.filter((c) => videoDuration === 0 || c.at < videoDuration).map((c) => (
+                    <button key={c.at} onClick={() => jumpToTime(c.at)} className="rounded bg-white/10 px-2 py-1 text-stone-300 hover:bg-white/20 transition">
+                      {clock(c.at)} {c.label}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Playback speed */}
