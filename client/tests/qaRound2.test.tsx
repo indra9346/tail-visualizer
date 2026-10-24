@@ -184,7 +184,8 @@ describe("sign-in and accounts", () => {
     await user.type(screen.getByLabelText("Password"), "secret12");
     await user.click(screen.getByRole("button", { name: /Sign In/ }));
     await user.click(await screen.findByRole("button", { name: "Resend confirmation email" }));
-    expect(testAuth().api.resend).toHaveBeenCalled();
+    // The email's link must come back to this site's sign-in page, never the project's default (once localhost).
+    expect(testAuth().api.resend).toHaveBeenCalledWith({ type: "signup", email: "owner@sds.test", options: { emailRedirectTo: `${window.location.origin}/login` } });
   });
 
   test("the reset page sets the new password, and refuses two different ones", async () => {

@@ -45,7 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUpWithPassword(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // The confirmation link returns to THIS site (not the project's Site URL, which was once localhost).
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/login` } });
     if (error) return { error: error.message, needsConfirmation: false };
     // An existing confirmed email returns a user with no identities (Supabase hides "already registered").
     if (data.user && data.user.identities && data.user.identities.length === 0) {
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function resendConfirmation(email: string) {
-    const { error } = await supabase.auth.resend({ type: "signup", email });
+    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${window.location.origin}/login` } });
     return { error: error?.message ?? null };
   }
 
