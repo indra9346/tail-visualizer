@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import { PATTERNS, SURFACES } from "@/lib/designPatterns";
 import { groupByDate, visualizationSubtitle, visualizationTitle } from "@/lib/history";
 import type { Visualization } from "@/api/types";
+import { editPathFor } from "@/lib/quickDesign";
 
 const STATUS: Record<string, { tone: "success" | "warning" | "danger" | "neutral"; label: string; dot: string }> = {
   completed: { tone: "success", label: "Ready", dot: "bg-emerald-500" },
@@ -396,7 +397,7 @@ function Detail({
             </Link>
           )}
           {v.roomUploadId && (
-            <Link to={`/tiles/${v.roomUploadId}`} state={v.design ? { editDesign: v.design, editRequirements: v.requirements ?? "" } : undefined}>
+            <Link to={editPathFor(v.design, v.roomUploadId)} state={v.design ? { editDesign: v.design, editRequirements: v.requirements ?? "" } : undefined}>
               <Button size="md" variant="outline">
                 Edit design
               </Button>

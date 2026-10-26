@@ -3,6 +3,7 @@ import { ROOM_TYPES, SURFACE_TYPES, TILE_CATEGORIES, TILE_STOCK_STATUSES } from 
 import { aiConfig } from "../ai/config.js";
 import { DESIGN_PATTERNS, PATTERN_SPECS, patternFitsSurface } from "../ai/designPatterns.js";
 import { LAYOUT_SPECS, ROOM_LAYOUTS, WALL_IDS, coversAllWalls, wallSpec } from "../ai/roomLayouts.js";
+import { MASK_MAX_CHARS, decodeMask, masksOverlap, paintedCount } from "../ai/areaMask.js";
 import { Errors } from "./apiError.js";
 
 // Base64 text is ~4/3 the size of the decoded bytes; add generous margin
@@ -123,6 +124,15 @@ export const designAreaSchema = z
     pattern: z.enum(DESIGN_PATTERNS).default("single"),
     patternNote: labelSchema(160).optional(),
     tileIds: z.array(uuidSchema).min(1).max(MAX_TILES_PER_AREA),
+    /** Optional: where the area is, painted by the owner on the room photo (see server/ai/areaMask.ts). Sent to the model as a guide image. */
+    mask: z
+      .string()
+      .max(MASK_MAX_CHARS, "The marked area is too detailed.")
+      .refine((v) => {
+        const mask = decodeMask(v);
+        return mask !== null && paintedCount(mask) > 0;
+      }, "The marked area could not be read. Mark it again.")
+      .optional(),
   })
   .strict()
   .superRefine((area, ctx) => {
@@ -193,6 +203,24 @@ export const designSchema = z
         }
       }
     }
+    // Marked areas are painted on one photo: one grid, and no spot painted for two areas (the model could not tell which tile goes there).
+    const masks = design.areas.map((a) => (a.mask ? decodeMask(a.mask) : null));
+    const firstMask = masks.find((m) => m !== null);
+    for (const [i, mask] of masks.entries()) {
+      if (!mask || !firstMask) continue;
+      if (mask.width !== firstMask.width || mask.height !== firstMask.height) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas", i, "mask"], message: "Every marked area must be marked on the same photo." });
+        continue;
+      }
+      for (let j = 0; j < i; j++) {
+        const other = masks[j];
+        if (other && masksOverlap(mask, other)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas", i, "mask"], message: `"${design.areas[i]!.location}" and "${design.areas[j]!.location}" are marked on the same spot.` });
+          break;
+        }
+      }
+    }
+
     const distinct = new Set(design.areas.flatMap((a) => a.tileIds));
     if (distinct.size > MAX_DISTINCT_TILES) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["areas"], message: `A design can use at most ${MAX_DISTINCT_TILES} different tiles.` });

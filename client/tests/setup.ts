@@ -51,6 +51,37 @@ URL.revokeObjectURL ??= () => {};
 
 // jsdom has no layout engine.
 Element.prototype.scrollIntoView = function scrollIntoView() {};
+
+// jsdom cannot draw: every canvas reports "no 2D context" (the pages then skip drawing), instead of logging an error each time.
+HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
+
+// Pointer events (the photo marker's brush) carry mouse coordinates; jsdom has no PointerEvent of its own.
+if (typeof window.PointerEvent === "undefined") {
+  class TestPointerEvent extends MouseEvent {
+    pointerId: number;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+    }
+  }
+  (window as unknown as { PointerEvent: typeof TestPointerEvent }).PointerEvent = TestPointerEvent;
+}
+
+// Scroll-triggered animations on the home page.
+if (typeof window.IntersectionObserver === "undefined") {
+  class TestIntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
+  (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = TestIntersectionObserver;
+}
+window.scrollTo = (() => {}) as typeof window.scrollTo;
+HTMLMediaElement.prototype.play = async function play() {};
+HTMLMediaElement.prototype.pause = function pause() {};
 if (!window.matchMedia) {
   window.matchMedia = (query: string) =>
     ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }) as MediaQueryList;

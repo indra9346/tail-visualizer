@@ -53,7 +53,7 @@ describe("the prompt never contradicts what the owner switched on", () => {
 
   test("the prompt ends with a final check that every target area shows its tile and nothing else changed", () => {
     const p = buildDesignPrompt(analysis, [{ surface: "floor", location: "Entire floor", pattern: "single", tiles: [candidate(1, "floor")] }], null, "REQ-x");
-    expect(p).toMatch(/7\. FINAL CHECK[\s\S]*not faint, not partial[\s\S]*OUTPUT:/);
+    expect(p).toMatch(/8\. FINAL CHECK[\s\S]*not faint, not partial[\s\S]*OUTPUT:/);
   });
 });
 

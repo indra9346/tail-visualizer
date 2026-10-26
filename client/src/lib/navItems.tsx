@@ -36,6 +36,12 @@ export const VisualizeIcon = () => (
   </svg>
 );
 
+export const RoomsIcon = () => (
+  <svg className={`${iconClass} group-hover:scale-115 group-hover:-translate-y-0.5`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </svg>
+);
+
 export const CatalogIcon = () => (
   <svg className={`${iconClass} group-hover:scale-115 group-hover:-rotate-6`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -87,7 +93,8 @@ export const authNavItems: NavItem[] = [
   { to: "/", label: "Home", end: true, icon: <HomeIcon /> },
   { to: "/demos", label: "Demos", icon: <DemosIcon /> },
   { to: "/dashboard", label: "Dashboard", icon: <DashboardIcon /> },
-  { to: "/projects", label: "Visualize", icon: <VisualizeIcon /> },
+  { to: "/upload", label: "Visualize", icon: <VisualizeIcon /> },
+  { to: "/projects", label: "My Rooms", icon: <RoomsIcon /> },
   { to: "/tiles", label: "Catalog", icon: <CatalogIcon /> },
   { to: "/my-tiles", label: "My Tiles", icon: <MyTilesIcon /> },
   { to: "/my-visualizations", label: "History", icon: <DesignsIcon /> },

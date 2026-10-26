@@ -18,7 +18,8 @@ const statusLabel: Record<RoomUpload["status"], string> = {
 };
 
 export function RoomCard({ room, onDelete }: { room: RoomUpload; onDelete?: (room: RoomUpload) => void }) {
-  const href = room.status === "analyzed" ? `/tiles/${room.id}` : `/analysis/${room.id}`;
+  // The easy visualizer checks the room itself when it has not been checked yet.
+  const href = `/visualize/${room.id}`;
 
   return (
     <div className="group relative">

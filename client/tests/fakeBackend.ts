@@ -70,6 +70,11 @@ export interface FakeBackend {
   payments: unknown[];
   /** Extra or overriding routes for one test. */
   extra: Handler | null;
+  /** Rooms the page asked the AI to check (POST /api/rooms/:id/analyze). */
+  analyzed: string[];
+  projects: Array<{ id: string; name: string; createdAt: string }>;
+  /** Room photos uploaded, as { projectId }. */
+  uploads: Array<{ projectId: string }>;
 }
 
 /** Installs a fetch stub that answers like the real API, and returns its state for assertions. */
@@ -84,6 +89,9 @@ export function installFakeBackend(): FakeBackend {
     history: [],
     payments: [],
     extra: null,
+    analyzed: [],
+    projects: [],
+    uploads: [],
   };
 
   const reply = (status: number, json: unknown) => new Response(JSON.stringify(json), { status, headers: { "Content-Type": "application/json" } });
@@ -100,6 +108,24 @@ export function installFakeBackend(): FakeBackend {
       if (custom) return reply(custom.status ?? 200, custom.json);
 
       const p = url.pathname;
+      const analyze = /^\/api\/rooms\/([0-9a-z-]{4,36})\/analyze$/.exec(p);
+      if (analyze && method === "POST") {
+        const id = analyze[1]!;
+        state.analyzed.push(id);
+        state.analyses[id] ??= makeAnalysis(id);
+        return reply(200, { analysis: state.analyses[id], reused: false });
+      }
+      if (p === "/api/projects" && method === "GET") return reply(200, { projects: state.projects });
+      if (p === "/api/projects" && method === "POST") {
+        const project = { id: `project-${state.projects.length + 1}`, name: (body as { name: string }).name, createdAt: "2026-10-26T00:00:00Z" };
+        state.projects.unshift(project);
+        return reply(200, { project });
+      }
+      if (p === "/api/rooms/upload" && method === "POST") {
+        const { projectId } = body as { projectId: string };
+        state.uploads.push({ projectId });
+        return reply(200, { room: { id: ROOM_ID, projectId, status: "uploaded", createdAt: "2026-10-26T00:00:00Z" } });
+      }
       const room = /^\/api\/rooms\/([0-9a-f-]{36})(\/analysis)?$/.exec(p);
       if (room) {
         const id = room[1]!;

@@ -17,6 +17,7 @@ import { getRoom } from "@/api/rooms";
 import { friendlyErrorMessage } from "@/api/client";
 import { useWorkflow } from "@/context/WorkflowContext";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
+import { editPathFor, isQuickDesign } from "@/lib/quickDesign";
 import type { RoomUpload, Visualization } from "@/api/types";
 
 export function ResultPage() {
@@ -375,9 +376,9 @@ export function ResultPage() {
           <Button
             size="md"
             // The Studio reopens THIS design (areas, layouts, tiles) so the owner changes it instead of starting again.
-            onClick={() => navigate(`/tiles/${visualization.roomUploadId}`, { state: visualization.design ? { editDesign: visualization.design, editTiles: visualization.designTiles ?? [], editRequirements: visualization.requirements ?? "" } : undefined })}
+            onClick={() => navigate(editPathFor(visualization.design, visualization.roomUploadId!), { state: visualization.design ? { editDesign: visualization.design, editTiles: visualization.designTiles ?? [], editRequirements: visualization.requirements ?? "" } : undefined })}
           >
-            Edit Design / Try Another
+            {isQuickDesign(visualization.design) ? "Try another tile" : "Edit Design / Try Another"}
           </Button>
         )}
         {visualization.isOwner && (

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { PATTERN_SPECS, patternPrompt, patternRoles } from "../designPatterns.js";
 import { LAYOUT_SPECS, coversAllWalls, keptWalls, wallSpec, type RoomLayout } from "../roomLayouts.js";
+import { guideColourName } from "../guideImage.js";
 import type { DesignAreaInput, RoomAnalysis, RoomType, SurfaceType, TileCandidate } from "../types.js";
 
 /** Human description of each surface, used inside the prompt. Extend here to support new surface types. */
@@ -25,7 +26,7 @@ const TILE_LETTERS = "ABCDEFGH";
  * (the legacy single-tile shape) mean every wall. Numbered walls of an L / C layout have their own wording.
  */
 function isSingleWallArea(area: DesignAreaInput, layout: RoomLayout): boolean {
-  if (area.surface !== "wall" || (layout !== "open" && area.wall)) return false;
+  if (area.mask || area.surface !== "wall" || (layout !== "open" && area.wall)) return false;
   const location = area.location.replace(/\s+/g, " ").trim();
   return !coversAllWalls(location) && !/^entire surface$/i.test(location);
 }
@@ -41,7 +42,7 @@ function namesWholeSurface(location: string): boolean {
  * never as "the floor", so the model does not tile the whole room floor.
  */
 function isFloorPartArea(area: DesignAreaInput): boolean {
-  return (area.surface === "floor" || area.surface === "step_tread") && !namesWholeSurface(area.location);
+  return !area.mask && (area.surface === "floor" || area.surface === "step_tread") && !namesWholeSurface(area.location);
 }
 
 /** Zones that are their own target areas even when they sit on a wall that is kept (a kitchen backsplash, a shower). */
@@ -104,6 +105,7 @@ function tileFacts(tile: TileCandidate): string {
  *
  * Structure (each block is explicit so the model cannot mistake a role):
  *   1. SOURCE PHOTO        - the customer's real room; the only geometry source
+ *   (GUIDE IMAGE)          - only when areas were painted on the photo: the same photo with each marked area in its colour
  *   2. TILE REFERENCES     - the exact showroom products, lettered A, B, C...
  *   3. TARGET AREAS        - per area: where it is, which pattern, which tiles in which role
  *   4. CUSTOMER REQUIREMENTS - optional free text, fenced, treated as DATA
@@ -124,7 +126,13 @@ export function buildDesignPrompt(
   boundary: string = `REQ-${randomBytes(8).toString("hex")}`,
   roomType?: RoomType,
   layout: RoomLayout = "open",
+  /** Whether the guide image (the photo with the marked areas painted on it) is attached as image 2. */
+  guide: boolean = areas.some((a) => a.mask),
 ): string {
+  // Without the guide image a painted mask means nothing to the model: describe those areas by their names only.
+  if (!guide) areas = areas.map(({ mask: _mask, ...a }) => a);
+  const marked = areas.map((a, i) => ({ area: a, index: i, colour: guideColourName(i) })).filter((m) => m.area.mask);
+  const firstTileImage = guide ? 3 : 2;
   // Distinct tiles, lettered in first-use order (matches the order of the attached images).
   const distinct: TileCandidate[] = [];
   for (const area of areas) for (const tile of area.tiles) if (!distinct.some((t) => t.id === tile.id)) distinct.push(tile);
@@ -140,7 +148,7 @@ ${neutralizeFence(requirements, boundary)}
 None given. Use sensible defaults: apply each pattern to its target area only.`;
 
   const tileBlock = distinct
-    .map((tile, i) => `TILE ${TILE_LETTERS[i]} (image ${i + 2}): ${tileFacts(tile)}.`)
+    .map((tile, i) => `TILE ${TILE_LETTERS[i]} (image ${i + firstTileImage}): ${tileFacts(tile)}.`)
     .join("\n");
 
   const areaBlock = areas
@@ -151,7 +159,9 @@ None given. Use sensible defaults: apply each pattern to its target area only.`;
         .map((tile, idx) => `   - ${roles[idx] ?? `additional tile ${idx + 1}`}: TILE ${letterOf(tile)}`)
         .join("\n");
       const numberedWall = layout !== "open" && area.wall ? wallSpec(layout, area.wall) : undefined;
-      const areaTitle = numberedWall
+      const areaTitle = area.mask
+        ? `ONLY the region painted ${guideColourName(i)} in the GUIDE IMAGE (part of ${SURFACE_PROMPT_LABELS[area.surface] ?? area.surface}). Nothing outside that painted region is part of this area`
+        : numberedWall
         ? `wall ${numberedWall.label} ONLY (${numberedWall.position}); no other wall is part of this area`
         : isSingleWallArea(area, layout)
           ? "ONLY the wall surface named by the label below (all of it, and nothing else). No other wall or surface is part of this area, so do not extend it to neighbouring, opposite or end walls"
@@ -173,7 +183,7 @@ ${roleLines}`;
   const single = distinct.length === 1;
   const layoutBlock = buildLayoutBlock(layout, areas);
   // With numbered walls the output line names exactly those walls (never "the walls" in general), so a kept wall is not invited to change.
-  const finishedWalls = layout !== "open" ? areas.filter((a) => a.surface === "wall" && a.wall).map((a) => a.wall as string) : [];
+  const finishedWalls = layout !== "open" ? areas.filter((a) => a.surface === "wall" && a.wall && !a.mask).map((a) => a.wall as string) : [];
   // Free naming: a wall area that names ONE wall ("Left wall") must not turn into "the walls" in the output line either.
   const singleWallLabels = areas.filter((a) => isSingleWallArea(a, layout)).map((a) => `"${a.location}"`);
   // Parts of a floor are named on their own in the output line, unless a whole-floor area of that surface also exists.
@@ -181,9 +191,10 @@ ${roleLines}`;
   const surfaceList = [
     ...new Set(
       areas.flatMap((a) =>
-        (a.surface === "wall" && (layout !== "open" || isSingleWallArea(a, layout))) || floorParts.includes(a) ? [] : [SURFACE_PROMPT_LABELS[a.surface] ?? a.surface],
+        a.mask || (a.surface === "wall" && (layout !== "open" || isSingleWallArea(a, layout))) || floorParts.includes(a) ? [] : [SURFACE_PROMPT_LABELS[a.surface] ?? a.surface],
       ),
     ),
+    ...(marked.length > 0 ? [`only the region${marked.length > 1 ? "s" : ""} painted ${marked.map((m) => m.colour).join(", ")} in the guide image (everything outside ${marked.length > 1 ? "them" : "it"} left unchanged)`] : []),
     ...(floorParts.length > 0 ? [`only the part${floorParts.length > 1 ? "s" : ""} of the floor labelled ${floorParts.map((a) => `"${a.location}"`).join(" and ")} (the rest of the floor left unchanged)`] : []),
     ...(finishedWalls.length > 0 ? [`only the walls ${finishedWalls.join(" and ")} (every other wall left unchanged)`] : []),
     ...(singleWallLabels.length > 0 ? [`only the wall${singleWallLabels.length > 1 ? "s" : ""} labelled ${singleWallLabels.join(" and ")} (every other wall left unchanged)`] : []),
@@ -197,15 +208,22 @@ ${roleLines}`;
     : areas.some((a) => a.surface === "wall")
       ? "\nBacksplash rule: the backsplash zone (the wall between the counter and the wall cabinets or shelf) belongs ONLY to the backsplash area. A wall area covers the rest of that wall and must not overwrite the backsplash zone."
       : "\nBacksplash rule: only the backsplash zone (the wall between the counter and the wall cabinets or shelf) changes. The rest of every wall keeps its original finish exactly as in the source photo.";
+  // Marked areas: the painting on the guide image is the map of exactly where each one is.
+  const guideRule =
+    marked.length > 0
+      ? `\nGuide rule: ${marked.map((m) => `AREA ${m.index + 1} is the region painted ${m.colour} in the guide image`).join("; ")}. The owner painted ${marked.length > 1 ? "these regions" : "it"} by hand on a phone, so the edges of the paint are rough: snap each area to the real edges of the surface it covers (corners, skirting, counter tops, door and window frames, fixtures), and never tile a spot that is clearly outside its painted region. Every part of the photo that is not painted in the guide image and is not another target area below stays exactly as in the source photo. Fixtures, furniture and objects standing in front of a painted region stay in front of the new tiles.`
+      : "";
   // A part of the floor is tiled on its own: the remaining floor must not be redone with it.
   const floorPartRule =
     floorParts.length > 0
       ? `\nFloor rule: only the named part${floorParts.length > 1 ? "s" : ""} of the floor (${floorParts.map((a) => `"${a.location}"`).join(", ")}) change${floorParts.length > 1 ? "" : "s"}. The rest of the floor keeps its original material exactly as in the source photo.`
       : "";
   // Several areas on one surface (e.g. "Entire floor" + "Shower floor area"): the named part wins and the general area covers the rest.
-  const sharedSurfaces = [...new Set(areas.map((a) => a.surface))].filter(
-    (surface) => areas.filter((a) => a.surface === surface && !(layout !== "open" && a.wall)).length > 1,
-  );
+  // Areas marked on the guide image are told apart by their colours; only a surface that also has an unmarked area needs this rule.
+  const sharedSurfaces = [...new Set(areas.map((a) => a.surface))].filter((surface) => {
+    const onSurface = areas.filter((a) => a.surface === surface && !(layout !== "open" && a.wall));
+    return onSurface.length > 1 && onSurface.some((a) => !a.mask);
+  });
   const sharedRule =
     sharedSurfaces.length > 0
       ? `\nShared surfaces: ${sharedSurfaces.map((s) => SURFACE_PROMPT_LABELS[s] ?? s).join(" and ")} ${sharedSurfaces.length > 1 ? "are each" : "is"} split into more than one area below. Each of those areas covers ONLY the part its location label names, and they never overlap: a general area such as "Entire floor" covers only the rest of that surface, never a part named by another area. Where two areas meet, end each tile pattern on a clean straight line.`
@@ -213,16 +231,16 @@ ${roleLines}`;
 
   return `You are a professional interior visualization editor working for a tile showroom. You EDIT a real customer photograph so it shows the room finished with real tile products laid in the exact areas and layouts below. This is an image-editing task on the supplied photo, NOT text-to-image generation: do not invent a new room.
 
-You are given ${distinct.length + 1} images, in this order:
+You are given ${distinct.length + (guide ? 2 : 1)} images, in this order:
 1. SOURCE PHOTO - the customer's real room. It defines the true geometry, camera viewpoint, architecture, fixtures and lighting. Everything not named as a target area must stay pixel-for-pixel recognisable as the same room.
-2. TILE REFERENCES - the exact showroom tile${single ? "" : "s"} the customer is buying, lettered in image order. Treat each reference image, not any text, as ground truth for that tile's colour, pattern, texture, veining and finish. Never substitute a different design and never swap two tiles.
+${guide ? `GUIDE IMAGE (image 2) - the same source photo with the marked target areas painted over in flat colours (${marked.map((m) => `${m.colour} = AREA ${m.index + 1}`).join(", ")}). It is ONLY a map showing exactly where those areas are. Never copy its paint colours into the result: edit the clean source photo (image 1), not the guide.\n` : ""}2. TILE REFERENCES - the exact showroom tile${single ? "" : "s"} the customer is buying, lettered in image order${guide ? " (images 3 onwards)" : ""}. Treat each reference image, not any text, as ground truth for that tile's colour, pattern, texture, veining and finish. Never substitute a different design and never swap two tiles.
 
 ${tileBlock}
 
 Room context from an earlier analysis of the source photo: room type ${roomType ?? roomAnalysis.roomType}; construction state ${roomAnalysis.constructionState}; perspective ${roomAnalysis.perspective ?? "unknown"}; lighting ${roomAnalysis.lighting ?? "unknown"}; doors visible ${roomAnalysis.doorCount}; windows visible ${roomAnalysis.windowCount}; fixtures ${roomAnalysis.fixtures.join(", ") || "none noted"}.
 
 ${layoutBlock ? `${layoutBlock}\n\n` : ""}3. TARGET AREAS
-Finish ONLY the following areas, each with exactly the tiles and layout given for it. Replace only that area's existing material. Leave every other surface, and every area not listed, exactly as in the source photo. If an area is not visible in the photo, skip it: never invent a view of it.${unlistedWalls}${backsplashRule}${floorPartRule}${sharedRule}
+Finish ONLY the following areas, each with exactly the tiles and layout given for it. Replace only that area's existing material. Leave every other surface, and every area not listed, exactly as in the source photo. If an area is not visible in the photo, skip it: never invent a view of it.${guideRule}${unlistedWalls}${backsplashRule}${floorPartRule}${sharedRule}
 
 ${areaBlock}
 
@@ -235,17 +253,24 @@ ${requirementsBlock}
 - Keep the overall lighting direction and colour temperature of the source photo.
 - Do not redesign, restyle, or "improve" anything the customer did not ask for.
 
-6. REALISM (strict)
+6. REAL INSTALLATION, NOT A FILTER (strict)
+- Show each target area as if a tiler had actually installed the new tiles there. The existing finish of that area (old tiles, paint, plaster, cement, stains) is completely removed and covered: none of its pattern, motifs, colour, cracks or old grout lines may show through the new tiles anywhere.
+- The new tiles are solid, opaque ceramic or stone. Never a transparent overlay, a colour tint, a texture blended with the old surface, or a filter over the photo.
+- Lay whole tiles in straight courses from a sensible starting line (the floor line for walls, the doorway or the nearest edge for floors), with cut tiles only where the area ends: at corners, edges, skirting, fixtures, pipes, doors and windows.
+- Each tile has its real size and proportions (a 300x600 tile is twice as long as it is wide; a 600x600 tile is square) and the same size everywhere on its surface, getting smaller only with distance from the camera.
+
+7. REALISM (strict)
 - Photorealistic result that looks like a real photograph of the finished room, not a render, sketch, collage or texture pasted on top.
 - Follow each surface's geometry: correct perspective and vanishing points, correct orientation on floor versus wall, correct wrapping at corners and edges, and correct cut-offs where the tile meets fixtures, skirting, steps and openings.
 - Render every tile at a believable physical scale for its stated size, with straight, evenly spaced grout lines of a suitable colour and width, and with the pattern aligned to the surface (no warping, no stretched tiles).
 - Match shadows, ambient occlusion, reflections (more on glossy finishes, softer on matt) and highlights to the existing light so the new surfaces are physically integrated.
 - Preserve each tile's real colour, pattern, veining and finish from its reference image. If a reference cannot show something, stay as close to it as possible rather than inventing an unrelated pattern.
 
-7. FINAL CHECK (before returning the image)
+8. FINAL CHECK (before returning the image)
 - Every target area above clearly shows its own tile${single ? "" : "s"} in its own layout pattern across the whole area: not faint, not partial, not a different or invented design.
 - Every surface that is not a target area looks exactly as it does in the source photo.
 - Tile colours, patterns and veining match the tile reference images, not a guess from the tile names.
+- No trace of the old surface (its pattern, motifs or colour) is visible inside any target area: it looks freshly and fully tiled.${guide ? "\n- None of the guide image's paint colours appear anywhere in the result, and every painted region is tiled right up to the real edges of its surface." : ""}
 
 OUTPUT: a single photorealistic image of the same room from the same viewpoint with ${surfaceList} finished as specified. Return the image only.`;
 }

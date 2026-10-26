@@ -145,6 +145,8 @@ export interface DesignAreaInput {
   patternNote?: string | null;
   /** Ordered: position i fills role i of the pattern. */
   tiles: TileCandidate[];
+  /** Where the area is, painted by the owner on the room photo (see areaMask.ts). Drawn onto the guide image sent with the photo. */
+  mask?: string;
 }
 
 export interface GenerateVisualizationInput {

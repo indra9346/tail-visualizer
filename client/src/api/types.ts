@@ -97,6 +97,8 @@ export interface DesignArea {
   pattern: DesignPatternId;
   patternNote: string | null;
   tileIds: string[];
+  /** Where the area was painted on the room photo (easy visualizer); absent = located by its name. */
+  mask?: string;
 }
 
 export interface Design {

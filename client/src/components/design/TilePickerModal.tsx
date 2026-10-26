@@ -20,12 +20,14 @@ interface Props {
   recommendedIds: Set<string>;
   reasons: Record<string, string>;
   onPick: (tile: Tile) => void;
+  /** Which tab it opens on; "custom" goes straight to adding a new tile from a photo. */
+  initialTab?: "catalog" | "custom";
 }
 
 const label = "mb-1.5 block text-sm font-medium text-stone-700";
 
 /** Choose an existing catalog tile for one slot, or add a brand-new custom tile on the spot. */
-export function TilePickerModal({ open, onClose, surface, slotLabel, recommendedIds, reasons, onPick }: Props) {
+export function TilePickerModal({ open, onClose, surface, slotLabel, recommendedIds, reasons, onPick, initialTab = "catalog" }: Props) {
   const [tab, setTab] = useState<"catalog" | "custom">("catalog");
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export function TilePickerModal({ open, onClose, surface, slotLabel, recommended
 
   useEffect(() => {
     if (!open) return;
-    setTab("catalog");
+    setTab(initialTab);
     // Each opening is for a new slot (maybe another surface): a search left over from the last one would hide its tiles.
     setQuery("");
     setOnlyRecommended(false);
@@ -45,6 +47,7 @@ export function TilePickerModal({ open, onClose, surface, slotLabel, recommended
       .then(setTiles)
       .catch((err) => setError(friendlyErrorMessage(err, "We couldn't load your catalog.")))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const shown = useMemo(() => {

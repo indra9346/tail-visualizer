@@ -14,6 +14,8 @@ export interface NormalizedArea {
   pattern: DesignPattern;
   patternNote: string | null;
   tileIds: string[];
+  /** Where the area is, painted by the owner on the room photo (server/ai/areaMask.ts); absent = located by its name only. */
+  mask?: string;
 }
 
 export interface NormalizedDesign {
@@ -39,6 +41,7 @@ export function normalizeDesign(body: { design?: DesignInput; tileId?: string; s
           pattern: a.pattern,
           patternNote: a.patternNote ?? null,
           tileIds: [...a.tileIds],
+          ...(a.mask ? { mask: a.mask } : {}),
         };
       }),
     };
@@ -70,11 +73,12 @@ export function designTileIds(design: NormalizedDesign): string[] {
  *
  * A free-naming design hashes exactly as it did before layouts existed, so
  * visualizations saved earlier keep matching their retries. Layout and wall ids
- * only enter the hash when a layout is in use.
+ * only enter the hash when a layout is in use, and a painted mask only when the
+ * area has one (marking an area differently is a different design).
  */
 export function designHash(design: NormalizedDesign): string {
   const canonical = [...design.areas]
-    .map((a) => ({ s: a.surface, l: a.location.toLowerCase(), p: a.pattern, n: (a.patternNote ?? "").toLowerCase(), t: a.tileIds, ...(a.wall ? { w: a.wall } : {}), ...(a.dimensions ? { d: [a.dimensions.widthMm, a.dimensions.heightMm] } : {}) }))
+    .map((a) => ({ s: a.surface, l: a.location.toLowerCase(), p: a.pattern, n: (a.patternNote ?? "").toLowerCase(), t: a.tileIds, ...(a.wall ? { w: a.wall } : {}), ...(a.dimensions ? { d: [a.dimensions.widthMm, a.dimensions.heightMm] } : {}), ...(a.mask ? { m: a.mask } : {}) }))
     .sort((x, y) => `${x.s}|${x.l}`.localeCompare(`${y.s}|${y.l}`));
   const payload = design.layout && design.layout !== "open" ? { layout: design.layout, areas: canonical } : canonical;
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");

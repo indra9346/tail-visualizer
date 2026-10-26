@@ -171,6 +171,7 @@ export default createHandler({ methods: ["POST"], operation: "generateVisualizat
       pattern: a.pattern,
       patternNote: a.patternNote,
       tiles: a.tileIds.map((id) => tilesById.get(id)!),
+      ...(a.mask ? { mask: a.mask } : {}),
     }));
 
     const result = await generateVisualization({

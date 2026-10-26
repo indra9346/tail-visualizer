@@ -9,7 +9,8 @@
     "test": "jest --config jest.config.mjs",
     "live-check": "tsx scripts/live-integration-check.ts",
     "test:client": "cd client && npm test",
-    "test:all": "npm test && npm run test:client"
+    "test:all": "npm test && npm run test:client && npm run typecheck && npm run build --prefix client",
+    "smoke:live": "node scripts/smoke-live.mjs"
   },
   "dependencies": {
     "@google/genai": "^0.14.0",

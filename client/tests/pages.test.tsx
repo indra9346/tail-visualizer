@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { CheckoutClosedError, PaymentWidgetError, loadRazorpayCheckoutScript, openRazorpayCheckout, type CheckoutInfo } from "@/api/billing";
-import { UploadPage } from "@/pages/UploadPage";
+import { QuickUploadPage } from "@/pages/QuickUploadPage";
 import { TileCatalogPage } from "@/pages/TileCatalogPage";
 import { CalculatorPage } from "@/pages/CalculatorPage";
 import { VisualizationHistory } from "@/components/history/VisualizationHistory";
@@ -31,6 +31,7 @@ const page = (ui: React.ReactNode, path = "/") =>
           <Routes>
             <Route path={path} element={ui} />
             <Route path="/analysis/:roomId" element={<p>Analysis page</p>} />
+            <Route path="/visualize/:roomId" element={<p>Visualize page</p>} />
           </Routes>
         </WorkflowProvider>
       </AuthProvider>
@@ -109,17 +110,15 @@ describe("upload", () => {
       }
       return undefined;
     };
-    const { container } = page(<UploadPage />, "/upload");
-    await user.type(await screen.findByLabelText("New project name"), "Master Bath");
-    const input = container.querySelector<HTMLInputElement>('input[type="file"]:not([capture])')!;
-    await user.upload(input, new File(["x"], "room.jpg", { type: "image/jpeg" }));
+    page(<QuickUploadPage />, "/upload");
+    await user.upload(screen.getByLabelText("Choose a room photo"), new File(["x"], "room.jpg", { type: "image/jpeg" }));
+    await user.type(screen.getByLabelText("Customer or room name"), "Master Bath");
 
-    await user.click(screen.getByRole("button", { name: /Analyze Space/ }));
+    await user.click(screen.getByRole("button", { name: /Use this photo/ }));
     expect(await screen.findByText("Network hiccup.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Select an existing project")).toHaveValue("project-1");
 
-    await user.click(screen.getByRole("button", { name: /Analyze Space/ }));
-    expect(await screen.findByText("Analysis page")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Use this photo/ }));
+    expect(await screen.findByText("Visualize page")).toBeInTheDocument();
     expect(projectsCreated).toBe(1);
   });
 });

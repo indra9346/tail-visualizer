@@ -33,6 +33,8 @@ export async function generateVisualization(input: {
       pattern: string;
       patternNote?: string;
       tileIds: string[];
+      /** Where the area was painted on the photo (lib/areaMask.ts encoding). */
+      mask?: string;
     }>;
   };
   /** Optional natural-language design instructions (sanitized and length-checked by the server). */

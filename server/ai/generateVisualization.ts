@@ -7,6 +7,7 @@ import { buildDesignPrompt, distinctTileIds } from "./prompts/visualizationPromp
 import { withTimeout } from "./timeout.js";
 import { validateRoomImage, validateTileImage } from "./imageValidation.js";
 import { prepareImageForModel } from "./prepareImageForModel.js";
+import { buildGuideImage } from "./guideImage.js";
 import type { GenerateVisualizationInput, GeneratedVisualizationResult } from "./types.js";
 
 interface InlineImagePart {
@@ -41,20 +42,20 @@ export function generationKey(input: Pick<GenerateVisualizationInput, "areas" | 
     layout: input.layout ?? "open",
     roomType: input.roomType ?? null,
     requirements: input.requirements ?? null,
-    areas: input.areas.map((a) => [a.surface, a.location, a.wall ?? null, a.pattern, a.patternNote ?? null, a.dimensions ?? null, a.tiles.map((t) => t.id)]),
+    areas: input.areas.map((a) => [a.surface, a.location, a.wall ?? null, a.pattern, a.patternNote ?? null, a.dimensions ?? null, a.tiles.map((t) => t.id), ...(a.mask ? [a.mask] : [])]),
   });
   const digest = createHash("sha256").update(design).digest();
   const seedDigest = createHash("sha256").update(`${design}|attempt:${input.context.attemptNumber ?? 1}`).digest();
   return { boundary: `REQ-${digest.subarray(0, 8).toString("hex")}`, seed: seedDigest.readUInt32BE(0) & 0x7fffffff };
 }
 
-async function attemptGeneration(input: GenerateVisualizationInput): Promise<GeneratedVisualizationResult> {
+async function attemptGeneration(input: GenerateVisualizationInput, guideImage: GenerateVisualizationInput["roomImage"] | null): Promise<GeneratedVisualizationResult> {
   const client = getGeminiClient();
   const model = aiConfig.models.visualization;
   // The prompt letters tiles in first-use order; attach the reference photos in that same order.
   const orderedImages = distinctTileIds(input.areas).map((id) => input.tileImages.find((t) => t.tileId === id)!.image);
   const { boundary, seed } = generationKey(input);
-  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, boundary, input.roomType, input.layout ?? "open");
+  const promptText = buildDesignPrompt(input.roomAnalysis, input.areas, input.requirements, boundary, input.roomType, input.layout ?? "open", guideImage !== null);
   const start = Date.now();
 
   let response;
@@ -68,6 +69,8 @@ async function attemptGeneration(input: GenerateVisualizationInput): Promise<Gen
             parts: [
               { text: promptText },
               { inlineData: { mimeType: input.roomImage.mimeType, data: input.roomImage.buffer.toString("base64") } },
+              // The painted map of the marked areas comes right after the photo: the prompt calls it image 2.
+              ...(guideImage ? [{ inlineData: { mimeType: guideImage.mimeType, data: guideImage.buffer.toString("base64") } }] : []),
               ...orderedImages.map((image) => ({ inlineData: { mimeType: image.mimeType, data: image.buffer.toString("base64") } })),
             ],
           },
@@ -127,11 +130,13 @@ export async function generateVisualization(rawInput: GenerateVisualizationInput
   ]);
   const tileImages = rawInput.tileImages.map((t, i) => ({ tileId: t.tileId, image: preparedTiles[i]! }));
   const input: GenerateVisualizationInput = { ...rawInput, roomImage, tileImages };
+  // Drawn on the same prepared copy of the photo, so the painting lines up with the source image pixel for pixel.
+  const guideImage = await buildGuideImage(roomImage, input.areas);
 
   const { roomUploadId, visualizationId, generationJobId } = input.context;
 
   try {
-    const result = await attemptGeneration(input);
+    const result = await attemptGeneration(input, guideImage);
     aiLogger.info("visualization generation succeeded", {
       operation: "generateVisualization",
       model: result.model,
@@ -164,7 +169,7 @@ export async function generateVisualization(rawInput: GenerateVisualizationInput
     // Single retry, only for transient failures (timeout/rate-limit/upstream).
     // Never retried for empty-response (likely safety block) or validation-shaped errors.
     try {
-      const retryResult = await attemptGeneration(input);
+      const retryResult = await attemptGeneration(input, guideImage);
       aiLogger.info("visualization generation succeeded on retry", {
         operation: "generateVisualization",
         model: retryResult.model,

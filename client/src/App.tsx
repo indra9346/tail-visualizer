@@ -47,7 +47,8 @@ function loadPage<T>(load: () => Promise<T>): () => Promise<T> {
 const LoginPage = lazy(loadPage(() => import("@/pages/LoginPage").then((m) => ({ default: m.LoginPage }))));
 const ResetPasswordPage = lazy(loadPage(() => import("@/pages/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage }))));
 const ProjectsPage = lazy(loadPage(() => import("@/pages/ProjectsPage").then((m) => ({ default: m.ProjectsPage }))));
-const UploadPage = lazy(loadPage(() => import("@/pages/UploadPage").then((m) => ({ default: m.UploadPage }))));
+const QuickUploadPage = lazy(loadPage(() => import("@/pages/QuickUploadPage").then((m) => ({ default: m.QuickUploadPage }))));
+const QuickDesignPage = lazy(loadPage(() => import("@/pages/QuickDesignPage").then((m) => ({ default: m.QuickDesignPage }))));
 const AnalysisPage = lazy(loadPage(() => import("@/pages/AnalysisPage").then((m) => ({ default: m.AnalysisPage }))));
 const TilesPage = lazy(loadPage(() => import("@/pages/TilesPage").then((m) => ({ default: m.TilesPage }))));
 const TileCatalogPage = lazy(loadPage(() => import("@/pages/TileCatalogPage").then((m) => ({ default: m.TileCatalogPage }))));
@@ -135,7 +136,16 @@ function AppShell() {
                     path="/upload"
                     element={
                       <ProtectedRoute>
-                        <UploadPage />
+                        <QuickUploadPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* The easy visualizer: mark the photo, pick tiles, make the real photo. */}
+                  <Route
+                    path="/visualize/:roomId"
+                    element={
+                      <ProtectedRoute>
+                        <QuickDesignPage />
                       </ProtectedRoute>
                     }
                   />
