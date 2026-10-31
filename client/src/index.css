@@ -32,8 +32,16 @@
   h6,
   .font-display {
     font-family: "Fraunces", ui-serif, Georgia, serif;
-    color: #303B33;
     letter-spacing: -0.02em;
+  }
+  /* Headings are ink by default; other display-font text takes its colour from where it sits (white on dark cards). */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: #303B33;
   }
   :focus-visible {
     outline: 2px solid theme("colors.clay.500");

@@ -5,7 +5,11 @@ import { drawMarks, drawQuickLook, type QuickLookLayer } from "@/lib/quickLook";
 import { chosen, isMarked, type QuickArea } from "@/lib/quickDesign";
 import type { LoadedPhoto } from "@/lib/useRoomPhoto";
 
-export type MarkTool = "fill" | "paint" | "erase";
+/** Add: a tap fills a surface, a drag paints. Remove: a tap clears a surface, a drag rubs paint away. */
+export type MarkTool = "add" | "remove";
+
+/** Finger movement (screen px) before a touch counts as painting rather than a tap. */
+const DRAG_PX = 6;
 
 interface Props {
   photoUrl: string;
@@ -19,7 +23,7 @@ interface Props {
   brush: number;
   /** Loaded tile photos by tile id, for the quick look. */
   tileImages: Map<string, HTMLImageElement>;
-  /** A tap with the fill tool, in grid cells. */
+  /** A tap (not a drag), in grid cells. */
   onTap: (x: number, y: number) => void;
   /** A finished brush or eraser stroke: the new mask of every area it changed. */
   onStroke: (next: Map<string, AreaMask | null>) => void;
@@ -27,8 +31,8 @@ interface Props {
 }
 
 /**
- * The room photo the owner marks. Tap to fill a surface, drag to paint or erase. Paint never overlaps: painting an
- * area takes those spots away from any other area, and the eraser clears every colour under it.
+ * The room photo the owner marks. A tap fills (or clears) a surface; a drag paints (or rubs away). Paint never
+ * overlaps: painting an area takes those spots away from any other area, and rubbing away clears every colour under it.
  */
 export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, brush, tileImages, onTap, onStroke, className }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -36,6 +40,9 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
   const lookRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const stroke = useRef<{ masks: Map<string, AreaMask | null>; x: number; y: number } | null>(null);
+  // A touch that has not moved far enough to be a drag yet; and whether the click after a drag must be ignored.
+  const pending = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
+  const skipClick = useRef(false);
   const [painting, setPainting] = useState(false);
   const ratio = photo ? photo.width / photo.height : 4 / 3;
   const grid = photo?.grid ?? null;
@@ -100,7 +107,7 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
   function paintTo(x: number, y: number) {
     const s = stroke.current;
     if (!s || !grid) return;
-    if (tool === "erase") {
+    if (tool === "remove") {
       for (const area of areas) {
         const working = s.masks.get(area.key) ?? (area.mask ? cloneMask(area.mask) : null);
         if (!working) continue;
@@ -128,16 +135,24 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (mode !== "mark" || !grid || tool === "fill" || (tool === "paint" && activeIndex === -1)) return;
-    e.preventDefault();
+    // A touch drag sends no click afterwards, so a click skip left over from it must not swallow this new tap.
+    skipClick.current = false;
+    if (mode !== "mark" || !grid || (tool === "add" && activeIndex === -1)) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     const p = toGrid(e.clientX, e.clientY);
-    stroke.current = { masks: new Map(), x: p.x, y: p.y };
-    setPainting(true);
-    paintTo(p.x, p.y);
+    pending.current = { ...p, clientX: e.clientX, clientY: e.clientY };
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const start = pending.current;
+    if (start && !stroke.current) {
+      // Still a tap until the finger really moves.
+      if (Math.hypot(e.clientX - start.clientX, e.clientY - start.clientY) < DRAG_PX) return;
+      e.preventDefault();
+      stroke.current = { masks: new Map(), x: start.x, y: start.y };
+      setPainting(true);
+      paintTo(start.x, start.y);
+    }
     if (!stroke.current) return;
     const p = toGrid(e.clientX, e.clientY);
     paintTo(p.x, p.y);
@@ -145,9 +160,13 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
 
   function endStroke() {
     const s = stroke.current;
+    pending.current = null;
     stroke.current = null;
+    if (!s) return;
     setPainting(false);
-    if (s && s.masks.size > 0) onStroke(s.masks);
+    // The browser still sends a click after a drag: it must not also fill.
+    skipClick.current = true;
+    if (s.masks.size > 0) onStroke(s.masks);
   }
 
   return (
@@ -157,9 +176,9 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
         data-testid="photo-marker"
         className={cn(
           "relative w-full select-none overflow-hidden rounded-2xl bg-stone-200 shadow-inner",
-          mode === "mark" && grid && (tool === "fill" ? "cursor-crosshair" : "cursor-cell"),
-          // Brush strokes must not scroll the page; a tap to fill still lets the page scroll.
-          mode === "mark" && tool !== "fill" ? "touch-none" : "touch-manipulation",
+          mode === "mark" && grid && "cursor-crosshair",
+          // A finger on the photo paints instead of scrolling the page while marking.
+          mode === "mark" ? "touch-none" : "touch-manipulation",
         )}
         style={{ aspectRatio: String(ratio) }}
         onPointerDown={onPointerDown}
@@ -167,7 +186,11 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
         onPointerUp={endStroke}
         onPointerCancel={endStroke}
         onClick={(e) => {
-          if (mode !== "mark" || tool !== "fill" || !grid) return;
+          if (skipClick.current) {
+            skipClick.current = false;
+            return;
+          }
+          if (mode !== "mark" || !grid) return;
           const p = toGrid(e.clientX, e.clientY);
           onTap(p.x, p.y);
         }}
@@ -180,7 +203,7 @@ export function PhotoMarker({ photoUrl, photo, areas, activeKey, mode, tool, bru
             <span className="h-8 w-8 animate-spin rounded-full border-4 border-white/60 border-t-white" aria-label="Loading your photo" />
           </div>
         )}
-        {painting && <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-stone-900/80 px-3 py-1 text-xs font-medium text-white">{tool === "erase" ? "Erasing…" : "Painting…"}</span>}
+        {painting && <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-stone-900/80 px-3 py-1 text-xs font-medium text-white">{tool === "remove" ? "Removing…" : "Painting…"}</span>}
       </div>
     </div>
   );

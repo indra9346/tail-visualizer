@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import App from "@/App";
 import { installFakeBackend, ROOM_ID, type FakeBackend } from "./fakeBackend";
 import { testAuth } from "./testAuth";
@@ -28,14 +28,20 @@ function openApp(path: string) {
 
 const pages: Array<[string, () => Promise<unknown>]> = [
   ["/upload", () => screen.findByRole("heading", { name: "Take a photo of the room" })],
-  [`/visualize/${ROOM_ID}`, () => screen.findByRole("heading", { name: "What do you want to tile?" })],
+  [`/visualize/${ROOM_ID}`, () => screen.findByRole("heading", { name: "What do you want to change?" })],
   [`/tiles/${ROOM_ID}`, () => screen.findByRole("heading", { name: "Design Studio" })],
-  ["/projects", () => screen.findAllByText(/project|room/i)],
+  ["/", () => screen.findByRole("heading", { name: "New design" })],
+  ["/projects", () => screen.findAllByText(/customer/i)],
+  ["/customers", () => screen.findAllByText(/customer/i)],
+  ["/more", () => screen.findAllByText(/photos left/i)],
+  ["/add-tile", () => screen.findAllByText(/tile/i)],
+  [`/compare/${ROOM_ID}`, () => screen.findByRole("heading", { name: "Compare tries" })],
+  ["/quote", () => screen.findByRole("heading", { name: "How many boxes?" })],
   ["/tiles", () => screen.findAllByText(/tile/i)],
   ["/my-tiles", () => screen.findAllByText(/tile/i)],
   ["/my-visualizations", () => screen.findAllByText(/design|visuali/i)],
   ["/dashboard", () => screen.findAllByText(/visuali|credit/i)],
-  ["/credits", () => screen.findAllByText(/credit/i)],
+  ["/credits", () => screen.findAllByText(/photos/i)],
   ["/calculator", () => screen.findAllByText(/tile/i)],
   ["/demos", () => screen.findAllByText(/demo|tile/i)],
 ];
@@ -58,9 +64,18 @@ describe("every main page opens", () => {
     expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
   });
 
-  test("the menu's Visualize goes to the easy visualizer", async () => {
-    openApp("/dashboard");
-    const links = await screen.findAllByRole("link", { name: /Visualize/ });
-    expect(links.some((l) => l.getAttribute("href") === "/upload")).toBe(true);
+  test("the menu's New design (bottom tabs and laptop rail) goes to the photo step", async () => {
+    openApp("/customers");
+    const links = await screen.findAllByRole("link", { name: /New design/ });
+    expect(links.length).toBeGreaterThanOrEqual(2);
+    expect(links.every((l) => l.getAttribute("href") === "/upload")).toBe(true);
+  });
+
+  test("a signed-in owner opens straight on Home: no intro, the 4 tabs", async () => {
+    sessionStorage.clear();
+    openApp("/");
+    expect(await screen.findByRole("heading", { name: "New design" })).toBeInTheDocument();
+    const menu = screen.getByRole("navigation", { name: "Main menu" });
+    for (const name of ["Home", "Customers", "Tiles", "More"]) expect(within(menu).getByRole("link", { name })).toBeInTheDocument();
   });
 });

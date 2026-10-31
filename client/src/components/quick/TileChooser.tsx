@@ -45,13 +45,13 @@ export function TileChooser({ tiles, loading, surface, recommendedIds, chosenIds
               setQuery(e.target.value);
               setShown(PAGE);
             }}
-            placeholder="Search: colour, name, size…"
+            placeholder="Tile name, size or colour"
             aria-label="Search tiles"
-            className="w-full rounded-xl border border-stone-300 bg-white py-3 pl-9 pr-3 text-base text-stone-900"
+            className="h-12 w-full rounded-2xl border-[1.5px] border-[#C9D2C6] bg-white pl-9 pr-3 text-base text-ink"
           />
         </label>
-        <button type="button" onClick={onAddPhoto} className="shrink-0 rounded-xl border border-dashed border-clay-400 bg-clay-50 px-3.5 py-3 text-sm font-semibold text-clay-800 hover:bg-clay-100">
-          + New tile photo
+        <button type="button" onClick={onAddPhoto} className="h-12 shrink-0 rounded-2xl border-[1.5px] border-dashed border-[#8E9A8F] bg-white px-3.5 text-[15px] font-bold text-ink hover:bg-sage-100">
+          + Add tile
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export function TileChooser({ tiles, loading, surface, recommendedIds, chosenIds
         </div>
       ) : (
         <>
-          <ul className="mt-3 grid grid-cols-3 gap-2.5 sm:grid-cols-4" aria-label="Tiles">
+          <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4" aria-label="Tiles">
             {list.slice(0, shown).map((tile) => {
               const slot = chosenIds.indexOf(tile.id);
               const picked = slot !== -1;
@@ -82,20 +82,22 @@ export function TileChooser({ tiles, loading, surface, recommendedIds, chosenIds
                     aria-pressed={picked}
                     aria-label={`${tile.name}${tile.sizeMm ? `, ${tile.sizeMm} mm` : ""}${recommendedIds.has(tile.id) ? ", good for this room" : ""}`}
                     className={cn(
-                      "group relative block w-full overflow-hidden rounded-xl border-2 bg-white text-left transition-all",
-                      picked ? "border-clay-600 shadow-lg ring-2 ring-clay-300" : "border-transparent shadow-soft hover:-translate-y-0.5 hover:border-stone-300",
+                      "group relative block w-full overflow-hidden rounded-2xl bg-white p-1 text-left transition-all",
+                      picked ? "border-[3px] border-stone-900 shadow-md" : "border-[1.5px] border-hairline hover:border-[#8E9A8F]",
                     )}
                   >
-                    <span className="block aspect-square overflow-hidden bg-stone-100">
+                    <span className="block aspect-square overflow-hidden rounded-xl bg-stone-100">
                       <TileThumb tile={tile} />
                     </span>
-                    <span className="block px-2 py-1.5">
-                      <span className="line-clamp-2 text-xs font-semibold leading-tight text-stone-900">{tile.name}</span>
-                      {tile.sizeMm && <span className="block truncate text-[11px] text-stone-500">{tile.sizeMm} mm</span>}
+                    <span className="block px-1 pb-0.5 pt-1.5">
+                      <span className="line-clamp-2 text-[13px] font-extrabold leading-4 text-ink">{tile.name}</span>
+                      <span className="block truncate text-xs text-ink-secondary">
+                        {[tile.sizeMm, tile.pricePerSqft != null ? `₹${tile.pricePerSqft}/sq ft` : null].filter(Boolean).join(" · ") || " "}
+                      </span>
                     </span>
-                    {recommendedIds.has(tile.id) && <span className="absolute left-1.5 top-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-stone-900 shadow">★ Good fit</span>}
+                    {recommendedIds.has(tile.id) && <span className="absolute left-2 top-2 rounded-full bg-[#F1E4C8] px-2 py-0.5 text-[10px] font-extrabold text-[#6B5326] shadow-sm">GOOD FIT</span>}
                     {picked && (
-                      <span className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-clay-600 text-sm font-bold text-white shadow" aria-hidden="true">
+                      <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-stone-900 text-sm font-bold text-white shadow ring-2 ring-white" aria-hidden="true">
                         {chosenIds.length > 1 ? slot + 1 : "✓"}
                       </span>
                     )}
@@ -105,7 +107,7 @@ export function TileChooser({ tiles, loading, surface, recommendedIds, chosenIds
             })}
           </ul>
           {list.length > shown && (
-            <button type="button" onClick={() => setShown((n) => n + PAGE)} className="mt-3 w-full rounded-xl border border-stone-300 bg-white py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50">
+            <button type="button" onClick={() => setShown((n) => n + PAGE)} className="mt-3 h-12 w-full rounded-2xl border-[1.5px] border-[#C9D2C6] bg-white text-[15px] font-bold text-ink hover:bg-sage-100">
               Show more tiles ({list.length - shown} more)
             </button>
           )}

@@ -112,6 +112,7 @@ describe("upload", () => {
     };
     page(<QuickUploadPage />, "/upload");
     await user.upload(screen.getByLabelText("Choose a room photo"), new File(["x"], "room.jpg", { type: "image/jpeg" }));
+    await user.click(screen.getByRole("button", { name: "Add name" }));
     await user.type(screen.getByLabelText("Customer or room name"), "Master Bath");
 
     await user.click(screen.getByRole("button", { name: /Use this photo/ }));

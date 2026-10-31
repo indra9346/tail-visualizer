@@ -82,6 +82,8 @@ function brush(points: Array<[number, number]>) {
 
 const bigButton = (name: RegExp) => screen.getByRole("button", { name });
 const heading = (name: string) => screen.findByRole("heading", { name });
+/** A picture choice on "What do you want to change?" (Floor, Walls, Floor + walls, ...). */
+const choice = async (name: RegExp) => screen.findByRole("radio", { name });
 
 type Area = { surface: string; location: string; pattern: string; tileIds: string[]; mask?: string };
 const sentAreas = () => (lastJson(backend).design as { areas: Area[] }).areas;
@@ -104,17 +106,17 @@ describe("the easy visualizer, start to finish", () => {
     const user = userEvent.setup();
     renderAt(`/visualize/${ROOM_ID}`);
 
-    await heading("What do you want to tile?");
+    await heading("What do you want to change?");
     expect(bigButton(/^Next/)).toBeDisabled();
-    await user.click(bigButton(/^Floor/));
-    await user.click(bigButton(/^Wall Any wall/));
+    await user.click(await choice(/^Floor \+ walls/));
     await user.click(bigButton(/^Next/));
 
-    await heading("Show us the floor");
+    await heading("Tap the floor in the photo");
     // Before marking, the big button offers the whole floor.
     expect(bigButton(/Tile the whole floor/)).toBeEnabled();
     tapPhoto(320, 440);
-    await user.click(await screen.findByRole("button", { name: /Next: pick the tile/ }));
+    await heading("Is the red part the floor?");
+    await user.click(await screen.findByRole("button", { name: /Yes, correct/ }));
 
     await heading("Pick a tile for the floor");
     // Only tiles that can go on a floor are offered (Tile 70 is a wall tile).
@@ -122,17 +124,17 @@ describe("the easy visualizer, start to finish", () => {
     await user.click(bigButton(/^Tile 72,/));
     await user.click(bigButton(/^Next/));
 
-    await heading("Show us the wall");
+    await heading("Tap the wall in the photo");
     await user.click(bigButton(/Tile the whole wall/));
     await heading("Pick a tile for the wall");
     await user.click(bigButton(/^Tile 70,/));
-    await user.click(bigButton(/Next: check everything/));
+    await user.click(bigButton(/Next: check & make photo/));
 
-    await heading("Check and make the real photo");
-    const summary = screen.getByRole("listitem", { name: "Area 1: Floor" });
+    await heading("All ready?");
+    const summary = screen.getByRole("listitem", { name: "Part 1: Floor" });
     expect(within(summary).getByText(/Marked on the photo/)).toBeInTheDocument();
-    expect(within(screen.getByRole("listitem", { name: "Area 2: Wall" })).getByText(/The whole wall/)).toBeInTheDocument();
-    await user.click(bigButton(/Make the real photo/));
+    expect(within(screen.getByRole("listitem", { name: "Part 2: Wall" })).getByText(/The whole wall/)).toBeInTheDocument();
+    await user.click(bigButton(/Make real photo/));
 
     await screen.findByText("Result page");
     const [floor, wall] = sentAreas();
@@ -147,26 +149,27 @@ describe("the easy visualizer, start to finish", () => {
   test("two walls with two tiles: each must be marked, and each tap marks only its own wall", async () => {
     const user = userEvent.setup();
     renderAt(`/visualize/${ROOM_ID}`);
-    await user.click(await screen.findByRole("button", { name: /^Wall Any wall/ }));
+    await user.click(await choice(/^Walls/));
     await user.click(bigButton(/^Next/));
-    await heading("Show us the wall");
+    await heading("Tap the wall in the photo");
     tapPhoto(100, 100); // the cream wall on the left
-    await user.click(await screen.findByRole("button", { name: /Next: pick the tile/ }));
+    await user.click(await screen.findByRole("button", { name: /Yes, correct/ }));
     await user.click(await screen.findByRole("button", { name: /^Tile 70,/ }));
-    await user.click(bigButton(/Next: check everything/));
+    await user.click(bigButton(/Next: check & make photo/));
 
-    await heading("Check and make the real photo");
+    await heading("All ready?");
+    await user.click(screen.getByRole("button", { name: /Add another part/ }));
     await user.click(screen.getByRole("button", { name: "+ Wall" }));
-    await heading("Show us the wall");
+    await heading("Tap the wall in the photo");
     // A second wall can only be told apart by where it is: no skipping.
     expect(bigButton(/Next: pick the tile/)).toBeDisabled();
     expect(screen.getByText("Colour this wall on the photo first")).toBeInTheDocument();
     tapPhoto(540, 100); // the blue wall on the right
-    await user.click(await screen.findByRole("button", { name: /Next: pick the tile/ }));
+    await user.click(await screen.findByRole("button", { name: /Yes, correct/ }));
     await user.click(await screen.findByRole("button", { name: /^Tile 67,/ }));
-    await user.click(bigButton(/Next: check everything/));
-    await heading("Check and make the real photo");
-    await user.click(bigButton(/Make the real photo/));
+    await user.click(bigButton(/Next: check & make photo/));
+    await heading("All ready?");
+    await user.click(bigButton(/Make real photo/));
 
     await screen.findByText("Result page");
     const [left, right] = sentAreas();
@@ -176,28 +179,35 @@ describe("the easy visualizer, start to finish", () => {
     expect(paintedWithin(right!.mask!, [0, WALL_ROWS - 1], [32, 63])).toBe(true);
   });
 
-  test("painting, Less / More, Undo and Start again", async () => {
+  test("painting, Less / More, Remove, Undo and Start again", async () => {
     const user = userEvent.setup();
     renderAt(`/visualize/${ROOM_ID}`);
-    await user.click(await screen.findByRole("button", { name: /^Floor/ }));
+    await user.click(await choice(/^Floor The ground/));
     await user.click(bigButton(/^Next/));
-    await heading("Show us the floor");
+    await heading("Tap the floor in the photo");
 
     tapPhoto(320, 440);
     expect(await screen.findByRole("group", { name: "Adjust the last fill" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /More/ }));
-    expect(bigButton(/Next: pick the tile/)).toBeEnabled();
+    expect(bigButton(/Yes, correct/)).toBeEnabled();
+
+    // Remove: a tap on the floor clears it again; Undo brings it back.
+    await user.click(screen.getByRole("radio", { name: /^Remove/ }));
+    tapPhoto(320, 440);
+    expect(await screen.findByRole("button", { name: /Tile the whole floor/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Undo/ }));
+    expect(await screen.findByRole("button", { name: /Yes, correct/ })).toBeEnabled();
 
     await user.click(screen.getByRole("button", { name: "Start again" }));
     expect(bigButton(/Tile the whole floor/)).toBeInTheDocument();
 
-    // Paint by hand, then undo it.
-    await user.click(screen.getByRole("radio", { name: /Paint/ }));
+    // Paint by hand (with Add, a drag paints), then undo it.
+    await user.click(screen.getByRole("radio", { name: /^Add/ }));
     brush([
       [40, 400],
       [600, 400],
     ]);
-    expect(await screen.findByRole("button", { name: /Next: pick the tile/ })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: /Yes, correct/ })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: /Undo/ }));
     expect(await screen.findByRole("button", { name: /Tile the whole floor/ })).toBeInTheDocument();
 
@@ -206,10 +216,10 @@ describe("the easy visualizer, start to finish", () => {
       [40, 400],
       [600, 400],
     ]);
-    await user.click(await screen.findByRole("button", { name: /Next: pick the tile/ }));
+    await user.click(await screen.findByRole("button", { name: /Yes, correct/ }));
     await user.click(await screen.findByRole("button", { name: /^Tile 72,/ }));
-    await user.click(bigButton(/Next: check everything/));
-    await user.click(await screen.findByRole("button", { name: /Make the real photo/ }));
+    await user.click(bigButton(/Next: check & make photo/));
+    await user.click(await screen.findByRole("button", { name: /Make real photo/ }));
     await screen.findByText("Result page");
     const mask = decodeMask(sentAreas()[0]!.mask!)!;
     // y = 400 of 480 px is row 40 of 48; the thick brush covers a band around it.
@@ -220,18 +230,21 @@ describe("the easy visualizer, start to finish", () => {
   test("a two-tile style asks for the second tile before going on", async () => {
     const user = userEvent.setup();
     renderAt(`/visualize/${ROOM_ID}`);
-    await user.click(await screen.findByRole("button", { name: /^Floor/ }));
+    await user.click(await choice(/^Floor The ground/));
     await user.click(bigButton(/^Next/));
     await user.click(await screen.findByRole("button", { name: /Tile the whole floor/ }));
     await heading("Pick a tile for the floor");
     await user.click(bigButton(/^Tile 72,/));
-    await user.click(screen.getByText(/Laying style:/));
-    await user.click(screen.getByRole("radio", { name: /Chess board/ }));
-    expect(bigButton(/Next: check everything/)).toBeDisabled();
+    await user.click(bigButton(/^Style:/));
+    await heading("How to lay the tiles?");
+    await user.click(screen.getByRole("radio", { name: /Checkerboard/ }));
+    await user.click(bigButton(/Use this style/));
+    await heading("Pick a tile for the floor");
+    expect(bigButton(/Next: check & make photo/)).toBeDisabled();
     // The second slot is chosen next by itself.
     await user.click(bigButton(/^Tile 69,/));
-    await user.click(bigButton(/Next: check everything/));
-    await user.click(await screen.findByRole("button", { name: /Make the real photo/ }));
+    await user.click(bigButton(/Next: check & make photo/));
+    await user.click(await screen.findByRole("button", { name: /Make real photo/ }));
     await screen.findByText("Result page");
     expect(sentAreas()[0]).toMatchObject({ location: "Entire floor", pattern: "checkerboard", tileIds: [tileId(72), tileId(69)] });
   });
@@ -239,7 +252,7 @@ describe("the easy visualizer, start to finish", () => {
   test("the room is checked in the background when it has not been checked yet", async () => {
     delete backend.analyses[ROOM_ID];
     renderAt(`/visualize/${ROOM_ID}`);
-    expect(await screen.findByText(/Room checked/)).toBeInTheDocument();
+    expect(await screen.findByText(/Photo checked/)).toBeInTheDocument();
     expect(backend.analyzed).toEqual([ROOM_ID]);
   });
 
@@ -247,14 +260,14 @@ describe("the easy visualizer, start to finish", () => {
     backend.balance = 5;
     const user = userEvent.setup();
     renderAt(`/visualize/${ROOM_ID}`);
-    await user.click(await screen.findByRole("button", { name: /^Floor/ }));
+    await user.click(await choice(/^Floor The ground/));
     await user.click(bigButton(/^Next/));
     await user.click(await screen.findByRole("button", { name: /Tile the whole floor/ }));
     await user.click(await screen.findByRole("button", { name: /^Tile 72,/ }));
-    await user.click(bigButton(/Next: check everything/));
-    expect(await screen.findByText(/Not enough credits/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Buy credits" })).toHaveAttribute("href", "/credits");
-    await user.click(bigButton(/Make the real photo/));
+    await user.click(bigButton(/Next: check & make photo/));
+    expect(await screen.findByText(/Not enough photos left/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add photos" })).toHaveAttribute("href", "/credits");
+    await user.click(bigButton(/Make real photo/));
     expect(backend.generateBodies).toHaveLength(0);
   });
 
@@ -263,7 +276,7 @@ describe("the easy visualizer, start to finish", () => {
     const t = backend.tiles.find((x) => x.name === "Tile 66")!;
     localStorage.setItem("tile-visualizer:workflow", JSON.stringify({ projectId: null, roomUploadId: null, analysis: null, selectedTile: t, selectedSurfaces: ["floor"] }));
     renderAt(`/visualize/${ROOM_ID}`);
-    await user.click(await screen.findByRole("button", { name: /^Floor/ }));
+    await user.click(await choice(/^Floor The ground/));
     await user.click(bigButton(/^Next/));
     await user.click(await screen.findByRole("button", { name: /Tile the whole floor/ }));
     expect(await screen.findByRole("button", { name: /^Tile 66,/ })).toHaveAttribute("aria-pressed", "true");
@@ -276,10 +289,10 @@ describe("the easy visualizer, start to finish", () => {
     const mask = encodeMask({ width: 64, height: 48, cells });
     const t72 = backend.tiles.find((x) => x.name === "Tile 72")!;
     renderAt(`/visualize/${ROOM_ID}`, { editDesign: { areas: [{ surface: "floor", location: "Marked floor", pattern: "single", patternNote: null, tileIds: [t72.id], mask }] }, editTiles: [t72], editRequirements: "dark grout" });
-    await heading("Check and make the real photo");
+    await heading("All ready?");
     expect(screen.getByText(/Marked on the photo/)).toBeInTheDocument();
     expect(screen.getByLabelText("Note for the designer")).toHaveValue("dark grout");
-    await user.click(bigButton(/Make the real photo/));
+    await user.click(bigButton(/Make real photo/));
     await screen.findByText("Result page");
     expect(sentAreas()[0]!.mask).toBe(mask);
     expect(lastJson(backend).requirements).toBe("dark grout");
@@ -288,14 +301,14 @@ describe("the easy visualizer, start to finish", () => {
   test("the summary survives a refresh", async () => {
     const user = userEvent.setup();
     const first = renderAt(`/visualize/${ROOM_ID}`);
-    await user.click(await screen.findByRole("button", { name: /^Floor/ }));
+    await user.click(await choice(/^Floor The ground/));
     await user.click(bigButton(/^Next/));
     tapPhoto(320, 440);
-    await user.click(await screen.findByRole("button", { name: /Next: pick the tile/ }));
+    await user.click(await screen.findByRole("button", { name: /Yes, correct/ }));
     await user.click(await screen.findByRole("button", { name: /^Tile 72,/ }));
     first.unmount();
     renderAt(`/visualize/${ROOM_ID}`);
-    await heading("Check and make the real photo");
+    await heading("All ready?");
     expect(screen.getByText(/Marked on the photo/)).toBeInTheDocument();
     expect(screen.getByText("Tile 72")).toBeInTheDocument();
   });
@@ -307,14 +320,14 @@ describe("taking the photo", () => {
     const first = renderAt("/upload");
     await user.upload(screen.getByLabelText("Choose a room photo"), new File(["x"], "room.jpg", { type: "image/jpeg" }));
     await user.click(screen.getByRole("button", { name: /Use this photo/ }));
-    await heading("What do you want to tile?");
+    await heading("What do you want to change?");
     expect(backend.projects.map((p) => p.name)).toEqual(["My rooms"]);
     first.unmount();
 
     renderAt("/upload");
     await user.upload(screen.getByLabelText("Choose a room photo"), new File(["x"], "room2.jpg", { type: "image/jpeg" }));
     await user.click(screen.getByRole("button", { name: /Use this photo/ }));
-    await heading("What do you want to tile?");
+    await heading("What do you want to change?");
     expect(backend.projects).toHaveLength(1);
     expect(backend.uploads.map((u) => u.projectId)).toEqual(["project-1", "project-1"]);
   });

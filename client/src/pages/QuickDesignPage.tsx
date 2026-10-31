@@ -1,28 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { PageContainer } from "@/components/layout/PageContainer";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { ProgressSteps, type Step as ProgressStep } from "@/components/ui/ProgressSteps";
 import { TilePickerModal } from "@/components/design/TilePickerModal";
 import { TileThumb } from "@/components/design/TileThumb";
 import { PhotoMarker, type MarkTool } from "@/components/quick/PhotoMarker";
 import { TileChooser } from "@/components/quick/TileChooser";
-import { StylePicker } from "@/components/quick/StylePicker";
-import { SurfaceIcon } from "@/components/quick/SurfaceIcon";
+import { STYLE_NAMES, StylePicker } from "@/components/quick/StylePicker";
+import { ActionBar, FlowHeader, Question, Screen, bigButton } from "@/components/simple/Flow";
+import { Icon, type IconName } from "@/components/simple/Icon";
 import { analyzeRoom, getRoom, getRoomAnalysis } from "@/api/rooms";
 import { fetchAllTiles, getTileRecommendations } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
-import { getBillingSummary, getCreditPackages } from "@/api/billing";
+import { getBillingSummary } from "@/api/billing";
 import { ApiClientError, friendlyErrorMessage } from "@/api/client";
 import { useWorkflow } from "@/context/WorkflowContext";
 import { cn } from "@/lib/cn";
 import { PATTERNS, rolesFor } from "@/lib/designPatterns";
 import { MAX_AREAS, tileFitsSurface } from "@/lib/designDraft";
-import { DEFAULT_FILL_LEVEL, addRegion, cloneMask, emptyMask, growRegion, maskCss, paintedCount, removeRegion, type AreaMask, type FillLevel } from "@/lib/areaMask";
+import { DEFAULT_FILL_LEVEL, addRegion, cloneMask, emptyMask, growRegion, maskColour, maskCss, paintedCount, removeRegion, type AreaMask, type FillLevel } from "@/lib/areaMask";
 import {
   QUICK_SURFACES,
   chosen,
+  clearQuickDraft,
   isMarked,
   loadQuickDraft,
   newQuickArea,
@@ -35,11 +35,12 @@ import {
   withTile,
   type QuickArea,
 } from "@/lib/quickDesign";
+import { photosFrom, usePhotosLeft } from "@/lib/usePhotosLeft";
 import { localPhotoUrl, useRoomPhoto, useTileImages } from "@/lib/useRoomPhoto";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
 import type { Design, RoomAnalysis, SurfaceType, Tile } from "@/api/types";
 
-type Step = { kind: "what" } | { kind: "mark"; key: string } | { kind: "tile"; key: string } | { kind: "review" };
+type Step = { kind: "what" } | { kind: "mark"; key: string } | { kind: "tile"; key: string } | { kind: "style"; key: string } | { kind: "review" };
 
 /** "Edit / Try another tile" on a result passes the design that was generated. */
 interface EditState {
@@ -50,18 +51,30 @@ interface EditState {
 
 type Snapshot = Map<string, AreaMask | null>;
 
-const GENERATION_STAGES = ["Sending your photo and tiles", "Finding the marked areas", "Laying the tiles", "Matching light and shadow", "Finishing your photo"];
+/** What the owner can change, as one picture each. A choice can cover two surfaces (floor + walls, steps). */
+const CHOICES: Array<{ id: string; title: string; hint: string; icon: IconName; surfaces: SurfaceType[] }> = [
+  { id: "floor", title: "Floor", hint: "The ground you walk on", icon: "floor", surfaces: ["floor"] },
+  { id: "walls", title: "Walls", hint: "Any wall, inside or outside", icon: "wall", surfaces: ["wall"] },
+  { id: "both", title: "Floor + walls", hint: "The whole room", icon: "room", surfaces: ["floor", "wall"] },
+  { id: "kitchen", title: "Kitchen wall", hint: "Behind the stove", icon: "kitchen", surfaces: ["backsplash"] },
+  { id: "shower", title: "Shower area", hint: "Bathroom wet wall", icon: "shower", surfaces: ["shower_wall"] },
+  { id: "steps", title: "Steps", hint: "Top and front of steps", icon: "steps", surfaces: ["step_tread", "step_riser"] },
+];
+const SURFACE_ICON: Record<SurfaceType, IconName> = { floor: "floor", wall: "wall", backsplash: "kitchen", shower_wall: "shower", step_tread: "steps", step_riser: "steps" };
+
+const GENERATION_STAGES = ["Photo sent", "Finding the marked parts", "Laying the tiles", "Matching light and shadow", "Finishing your photo"];
 const BRUSH = { thin: 2.2, thick: 5.5 } as const;
 
-const sameStep = (a: Step, b: Step) => a.kind === b.kind && (a.kind === "what" || a.kind === "review" || ("key" in b && a.key === b.key));
+const sameStep = (a: Step, b: Step) => a.kind === b.kind && (a.kind === "what" || a.kind === "review" || ("key" in b && "key" in a && a.key === b.key));
+const sameSet = (a: SurfaceType[], b: SurfaceType[]) => a.length === b.length && a.every((s) => b.includes(s));
 
 /**
- * The easy visualizer. One question per screen, in words anyone can follow:
- *   1. What do you want to tile?   (big picture buttons)
- *   2. Show us where               (tap the photo to colour that surface; paint / erase to fix)
- *   3. Pick a tile                 (big tile photos; an instant quick look on the photo)
+ * The 4 steps of a new design, one question per screen in words anyone can follow:
+ *   1. Room photo           (QuickUploadPage)
+ *   2. What to change, then show where (tap the photo; Add / Remove to fix)
+ *   3. Pick a tile          (it shows on the photo at once; Style for 2-3 tile layouts)
  *   4. Check and make the real photo
- * The painted marks go to the AI as a guide image, so it tiles exactly the spots the owner coloured.
+ * The marks go to the AI as a guide image, so it tiles exactly the spots the owner coloured.
  */
 export function QuickDesignPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -93,7 +106,7 @@ export function QuickDesignPage() {
   }, [roomId, roomAttempt]);
   const { photo, failed: photoFailed } = useRoomPhoto(photoUrl);
 
-  // ---- the room check (analysis) runs in the background while the owner marks and picks ----
+  // ---- the photo check (analysis) runs in the background while the owner marks and picks ----
   const cached = workflowAnalysis && workflowAnalysis.roomUploadId === roomId ? workflowAnalysis : null;
   const [analysis, setAnalysis] = useState<RoomAnalysis | null>(cached);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -104,7 +117,7 @@ export function QuickDesignPage() {
     setAnalysisError(null);
     (async () => {
       try {
-        // Read first: an existing room check is reused, never paid for twice.
+        // Read first: an existing photo check is reused, never paid for twice.
         const existing = await getRoomAnalysis(roomId);
         const result = existing ?? (await analyzeRoom(roomId)).analysis;
         if (cancelled) return;
@@ -141,23 +154,18 @@ export function QuickDesignPage() {
       .catch(() => undefined);
   }, [roomId, analysis]);
 
-  // ---- credits ----
+  // ---- photos left (credits shown as photos) ----
+  const wallet = usePhotosLeft();
   const [balance, setBalance] = useState<number | null>(null);
-  const [cost, setCost] = useState<number | null>(null);
-  useEffect(() => {
-    Promise.all([getBillingSummary(), getCreditPackages()])
-      .then(([summary, pkgs]) => {
-        setBalance(summary.balance);
-        setCost(pkgs.generationCreditCost);
-      })
-      .catch(() => undefined);
-  }, []);
+  useEffect(() => setBalance(wallet.balance), [wallet.balance]);
+  const cost = wallet.cost;
+  const photosLeft = balance !== null && cost !== null ? photosFrom(balance, cost) : null;
 
   // ---- the design ----
   const [areas, setAreas] = useState<QuickArea[] | null>(null);
   const [note, setNote] = useState("");
   const [step, setStep] = useState<Step>({ kind: "what" });
-  const [picked, setPicked] = useState<Set<SurfaceType>>(new Set());
+  const [choice, setChoice] = useState<string | null>(null);
 
   // Start from: the result being edited, else the draft from a refresh, else a blank design.
   useEffect(() => {
@@ -190,8 +198,10 @@ export function QuickDesignPage() {
 
   const list = areas ?? [];
   const sequence: Step[] = useMemo(() => [{ kind: "what" }, ...list.flatMap((a): Step[] => [{ kind: "mark", key: a.key }, { kind: "tile", key: a.key }]), { kind: "review" }], [list]);
-  const stepIndex = Math.max(0, sequence.findIndex((s) => sameStep(s, step)));
-  const activeKey = step.kind === "mark" || step.kind === "tile" ? step.key : null;
+  // The style screen belongs to its tile step.
+  const position: Step = step.kind === "style" ? { kind: "tile", key: step.key } : step;
+  const stepIndex = Math.max(0, sequence.findIndex((s) => sameStep(s, position)));
+  const activeKey = step.kind === "mark" || step.kind === "tile" || step.kind === "style" ? step.key : null;
   const activeIndex = list.findIndex((a) => a.key === activeKey);
   const active = activeIndex >= 0 ? list[activeIndex]! : null;
   const issues = useMemo(() => quickIssues(list), [list]);
@@ -204,24 +214,28 @@ export function QuickDesignPage() {
 
   // Coming back to the first screen shows what is already chosen.
   useEffect(() => {
-    if (step.kind === "what" && areas) setPicked(new Set(areas.map((a) => a.surface)));
+    if (step.kind !== "what" || !areas) return;
+    const surfaces = [...new Set(areas.map((a) => a.surface))];
+    setChoice(CHOICES.find((c) => sameSet(c.surfaces, surfaces))?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step.kind]);
 
   // A step whose area was removed falls back to the summary.
   useEffect(() => {
-    if (areas && (step.kind === "mark" || step.kind === "tile") && !areas.some((a) => a.key === step.key)) setStep({ kind: "review" });
-  }, [areas, step]);
+    if (areas && activeKey && !areas.some((a) => a.key === activeKey)) setStep({ kind: "review" });
+  }, [areas, activeKey]);
 
   const update = (key: string, fn: (a: QuickArea) => QuickArea) => setAreas((prev) => prev?.map((a) => (a.key === key ? fn(a) : a)) ?? prev);
 
-  // Surfaces chosen on the first screen become areas (one each); removing a surface removes its areas.
+  // The choice on the first screen becomes areas (one per surface); surfaces no longer chosen are removed.
   function confirmWhat() {
+    const picked = new Set(CHOICES.find((c) => c.id === choice)?.surfaces ?? []);
+    if (picked.size === 0) return;
     const current = areas ?? [];
     const kept = current.filter((a) => picked.has(a.surface));
     const added = QUICK_SURFACES.filter((s) => picked.has(s.surface) && !kept.some((a) => a.surface === s.surface)).map((s) => newQuickArea(s.surface));
     let next = [...kept, ...added].slice(0, MAX_AREAS);
-    // A tile chosen in the catalog ("Try in my space") goes into the first area it fits, once.
+    // A tile chosen in the catalog ("Try in a room") goes into the first area it fits, once.
     if (selectedTile?.isActive) {
       const target = next.find((a) => chosen(a).length === 0 && tileFitsSurface(selectedTile, a.surface));
       if (target) next = next.map((a) => (a.key === target.key ? withTile(a, 0, selectedTile) : a));
@@ -234,12 +248,13 @@ export function QuickDesignPage() {
 
   function addArea(surface: SurfaceType) {
     const area = newQuickArea(surface);
+    setAddingPart(false);
     setAreas((prev) => [...(prev ?? []), area].slice(0, MAX_AREAS));
     setStep({ kind: "mark", key: area.key });
   }
 
   // ---- marking ----
-  const [tool, setTool] = useState<MarkTool>("fill");
+  const [tool, setTool] = useState<MarkTool>("add");
   const [brush, setBrush] = useState<keyof typeof BRUSH>("thick");
   const [undoStack, setUndoStack] = useState<Snapshot[]>([]);
   const [lastFill, setLastFill] = useState<{ key: string; before: Snapshot; x: number; y: number; level: FillLevel } | null>(null);
@@ -269,13 +284,31 @@ export function QuickDesignPage() {
     );
   }
 
+  /** Remove: a tap clears the whole surface under the finger from every area. */
+  function clearFrom(x: number, y: number) {
+    if (!photo?.lab) return;
+    const { width, height } = photo.grid;
+    const region = growRegion(photo.lab, width, height, x, y, DEFAULT_FILL_LEVEL);
+    pushUndo();
+    setLastFill(null);
+    setAreas(
+      (prev) =>
+        prev?.map((a) => {
+          if (!a.mask) return a;
+          const next = cloneMask(a.mask);
+          removeRegion(next, region);
+          return { ...a, mask: paintedCount(next) > 0 ? next : null };
+        }) ?? prev,
+    );
+  }
+
   function onTap(x: number, y: number) {
     if (!active || !photo) return;
     if (!photo.lab) {
-      setMarkNote("Tap-to-colour does not work on this photo. Use Paint and colour it with your finger.");
-      setTool("paint");
+      setMarkNote("Tapping does not work on this photo. Rub your finger over the part to colour it.");
       return;
     }
+    if (tool === "remove") return clearFrom(x, y);
     const before = snapshot();
     pushUndo();
     fillFrom(before, active.key, x, y, DEFAULT_FILL_LEVEL);
@@ -315,9 +348,15 @@ export function QuickDesignPage() {
   // ---- tiles ----
   const [slot, setSlot] = useState(0);
   const [addingTile, setAddingTile] = useState(false);
+  const [addingPart, setAddingPart] = useState(false);
+  const keepSlot = useRef(false);
   useEffect(() => {
-    // Opening an area's tile step points at its first empty slot.
+    // Opening an area's tile step points at its first empty slot (unless a part of the style picture was tapped).
     if (step.kind !== "tile" || !active) return;
+    if (keepSlot.current) {
+      keepSlot.current = false;
+      return;
+    }
     const empty = active.slots.findIndex((t) => t === null);
     setSlot(empty === -1 ? 0 : empty);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -344,7 +383,7 @@ export function QuickDesignPage() {
   async function generate() {
     if (!roomId || !areas || !ready || started.current) return;
     if (lowCredits) return setNoCredits(true);
-    // The server needs the room check; if it is still running, start as soon as it is done.
+    // The server needs the photo check; if it is still running, start as soon as it is done.
     if (!analysis) {
       setWaitingForCheck(true);
       return;
@@ -359,6 +398,7 @@ export function QuickDesignPage() {
     try {
       const viz = await generateVisualization({ roomUploadId: roomId, design: toQuickPayload(areas), requirements: note.trim() });
       clearInterval(timer);
+      clearQuickDraft(roomId);
       navigate(`/result/${viz.id}`);
     } catch (err) {
       clearInterval(timer);
@@ -371,7 +411,7 @@ export function QuickDesignPage() {
           .catch(() => undefined);
       } else if (err instanceof ApiClientError && err.code === "GENERATION_IN_PROGRESS") {
         navigate("/my-visualizations");
-      } else setGenerationError(friendlyErrorMessage(err, "We couldn't make the photo this time. Nothing was charged. Please try again."));
+      } else setGenerationError(friendlyErrorMessage(err, "The photo could not be made. Nothing was used. Please try again."));
     }
   }
   useEffect(() => {
@@ -381,67 +421,49 @@ export function QuickDesignPage() {
 
   // ---- what the big button does on each screen ----
   const goNext = () => setStep(sequence[Math.min(sequence.length - 1, stepIndex + 1)]!);
-  const goBack = () => (stepIndex === 0 ? navigate("/upload") : setStep(sequence[stepIndex - 1]!));
+  const goBack = () => {
+    if (step.kind === "style") return setStep({ kind: "tile", key: step.key });
+    return stepIndex === 0 ? navigate("/upload") : setStep(sequence[stepIndex - 1]!);
+  };
   const activeTitle = active ? surfaceTitle(active.surface).toLowerCase() : "";
+  const colour = maskColour(Math.max(0, activeIndex)).name.toLowerCase();
   const onlyOfKind = active ? list.filter((a) => a.surface === active.surface).length === 1 : false;
+  const marked = active ? isMarked(active) : false;
   const nextAction = (() => {
-    if (step.kind === "what") return { label: "Next", disabled: picked.size === 0, hint: picked.size === 0 ? "Tap what you want to tile" : null, run: confirmWhat };
+    if (step.kind === "what") return { label: choice ? `Next: show the ${CHOICES.find((c) => c.id === choice)!.title.toLowerCase()}` : "Next", disabled: !choice, hint: choice ? "You can add more parts later" : "Tap what you want to change", run: confirmWhat };
     if (step.kind === "mark" && active) {
-      if (isMarked(active)) return { label: "Next: pick the tile", disabled: false, hint: null, run: goNext };
+      if (marked) return { label: "Yes, correct", disabled: false, hint: `Not right? Use Add or Remove on the photo`, run: goNext };
       if (onlyOfKind) return { label: `Tile the whole ${activeTitle}`, disabled: false, hint: `Or tap the ${activeTitle} in the photo to show exactly where`, run: goNext };
       return { label: "Next: pick the tile", disabled: true, hint: `Colour this ${activeTitle} on the photo first`, run: goNext };
     }
+    if (step.kind === "style") return { label: "Use this style", disabled: false, hint: null, run: () => setStep({ kind: "tile", key: step.key }) };
     if (step.kind === "tile" && active) {
       const missing = issues[active.key]?.find((m) => /^Pick/.test(m));
-      return { label: stepIndex + 1 === sequence.length - 1 ? "Next: check everything" : "Next", disabled: Boolean(missing), hint: missing ?? null, run: goNext };
+      return { label: stepIndex + 1 === sequence.length - 1 ? "Next: check & make photo" : "Next", disabled: Boolean(missing), hint: missing ?? null, run: goNext };
     }
     const first = issues["_"]?.[0] ?? Object.values(issues)[0]?.[0] ?? null;
-    return { label: waitingForCheck ? "Getting ready…" : "Make the real photo", disabled: !ready || waitingForCheck, hint: first, run: generate };
+    return { label: waitingForCheck ? "Getting ready…" : "Make real photo", disabled: !ready || waitingForCheck, hint: first, run: generate };
   })();
 
-  // The question of each screen, shown above the photo on a phone.
-  const stepHeader =
-    step.kind === "mark" && active ? (
-      <>
-        <AreaBadge index={activeIndex} title={surfaceTitle(active.surface)} />
-        <h1 id="mark-title" className="mt-2 font-display text-2xl text-stone-900 sm:text-3xl">
-          Show us the {activeTitle}
-        </h1>
-        <p className="mt-1.5 text-base text-stone-600">
-          {tool === "fill" ? (
-            <>
-              <strong>Tap on the {activeTitle}</strong> in the photo. It turns {colourWord(activeIndex)}. Tap again on any part we missed.
-            </>
-          ) : tool === "paint" ? (
-            <>
-              <strong>Rub your finger</strong> over the {activeTitle} to colour it.
-            </>
-          ) : (
-            <>
-              <strong>Rub over</strong> any colour that is in the wrong place to remove it.
-            </>
-          )}
-        </p>
-      </>
-    ) : step.kind === "tile" && active ? (
-      <>
-        <AreaBadge index={activeIndex} title={surfaceTitle(active.surface)} />
-        <h1 id="tile-title" className="mt-2 font-display text-2xl text-stone-900 sm:text-3xl">
-          Pick a tile for the {activeTitle}
-        </h1>
-        <p className="mt-1.5 text-base text-stone-600">Tap a tile. {isMarked(active) ? "You will see it on your photo straight away." : ""}</p>
-      </>
-    ) : step.kind === "review" ? (
-      <h1 id="review-title" className="font-display text-2xl text-stone-900 sm:text-3xl">
-        Check and make the real photo
-      </h1>
-    ) : null;
+  // What the Listen button says on each screen.
+  const listen =
+    step.kind === "what"
+      ? "What do you want to change? Tap a picture, then tap Next."
+      : step.kind === "mark"
+        ? marked
+          ? `Is the ${colour} part the ${activeTitle}? If yes, tap Yes, correct. If not, tap Add and colour more, or tap Remove and rub away the wrong part.`
+          : `Tap the ${activeTitle} in the photo. It turns ${colour}. Tap again on any part that was missed.`
+        : step.kind === "tile"
+          ? `Pick a tile for the ${activeTitle}. Tap a tile and it shows on your photo.`
+          : step.kind === "style"
+            ? "How should the tiles be laid? Tap a picture. Then tap Use this style."
+            : "Check everything once. Then tap Make real photo. It uses one photo. If it fails, nothing is used.";
 
   // ---------- screens ----------
 
   if (roomError || photoFailed) {
     return (
-      <PageContainer className="max-w-xl">
+      <Screen>
         <ErrorState
           message={roomError ?? "We couldn't show this room photo. Please check your internet and try again."}
           onRetry={() => {
@@ -450,347 +472,397 @@ export function QuickDesignPage() {
             setRoomAttempt((n) => n + 1);
           }}
         />
-        <Link to="/upload" className="mt-4 inline-block text-sm font-semibold text-clay-700 underline">
+        <Link to="/upload" className={bigButton("secondary", "mt-4")}>
+          <Icon name="camera" />
           Use another photo
         </Link>
-      </PageContainer>
+      </Screen>
     );
   }
 
   if (generating) {
-    const steps: ProgressStep[] = GENERATION_STAGES.map((label, i) => ({ label, status: i < stage ? "done" : i === stage ? "active" : "pending" }));
     return (
-      <PageContainer className="max-w-3xl">
-        <h1 className="font-display text-3xl text-stone-900">Making your real photo…</h1>
-        <p className="mt-2 text-stone-600">This takes about a minute. Please keep this page open.</p>
-        <div className="mt-6 grid gap-6 md:grid-cols-[1fr_260px]">
-          <div className="relative overflow-hidden rounded-2xl">
-            {photoUrl && <PhotoMarker photoUrl={photoUrl} photo={photo} areas={list} activeKey={null} mode="look" tool="fill" brush={BRUSH.thick} tileImages={tileImages} onTap={() => undefined} onStroke={() => undefined} />}
-            <motion.div aria-hidden="true" className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/45 to-transparent" initial={{ x: "-120%" }} animate={{ x: "320%" }} transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }} />
-          </div>
-          <div className="rounded-2xl border border-stone-200 bg-white p-5">
-            <ProgressSteps steps={steps} />
-          </div>
+      <Screen>
+        <div className="flex items-start gap-3">
+          <Question sub="About 1 minute. Please keep this screen open.">Making your real photo…</Question>
         </div>
-      </PageContainer>
+        <div className="relative mt-4 overflow-hidden rounded-[20px]">
+          {photoUrl && <PhotoMarker photoUrl={photoUrl} photo={photo} areas={list} activeKey={null} mode="look" tool="add" brush={BRUSH.thick} tileImages={tileImages} onTap={() => undefined} onStroke={() => undefined} className="[--photo-vh:46vh]" />}
+          <motion.div aria-hidden="true" className="pointer-events-none absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/55 to-transparent" initial={{ x: "-120%" }} animate={{ x: "320%" }} transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }} />
+        </div>
+        <ol className="mt-4 space-y-1 rounded-[18px] border-[1.5px] border-hairline bg-white px-4 py-3" aria-label="Progress">
+          {GENERATION_STAGES.map((label, i) => (
+            <li key={label} className={cn("flex min-h-10 items-center gap-3 text-base", i === stage ? "font-extrabold text-ink" : i < stage ? "text-ink" : "text-ink-secondary")}>
+              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", i < stage ? "bg-stone-900 text-white" : i === stage ? "animate-spin border-[3px] border-champagne-400 border-t-stone-900" : "border-2 border-[#C9D2C6]")}>
+                {i < stage && <Icon name="check" className="h-4 w-4" strokeWidth={3} />}
+              </span>
+              {label}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-4 flex gap-3 rounded-2xl bg-sage-200 px-4 py-3 text-[15px] leading-snug text-ink">
+          <Icon name="info" className="mt-0.5" />
+          The photo is saved with this customer. If it fails, nothing is used.
+        </p>
+      </Screen>
     );
   }
 
-  const progress = Math.round(((stepIndex + 1) / sequence.length) * 100);
-  const showPhoto = step.kind !== "what";
+  const headerStep: 2 | 3 | 4 = step.kind === "review" ? 4 : step.kind === "tile" || step.kind === "style" ? 3 : 2;
+  const headerLabel =
+    step.kind === "what"
+      ? "What to change"
+      : step.kind === "mark"
+        ? `Mark the ${activeTitle}`
+        : step.kind === "style"
+          ? "Laying style"
+          : step.kind === "tile"
+            ? `Tile for the ${activeTitle}`
+            : "Make real photo";
+
+  const photoView = (mode: "mark" | "look", vh: string) =>
+    photoUrl ? (
+      <PhotoMarker photoUrl={photoUrl} photo={photo} areas={list} activeKey={activeKey} mode={mode} tool={tool} brush={BRUSH[brush]} tileImages={tileImages} onTap={onTap} onStroke={onStroke} className={vh} />
+    ) : (
+      <div className="aspect-[4/3] animate-pulse rounded-2xl bg-stone-200" aria-label="Loading your photo" />
+    );
 
   return (
-    <PageContainer compact className="max-w-6xl">
-      {/* Where am I: one line and a bar, plus the room check running in the background. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-stone-500">{list.length > 0 ? `Step ${stepIndex + 2} of ${sequence.length + 1}` : "Step 2"}</p>
-        <RoomCheck analysis={analysis} error={analysisError} onRetry={() => setAnalysisAttempt((n) => n + 1)} />
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="How far you are">
-        <motion.div className="h-full rounded-full bg-clay-600" animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
-      </div>
+    <Screen wide={step.kind !== "what"}>
+      <FlowHeader step={headerStep} label={headerLabel} onBack={goBack} listen={listen} />
 
-          {step.kind === "what" && (
-            <motion.section className="mt-6" aria-labelledby="what-title" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.22 }}>
-              <h1 id="what-title" className="font-display text-3xl text-stone-900 sm:text-4xl">
-                What do you want to tile?
-              </h1>
-              <p className="mt-2 text-base text-stone-600">Tap one or more. You can change this later.</p>
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {QUICK_SURFACES.map(({ surface, title, hint }) => {
-                  const on = picked.has(surface);
-                  const suggested = analysis?.recommendedSurfaces.includes(surface);
-                  return (
-                    <button
-                      key={surface}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() =>
-                        setPicked((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(surface)) next.delete(surface);
-                          else next.add(surface);
-                          return next;
-                        })
-                      }
-                      className={cn(
-                        "relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all sm:p-5",
-                        on ? "border-clay-600 bg-clay-50 text-stone-900 shadow-lg" : "border-stone-200 bg-white text-stone-700 hover:-translate-y-0.5 hover:border-stone-400",
-                      )}
-                    >
-                      <SurfaceIcon surface={surface} className={cn("h-14 w-14", on ? "text-clay-700" : "text-stone-500")} />
-                      <span className="text-lg font-semibold leading-tight">{title}</span>
-                      <span className="text-xs text-stone-500">{hint}</span>
-                      {suggested && <span className="absolute left-2 top-2 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-stone-900">Suggested</span>}
-                      {on && (
-                        <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-clay-600 text-sm font-bold text-white" aria-hidden="true">
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+      {step.kind === "what" && (
+        <motion.section className="space-y-4" aria-labelledby="what-title" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.22 }}>
+          <div className="relative h-48 overflow-hidden rounded-[20px] bg-stone-200 sm:h-56">
+            {photoUrl && <img src={photoUrl} alt="The customer's room photo" className="h-full w-full object-cover" />}
+            <span className="absolute bottom-2.5 left-2.5">
+              <RoomCheck analysis={analysis} error={analysisError} onRetry={() => setAnalysisAttempt((n) => n + 1)} />
+            </span>
+          </div>
+          {analysis && analysis.warnings.length > 0 && (
+            <div className="flex items-start gap-3 rounded-2xl bg-[#FBF1DC] p-3.5 text-[#5C3D00]" role="status">
+              <Icon name="alert" className="mt-0.5" />
+              <div className="min-w-0 flex-1 text-[15px] leading-snug">
+                <p className="font-bold">Photo check: {analysis.warnings[0]}</p>
+                <p className="mt-0.5">The tiles may not look right. You can still go on.</p>
               </div>
-              {roomId && (
-                <p className="mt-6 text-sm text-stone-500">
-                  Need numbered walls, room templates or measurements?{" "}
-                  <Link to={`/tiles/${roomId}`} className="font-semibold text-clay-700 underline">
-                    Open the Advanced studio
-                  </Link>
-                </p>
-              )}
-            </motion.section>
+              <Link to="/upload" className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-extrabold text-ink">
+                Take again
+              </Link>
+            </div>
           )}
+          <Question id="what-title">What do you want to change?</Question>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3" role="radiogroup" aria-label="What to change">
+            {CHOICES.map((c) => {
+              const on = choice === c.id;
+              const seen = analysis ? c.surfaces.every((s) => analysis.recommendedSurfaces.includes(s)) && c.surfaces.length === 1 : false;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setChoice(c.id)}
+                  className={cn(
+                    "relative flex h-[120px] flex-col items-center justify-center gap-0.5 rounded-[18px] px-2.5 pb-2 pt-6 text-center transition-colors",
+                    on ? "border-[2.5px] border-stone-900 bg-sage-200" : "border-2 border-[#D3DACF] bg-white hover:border-[#8E9A8F]",
+                  )}
+                >
+                  {seen && <span aria-hidden="true" className="absolute left-2 top-2 rounded-full bg-[#F1E4C8] px-2 text-[11px] font-extrabold leading-[22px] text-[#6B5326]">IN PHOTO</span>}
+                  {on && (
+                    <span className="absolute right-2 top-2 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-stone-900 text-white" aria-hidden="true">
+                      <Icon name="check" className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                  )}
+                  <Icon name={c.icon} className="h-9 w-9 text-ink" strokeWidth={1.7} />
+                  <span className="text-[17px] font-extrabold leading-5 text-ink">{c.title}</span>
+                  <span className="text-[13px] leading-4 text-ink-secondary">{c.hint}</span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.section>
+      )}
 
-          {showPhoto && (
-            <div className="mt-4 grid gap-x-6 gap-y-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-              {/* On a phone the step's question comes first, then the photo, then the controls; on a laptop the photo is on the left. */}
-              <motion.div key={`head-${step.kind}-${activeKey ?? ""}`} className="min-w-0 lg:col-start-2 lg:row-start-1" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
-                {stepHeader}
-              </motion.div>
-              {/* Big while marking (a finger needs room to paint), smaller while choosing tiles so the tiles show sooner. */}
-              <div className={cn("min-w-0 lg:sticky lg:top-24 lg:col-start-1 lg:row-span-2 lg:row-start-1", step.kind === "mark" ? "[--photo-vh:70vh] lg:[--photo-vh:72vh]" : "[--photo-vh:45vh] lg:[--photo-vh:68vh]")}>
-                {photoUrl ? (
-                  <PhotoMarker
-                    photoUrl={photoUrl}
-                    photo={photo}
-                    areas={list}
-                    activeKey={activeKey}
-                    mode={step.kind === "mark" ? "mark" : "look"}
-                    tool={tool}
-                    brush={BRUSH[brush]}
-                    tileImages={tileImages}
-                    onTap={onTap}
-                    onStroke={onStroke}
-                  />
+      {step.kind !== "what" && (
+        <div className="grid gap-x-6 gap-y-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
+          {/* On a phone the question comes first, then the photo, then the controls; on a laptop the photo is on the left. */}
+          <motion.div key={`head-${step.kind}-${activeKey ?? ""}`} className="min-w-0 lg:col-start-2 lg:row-start-1" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
+            {active && list.length > 1 && <PartBadge index={activeIndex} title={surfaceTitle(active.surface)} />}
+            {step.kind === "mark" && active && (
+              <Question id="mark-title" sub={marked ? "New tiles go only on the coloured part. Everything else stays the same." : `It turns ${colour}. Tap again on any part that was missed.`}>
+                {marked ? (
+                  <>
+                    Is the <span style={{ color: maskCss(activeIndex) }}>{colour} part</span> the {activeTitle}?
+                  </>
                 ) : (
-                  <div className="aspect-[4/3] animate-pulse rounded-2xl bg-stone-200" aria-label="Loading your photo" />
+                  <>Tap the {activeTitle} in the photo</>
                 )}
-                {step.kind !== "mark" && list.some((a) => chosen(a).length > 0 && isMarked(a)) && (
-                  <p className="mt-2 text-center text-xs text-stone-500">Quick look: a free sketch to check which tile goes where. “Make the real photo” shows the tiles truly laid, with grout, cuts and real light.</p>
-                )}
-              </div>
+              </Question>
+            )}
+            {step.kind === "tile" && active && (
+              <Question id="tile-title" sub={marked ? "Tap a tile. It shows on your photo at once." : "Tap a tile."}>
+                Pick a tile for the {activeTitle}
+              </Question>
+            )}
+            {step.kind === "style" && active && (
+              <Question id="style-title" sub={`On the ${activeTitle}. Tap a picture.`}>
+                How to lay the tiles?
+              </Question>
+            )}
+            {step.kind === "review" && (
+              <Question id="review-title" sub="Check once, then make the real photo.">
+                All ready?
+              </Question>
+            )}
+          </motion.div>
 
-              <motion.div key={`${step.kind}-${activeKey ?? ""}`} className="min-w-0 lg:col-start-2 lg:row-start-2" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
-                {step.kind === "mark" && active && (
-                  <section aria-labelledby="mark-title">
-                    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Marking tool">
-                      <ToolButton active={tool === "fill"} onClick={() => setTool("fill")} icon="👆" label="Tap to colour" />
-                      <ToolButton active={tool === "paint"} onClick={() => setTool("paint")} icon="🖌️" label="Paint" />
-                      <ToolButton active={tool === "erase"} onClick={() => setTool("erase")} icon="🧽" label="Erase" />
-                    </div>
-                    {tool !== "fill" && (
-                      <div className="mt-2 flex gap-2" role="radiogroup" aria-label="Brush size">
-                        {(["thin", "thick"] as const).map((b) => (
-                          <button key={b} type="button" role="radio" aria-checked={brush === b} onClick={() => setBrush(b)} className={cn("flex-1 rounded-xl border px-3 py-2 text-sm font-medium", brush === b ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 bg-white text-stone-700")}>
-                            {b === "thin" ? "Thin brush" : "Thick brush"}
+          {/* Big while marking (a finger needs room to paint), smaller while choosing tiles so the tiles show sooner. */}
+          <div className={cn("min-w-0 lg:sticky lg:top-6 lg:col-start-1 lg:row-span-2 lg:row-start-1", step.kind === "style" && "hidden lg:block")}>
+            {photoView(step.kind === "mark" ? "mark" : "look", step.kind === "mark" ? "[--photo-vh:46vh] lg:[--photo-vh:74vh]" : "[--photo-vh:34vh] lg:[--photo-vh:70vh]")}
+            {step.kind !== "mark" && list.some((a) => chosen(a).length > 0 && isMarked(a)) && (
+              <p className="mt-2 text-center text-[13px] text-ink-secondary">Quick look · the real photo shows the tiles truly laid, with grout and real light.</p>
+            )}
+          </div>
+
+          <motion.div key={`${step.kind}-${activeKey ?? ""}`} className="min-w-0 lg:col-start-2 lg:row-start-2" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
+            {step.kind === "mark" && active && (
+              <section aria-labelledby="mark-title" className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2.5" role="radiogroup" aria-label="Marking tool">
+                  <ToolButton active={tool === "add"} onClick={() => setTool("add")} icon="plus" label={`Add ${colour}`} />
+                  <ToolButton active={tool === "remove"} onClick={() => setTool("remove")} icon="eraser" label={`Remove ${colour}`} />
+                </div>
+                {lastFill && lastFill.key === active.key && tool === "add" && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-sage-200 px-3 py-2.5 text-[15px] text-ink" role="group" aria-label="Adjust the last fill">
+                    <span className="flex-1 font-bold">Coloured the right part?</span>
+                    <button type="button" onClick={() => nudgeFill(-1)} disabled={lastFill.level === 1} className="h-11 rounded-xl border-[1.5px] border-[#C9D2C6] bg-white px-3.5 font-extrabold disabled:opacity-40">
+                      − Less
+                    </button>
+                    <button type="button" onClick={() => nudgeFill(1)} disabled={lastFill.level === 5} className="h-11 rounded-xl border-[1.5px] border-[#C9D2C6] bg-white px-3.5 font-extrabold disabled:opacity-40">
+                      + More
+                    </button>
+                  </div>
+                )}
+                {markNote && (
+                  <p role="status" className="rounded-2xl bg-[#FBF1DC] px-3 py-2.5 text-[15px] text-[#5C3D00]">
+                    {markNote}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <SmallTool onClick={undo} disabled={undoStack.length === 0} icon="undo">
+                    Undo
+                  </SmallTool>
+                  <SmallTool onClick={() => setBrush((b) => (b === "thick" ? "thin" : "thick"))} label={brush === "thick" ? "Brush size: big. Tap for small" : "Brush size: small. Tap for big"}>
+                    <span className={cn("rounded-full bg-ink", brush === "thick" ? "h-[18px] w-[18px]" : "h-2 w-2")} aria-hidden="true" />
+                    Size
+                  </SmallTool>
+                  <SmallTool onClick={clearActive} disabled={!active.mask} icon="retry">
+                    Start again
+                  </SmallTool>
+                </div>
+                <p className="text-[15px] text-ink-secondary">
+                  {tool === "add" ? "Tap a surface to fill it. Rub your finger to paint." : "Tap a surface to clear it. Rub your finger to rub away."}
+                  {!marked && (onlyOfKind ? ` No time? Skip, and the AI tiles the whole ${activeTitle}.` : ` You have more than one ${activeTitle}: colour where this one is.`)}
+                </p>
+              </section>
+            )}
+
+            {step.kind === "tile" && active && (
+              <section aria-labelledby="tile-title" className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl border-[1.5px] border-hairline bg-white px-3 text-[15px]">
+                    <span className="h-3.5 w-3.5 shrink-0 rounded-full" style={{ background: maskCss(activeIndex) }} aria-hidden="true" />
+                    <span className="truncate">
+                      <b>{surfaceTitle(active.surface)}:</b> {chosen(active).map((t) => t.name).join(" + ") || "no tile yet"}
+                    </span>
+                  </span>
+                  <button type="button" onClick={() => setStep({ kind: "style", key: active.key })} className="flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-sage-200 px-3 text-[15px] font-extrabold text-ink hover:bg-sage-300">
+                    <Icon name="layers" className="h-5 w-5" />
+                    Style: {STYLE_NAMES[active.pattern]}
+                  </button>
+                </div>
+                {PATTERNS[active.pattern].max > 1 && (
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Which tile you are choosing">
+                    {rolesFor(active.pattern, active.surface)
+                      .slice(0, PATTERNS[active.pattern].max)
+                      .map((role, i) => {
+                        const tile = active.slots[i];
+                        return (
+                          <button key={role} type="button" role="radio" aria-checked={slot === i} onClick={() => setSlot(i)} className={cn("flex items-center gap-2 rounded-2xl px-2 py-1.5 text-left text-sm", slot === i ? "border-[2.5px] border-stone-900 bg-sage-200" : "border-[1.5px] border-hairline bg-white")}>
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-stone-100 text-base font-bold text-ink-secondary">{tile ? <TileThumb tile={tile} /> : i + 1}</span>
+                            <span>
+                              <span className="block font-extrabold capitalize text-ink">{role}</span>
+                              <span className="block text-ink-secondary">{tile ? tile.name : i < PATTERNS[active.pattern].min ? "Tap a tile below" : "Optional"}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+                <TileChooser tiles={catalog} loading={catalogLoading} surface={active.surface} recommendedIds={recommended} chosenIds={active.slots.map((t) => t?.id ?? "")} onPick={pickTile} onAddPhoto={() => setAddingTile(true)} />
+              </section>
+            )}
+
+            {step.kind === "style" && active && (
+              <section aria-labelledby="style-title" className="space-y-3">
+                <StylePicker
+                  surface={active.surface}
+                  pattern={active.pattern}
+                  tiles={chosen(active)}
+                  onChange={(p) => {
+                    const next = withQuickPattern(active, p);
+                    update(active.key, () => next);
+                    // The next tap fills the first empty slot of the new style, never replaces a tile already chosen.
+                    const empty = next.slots.findIndex((t) => t === null);
+                    setSlot(empty === -1 ? 0 : empty);
+                  }}
+                />
+                <div className="rounded-[18px] border-[1.5px] border-hairline bg-white px-3 pb-1.5 pt-3">
+                  <h2 className="font-sans text-[15px] font-extrabold text-ink">
+                    {PATTERNS[active.pattern].max > 1 ? `Pick a tile for each part (${PATTERNS[active.pattern].min === PATTERNS[active.pattern].max ? PATTERNS[active.pattern].max : `${PATTERNS[active.pattern].min}-${PATTERNS[active.pattern].max}`} tiles)` : `One tile for the whole ${activeTitle}`}
+                  </h2>
+                  {rolesFor(active.pattern, active.surface)
+                    .slice(0, PATTERNS[active.pattern].max)
+                    .map((role, i) => {
+                      const tile = active.slots[i];
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => {
+                            keepSlot.current = true;
+                            setSlot(i);
+                            setStep({ kind: "tile", key: active.key });
+                          }}
+                          className="flex min-h-[52px] w-full items-center gap-2.5 border-t border-[#EEF1EC] py-1.5 text-left first-of-type:border-t-0"
+                        >
+                          <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-sage-200 text-sm font-extrabold">{i + 1}</span>
+                          <span className="min-w-0 flex-1 text-[15px] leading-5">
+                            <b className="capitalize">{role}</b>
+                            <span className="block text-ink-secondary">{tile ? tile.name : i < PATTERNS[active.pattern].min ? "Not chosen yet" : "Optional"}</span>
+                          </span>
+                          {tile && (
+                            <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+                              <TileThumb tile={tile} />
+                            </span>
+                          )}
+                          <span className="shrink-0 text-sm font-extrabold underline">{tile ? "Change" : "Pick"}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </section>
+            )}
+
+            {step.kind === "review" && (
+              <section aria-labelledby="review-title" className="space-y-3">
+                <ul className="space-y-2.5">
+                  {list.map((area, i) => {
+                    const tiles = chosen(area);
+                    const problem = issues[area.key]?.[0];
+                    return (
+                      <li key={area.key} className={cn("rounded-[18px] border-[1.5px] bg-white p-3", problem ? "border-amber-300" : "border-hairline")} aria-label={`Part ${i + 1}: ${surfaceTitle(area.surface)}`}>
+                        <div className="flex items-center gap-2.5">
+                          <span className="h-4 w-4 shrink-0 rounded-full" style={{ background: maskCss(i) }} aria-hidden="true" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-sans font-extrabold text-ink">{surfaceTitle(area.surface)}</p>
+                            <p className="truncate text-sm text-ink-secondary">
+                              {isMarked(area) ? "Marked on the photo" : `The whole ${surfaceTitle(area.surface).toLowerCase()}`} · {STYLE_NAMES[area.pattern]}
+                            </p>
+                          </div>
+                          <div className="flex -space-x-2">
+                            {tiles.map((t) => (
+                              <span key={t.id} className="h-11 w-11 overflow-hidden rounded-[10px] border-2 border-white shadow">
+                                <TileThumb tile={t} />
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {tiles.length > 0 && <p className="mt-1.5 truncate text-[15px] text-ink">{tiles.map((t) => t.name).join(" + ")}</p>}
+                        {problem && <p className="mt-1.5 text-[15px] text-amber-800">{problem}</p>}
+                        <div className="mt-2.5 flex flex-wrap gap-2">
+                          <MiniButton onClick={() => setStep({ kind: "tile", key: area.key })}>{tiles.length > 0 ? "Change tile" : "Pick tile"}</MiniButton>
+                          <MiniButton onClick={() => setStep({ kind: "mark", key: area.key })}>Change marking</MiniButton>
+                          <MiniButton onClick={() => setStep({ kind: "style", key: area.key })}>Style</MiniButton>
+                          {list.length > 1 && (
+                            <MiniButton danger onClick={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}>
+                              Remove
+                            </MiniButton>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {list.length < MAX_AREAS &&
+                  (addingPart ? (
+                    <div className="rounded-[18px] border-[1.5px] border-dashed border-[#8E9A8F] p-3">
+                      <p className="text-[15px] font-extrabold text-ink">What else should get new tiles?</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {QUICK_SURFACES.map((s) => (
+                          <button key={s.surface} type="button" onClick={() => addArea(s.surface)} className="flex h-11 items-center gap-1.5 rounded-full border-[1.5px] border-[#C9D2C6] bg-white px-3.5 text-[15px] font-bold text-ink hover:border-stone-900">
+                            <Icon name={SURFACE_ICON[s.surface]} className="h-5 w-5" /> + {s.title}
                           </button>
                         ))}
                       </div>
-                    )}
-                    {lastFill && lastFill.key === active.key && tool === "fill" && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-clay-50 px-3 py-2.5 text-sm text-clay-900" role="group" aria-label="Adjust the last fill">
-                        <span className="font-medium">Did it colour the right part?</span>
-                        <button type="button" onClick={() => nudgeFill(-1)} disabled={lastFill.level === 1} className="rounded-lg border border-clay-300 bg-white px-3 py-1.5 font-semibold disabled:opacity-40">
-                          − Less
-                        </button>
-                        <button type="button" onClick={() => nudgeFill(1)} disabled={lastFill.level === 5} className="rounded-lg border border-clay-300 bg-white px-3 py-1.5 font-semibold disabled:opacity-40">
-                          + More
-                        </button>
-                      </div>
-                    )}
-                    {markNote && (
-                      <p role="status" className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-                        {markNote}
-                      </p>
-                    )}
-                    <div className="mt-3 flex gap-2">
-                      <button type="button" onClick={undo} disabled={undoStack.length === 0} className="flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-stone-700 disabled:opacity-40">
-                        ↶ Undo
-                      </button>
-                      <button type="button" onClick={clearActive} disabled={!active.mask} className="flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-semibold text-stone-700 disabled:opacity-40">
-                        Start again
-                      </button>
                     </div>
-                    <p className="mt-3 text-sm text-stone-500">
-                      {isMarked(active) ? `✓ The ${activeTitle} is marked.` : onlyOfKind ? `No time? Skip this and we tile the whole ${activeTitle}.` : `You have more than one ${activeTitle}: colour where this one is.`}
+                  ) : (
+                    <button type="button" onClick={() => setAddingPart(true)} className="flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-[#8E9A8F] text-base font-extrabold text-ink hover:bg-sage-100">
+                      <Icon name="plus" />
+                      Add another part (floor, steps…)
+                    </button>
+                  ))}
+
+                <NoteBox note={note} setNote={setNote} />
+
+                <div className="flex items-center gap-3 rounded-2xl border-[1.5px] border-hairline bg-white px-3 py-2.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1E4C8] text-[#6B5326]">
+                    <Icon name="camera" />
+                  </span>
+                  <div className="text-[15px] leading-5">
+                    <p>
+                      <b>Uses 1 photo</b>
+                      {photosLeft !== null && <> · you have {photosLeft} left</>}
                     </p>
-                  </section>
+                    <p className="text-ink-secondary">If it fails, nothing is used.</p>
+                  </div>
+                </div>
+                {(noCredits || lowCredits) && (
+                  <div className="flex items-center gap-3 rounded-2xl bg-[#FBF1DC] px-3 py-2.5 text-[15px] font-bold text-[#5C3D00]">
+                    <span className="flex-1">Not enough photos left.</span>
+                    <Link to="/credits" className="rounded-xl bg-stone-900 px-3.5 py-2 text-white">
+                      Add photos
+                    </Link>
+                  </div>
                 )}
-
-                {step.kind === "tile" && active && (
-                  <section aria-labelledby="tile-title">
-                    {PATTERNS[active.pattern].max > 1 && (
-                      <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Which tile you are choosing">
-                        {rolesFor(active.pattern, active.surface)
-                          .slice(0, PATTERNS[active.pattern].max)
-                          .map((role, i) => {
-                            const tile = active.slots[i];
-                            return (
-                              <button key={role} type="button" role="radio" aria-checked={slot === i} onClick={() => setSlot(i)} className={cn("flex items-center gap-2 rounded-xl border-2 px-2 py-1.5 text-left text-xs", slot === i ? "border-clay-600 bg-clay-50" : "border-stone-200 bg-white")}>
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-stone-100 text-base text-stone-400">{tile ? <TileThumb tile={tile} /> : i + 1}</span>
-                                <span>
-                                  <span className="block font-semibold capitalize text-stone-800">{role}</span>
-                                  <span className="block text-stone-500">{tile ? tile.name : i < PATTERNS[active.pattern].min ? "Tap a tile below" : "Optional"}</span>
-                                </span>
-                              </button>
-                            );
-                          })}
-                      </div>
-                    )}
-
-                    <div>
-                      <TileChooser tiles={catalog} loading={catalogLoading} surface={active.surface} recommendedIds={recommended} chosenIds={active.slots.map((t) => t?.id ?? "")} onPick={pickTile} onAddPhoto={() => setAddingTile(true)} />
-                    </div>
-
-                    <details className="group mt-5 rounded-2xl border border-stone-200 bg-white p-3" open={active.pattern !== "single"}>
-                      <summary className="cursor-pointer list-none text-sm font-semibold text-stone-800">
-                        Laying style: <span className="text-clay-700">{PATTERNS[active.pattern].label}</span> <span className="font-normal text-stone-500 group-open:hidden">(tap to change)</span>
-                      </summary>
-                      <div className="mt-3">
-                        <StylePicker
-                          surface={active.surface}
-                          pattern={active.pattern}
-                          tiles={chosen(active)}
-                          onChange={(p) => {
-                            const next = withQuickPattern(active, p);
-                            update(active.key, () => next);
-                            // The next tap fills the first empty slot of the new style, never replaces a tile already chosen.
-                            const empty = next.slots.findIndex((t) => t === null);
-                            setSlot(empty === -1 ? 0 : empty);
-                          }}
-                        />
-                      </div>
-                    </details>
-                  </section>
+                {generationError && <ErrorState message={generationError} onRetry={generate} />}
+                {waitingForCheck && !analysisError && (
+                  <p className="text-[15px] text-ink-secondary" role="status">
+                    Finishing the photo check, then your photo starts by itself…
+                  </p>
                 )}
-
-                {step.kind === "review" && (
-                  <section aria-labelledby="review-title">
-                    <ul className="space-y-2.5">
-                      {list.map((area, i) => {
-                        const tiles = chosen(area);
-                        const problem = issues[area.key]?.[0];
-                        return (
-                          <li key={area.key} className={cn("rounded-2xl border bg-white p-3", problem ? "border-amber-300" : "border-stone-200")} aria-label={`Area ${i + 1}: ${surfaceTitle(area.surface)}`}>
-                            <div className="flex items-center gap-3">
-                              <span className="h-5 w-5 shrink-0 rounded-full ring-2 ring-white" style={{ background: maskCss(i) }} aria-hidden="true" />
-                              <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-stone-900">{surfaceTitle(area.surface)}</p>
-                                <p className="truncate text-xs text-stone-500">
-                                  {isMarked(area) ? "Marked on the photo" : `The whole ${surfaceTitle(area.surface).toLowerCase()}`} · {PATTERNS[area.pattern].label}
-                                </p>
-                              </div>
-                              <div className="flex -space-x-2">
-                                {tiles.map((t) => (
-                                  <span key={t.id} className="h-10 w-10 overflow-hidden rounded-lg border-2 border-white shadow">
-                                    <TileThumb tile={t} />
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            {tiles.length > 0 && <p className="mt-1.5 truncate text-sm text-stone-700">{tiles.map((t) => t.name).join(" + ")}</p>}
-                            {problem && <p className="mt-1.5 text-sm text-amber-800">{problem}</p>}
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              <SmallButton onClick={() => setStep({ kind: "mark", key: area.key })}>Change marking</SmallButton>
-                              <SmallButton onClick={() => setStep({ kind: "tile", key: area.key })}>{tiles.length > 0 ? "Change tile" : "Pick tile"}</SmallButton>
-                              {list.length > 1 && (
-                                <SmallButton danger onClick={() => setAreas((prev) => prev?.filter((a) => a.key !== area.key) ?? prev)}>
-                                  Remove
-                                </SmallButton>
-                              )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-
-                    {list.length < MAX_AREAS && (
-                      <div className="mt-3 rounded-2xl border border-dashed border-stone-300 p-3">
-                        <p className="text-sm font-semibold text-stone-700">Tile something else too?</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {QUICK_SURFACES.map((s) => (
-                            <button key={s.surface} type="button" onClick={() => addArea(s.surface)} className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:border-stone-900">
-                              <SurfaceIcon surface={s.surface} className="h-5 w-5" /> + {s.title}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <details className="mt-3 rounded-2xl border border-stone-200 bg-white p-3" open={note !== ""}>
-                      <summary className="cursor-pointer list-none text-sm font-semibold text-stone-800">Add a note for the designer (optional)</summary>
-                      <textarea
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        maxLength={1500}
-                        rows={3}
-                        aria-label="Note for the designer"
-                        placeholder="e.g. dark grout, keep the window frame white"
-                        className="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2 text-base"
-                      />
-                    </details>
-
-                    <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-stone-700">
-                      {cost !== null && (
-                        <p>
-                          The real photo costs <strong>{cost} credits</strong>
-                          {balance !== null && <> · you have <strong>{balance}</strong></>}. If it fails, nothing is charged.
-                        </p>
-                      )}
-                      {(noCredits || lowCredits) && (
-                        <p className="mt-2 font-medium text-amber-900">
-                          Not enough credits.{" "}
-                          <Link to="/credits" className="rounded-lg bg-stone-900 px-3 py-1.5 text-white no-underline">
-                            Buy credits
-                          </Link>
-                        </p>
-                      )}
-                    </div>
-                    {generationError && (
-                      <div className="mt-3">
-                        <ErrorState message={generationError} onRetry={generate} />
-                      </div>
-                    )}
-                    {waitingForCheck && !analysisError && <p className="mt-3 text-sm text-stone-600" role="status">Finishing the room check, then your photo starts by itself…</p>}
-                    {roomId && (
-                      <p className="mt-4 text-xs text-stone-500">
-                        Want numbered walls or measurements?{" "}
-                        <Link to={`/tiles/${roomId}`} className="font-semibold text-clay-700 underline">
-                          Advanced studio
-                        </Link>
-                      </p>
-                    )}
-                  </section>
-                )}
-              </motion.div>
-            </div>
-          )}
-
-      {/* One big button that always does the next right thing, and Back. Sticky inside the page column, so it never covers the menu. */}
-      <div className="sticky bottom-0 z-30 -mx-4 mt-8 border-t border-stone-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:mx-0 sm:rounded-2xl sm:border">
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={goBack} className="shrink-0 rounded-xl border border-stone-300 bg-white px-4 py-3.5 text-base font-semibold text-stone-700 hover:bg-stone-50">
-            ← Back
-          </button>
-          <div className="min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={nextAction.run}
-              disabled={nextAction.disabled}
-              className={cn(
-                "flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-base font-bold shadow-md transition-colors sm:text-lg",
-                nextAction.disabled ? "cursor-not-allowed bg-stone-300 text-stone-500" : step.kind === "review" ? "bg-clay-700 text-white hover:bg-clay-800" : "bg-stone-900 text-white hover:bg-stone-800",
-              )}
-            >
-              {step.kind === "review" && !nextAction.disabled && <span aria-hidden="true">✨</span>}
-              {nextAction.label}
-              {step.kind !== "review" && <span aria-hidden="true">→</span>}
-            </button>
-            {nextAction.hint && <p className="mt-1 truncate text-center text-xs text-stone-500">{nextAction.hint}</p>}
-          </div>
+              </section>
+            )}
+          </motion.div>
         </div>
-      </div>
+      )}
+
+      {/* One big button that always does the next right thing. Sticky inside the page column, so it never covers the photo controls. */}
+      <ActionBar>
+        <button
+          type="button"
+          onClick={nextAction.run}
+          disabled={nextAction.disabled}
+          className={bigButton("primary", cn(step.kind === "review" && "text-[19px]"))}
+        >
+          {step.kind === "review" && !nextAction.disabled && <Icon name="sparkles" />}
+          {step.kind === "mark" && marked && <Icon name="check" strokeWidth={2.6} />}
+          {nextAction.label}
+          {(step.kind === "what" || step.kind === "tile" || (step.kind === "mark" && !marked)) && <Icon name="next" />}
+        </button>
+        {nextAction.hint && <p className="mt-1.5 truncate text-center text-sm text-ink-secondary">{nextAction.hint}</p>}
+      </ActionBar>
 
       <TilePickerModal
         open={addingTile && active !== null}
@@ -806,47 +878,124 @@ export function QuickDesignPage() {
           setAddingTile(false);
         }}
       />
-    </PageContainer>
+    </Screen>
   );
 }
 
-const COLOUR_WORDS = ["red", "blue", "green", "yellow", "pink", "sky blue"];
-const colourWord = (i: number) => COLOUR_WORDS[i % COLOUR_WORDS.length]!;
-
-function AreaBadge({ index, title }: { index: number; title: string }) {
+function PartBadge({ index, title }: { index: number; title: string }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-sm font-semibold text-stone-700">
+    <span className="mb-2 inline-flex items-center gap-2 rounded-full bg-sage-200 px-3 py-1 text-sm font-bold text-ink">
       <span className="h-3.5 w-3.5 rounded-full" style={{ background: maskCss(index) }} aria-hidden="true" />
-      {title}
+      Part {index + 1}: {title}
     </span>
   );
 }
 
-function ToolButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: string; label: string }) {
+function ToolButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: IconName; label: string }) {
   return (
-    <button type="button" role="radio" aria-checked={active} onClick={onClick} className={cn("flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-2.5 text-sm font-semibold", active ? "border-stone-900 bg-stone-900 text-white" : "border-stone-200 bg-white text-stone-700 hover:border-stone-400")}>
-      <span className="text-xl" aria-hidden="true">
-        {icon}
-      </span>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={cn("flex h-16 items-center justify-center gap-2 rounded-2xl text-[17px] font-extrabold capitalize", active ? "border-2 border-stone-900 bg-stone-900 text-white" : "border-2 border-[#C9D2C6] bg-white text-ink hover:border-[#8E9A8F]")}
+    >
+      <Icon name={icon} />
       {label}
     </button>
   );
 }
 
-function SmallButton({ onClick, children, danger }: { onClick: () => void; children: React.ReactNode; danger?: boolean }) {
+function SmallTool({ onClick, disabled, icon, label, children }: { onClick: () => void; disabled?: boolean; icon?: IconName; label?: string; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={cn("rounded-lg border px-2.5 py-1.5 text-xs font-semibold", danger ? "border-red-200 text-red-700 hover:bg-red-50" : "border-stone-300 text-stone-700 hover:bg-stone-50")}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-[#C9D2C6] bg-white text-[15px] font-bold text-ink disabled:opacity-40">
+      {icon && <Icon name={icon} className="h-5 w-5" />}
       {children}
     </button>
+  );
+}
+
+function MiniButton({ onClick, children, danger }: { onClick: () => void; children: React.ReactNode; danger?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} className={cn("h-10 rounded-[10px] border-[1.5px] bg-white px-3 text-sm font-bold", danger ? "border-red-200 text-[#A23B2A] hover:bg-red-50" : "border-[#C9D2C6] text-ink hover:bg-sage-100")}>
+      {children}
+    </button>
+  );
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+const speechRecognition = (): (new () => SpeechRecognitionLike) | null => {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+};
+
+/** "Anything special?" — typed, or spoken where the phone can turn speech into text. */
+function NoteBox({ note, setNote }: { note: string; setNote: (v: string) => void }) {
+  const [listening, setListening] = useState(false);
+  const recognizer = useRef<SpeechRecognitionLike | null>(null);
+  const Recognition = speechRecognition();
+  useEffect(() => () => recognizer.current?.stop(), []);
+  function speak() {
+    if (!Recognition) return;
+    if (listening) return recognizer.current?.stop();
+    const r = new Recognition();
+    r.lang = "en-IN";
+    r.interimResults = false;
+    r.onresult = (e) => {
+      const said = Array.from(e.results)
+        .map((res) => res[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (said) setNote([note.trim(), said].filter(Boolean).join(" ").slice(0, 1500));
+    };
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+    recognizer.current = r;
+    setListening(true);
+    r.start();
+  }
+  return (
+    <div>
+      <label htmlFor="design-note" className="mb-1.5 block text-[15px] font-extrabold text-ink">
+        Anything special? <span className="font-medium text-ink-secondary">(you can skip)</span>
+      </label>
+      <div className="flex gap-2">
+        <textarea
+          id="design-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={1500}
+          rows={2}
+          aria-label="Note for the designer"
+          placeholder="e.g. dark grout, keep the window white"
+          className="min-h-[52px] min-w-0 flex-1 rounded-2xl border-[1.5px] border-[#C9D2C6] bg-white px-3 py-3 text-base text-ink"
+        />
+        {Recognition && (
+          <button type="button" onClick={speak} aria-pressed={listening} className={cn("flex h-[52px] shrink-0 items-center gap-1.5 rounded-2xl px-3.5 text-[15px] font-extrabold", listening ? "bg-stone-900 text-white" : "bg-sage-200 text-ink")}>
+            <Icon name="mic" />
+            {listening ? "Stop" : "Speak"}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
 function RoomCheck({ analysis, error, onRetry }: { analysis: RoomAnalysis | null; error: string | null; onRetry: () => void }) {
   if (error) {
     return (
-      <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-800" role="alert">
-        Room check failed
-        <button type="button" onClick={onRetry} className="font-bold underline">
+      <span className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-bold text-[#A23B2A] shadow" role="alert">
+        Photo check failed
+        <button type="button" onClick={onRetry} className="underline">
           Try again
         </button>
       </span>
@@ -854,15 +1003,16 @@ function RoomCheck({ analysis, error, onRetry }: { analysis: RoomAnalysis | null
   }
   if (!analysis) {
     return (
-      <span className="flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-600" role="status">
-        <span className="h-3 w-3 animate-spin rounded-full border-2 border-stone-300 border-t-stone-700" aria-hidden="true" />
-        Checking your room…
+      <span className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-bold text-ink shadow" role="status">
+        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900" aria-hidden="true" />
+        Checking your photo…
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800" role="status">
-      ✓ Room checked{analysis.roomType !== "other" ? `: ${analysis.roomType.replace(/_/g, " ")}` : ""}
+    <span className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm font-extrabold text-[#1F6B43] shadow" role="status">
+      <Icon name="check" className="h-4 w-4" strokeWidth={3} />
+      Photo checked{analysis.roomType !== "other" ? `: ${analysis.roomType.replace(/_/g, " ")}` : ""}
     </span>
   );
 }

@@ -60,7 +60,7 @@ export default {
         },
         ink: {
           DEFAULT: "#303B33", // primary text and headings
-          secondary: "#687269", // supporting/body copy
+          secondary: "#5B665D", // supporting/body copy (4.5:1 or better on every cream surface)
         },
         hairline: "#D8DED5", // the one border color for cards, dividers, the sidebar edge
       },

@@ -1,15 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { PageContainer } from "@/components/layout/PageContainer";
-import { Card, CardBody } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { ErrorState } from "@/components/ui/ErrorState";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
-import { PageBanner } from "@/components/ui/PageBanner";
-import { Tile, TileLabel, type TileTone } from "@/components/ui/Tile";
 import { friendlyErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -26,32 +16,37 @@ import {
   CheckoutClosedError,
   PaymentWidgetError,
 } from "@/api/billing";
-
-/** Package cards count in one after another. */
-const packageGridVariants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
-};
-const packageCardVariants = {
-  hidden: { opacity: 0, y: 14, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: "easeOut" } },
-};
+import { Icon } from "@/components/simple/Icon";
+import { ActionBar, IconLink, Screen, bigButton } from "@/components/simple/Flow";
+import { cn } from "@/lib/cn";
+import { photosFrom } from "@/lib/usePhotosLeft";
 
 function formatINR(paise: number): string {
   return `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
-const PACK_TONES: TileTone[] = ["sky", "sun", "teal", "rose"];
+const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 
+/** The pack most shops buy: the middle one of the list. */
+const middleIndex = (count: number) => Math.max(0, Math.floor((count - 1) / 2));
+
+const CHECKS = ["Photos are added right after you pay.", "If a photo fails, nothing is used.", "Pay with UPI, card or net banking."];
+
+/** "Add more photos": the credit packs shown as real photos, paid through Razorpay. */
 export function CreditsPage() {
   const { user } = useAuth();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
   const [packages, setPackages] = useState<CreditPackage[]>([]);
+  const [packagesLoaded, setPackagesLoaded] = useState(false);
+  const [cost, setCost] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
   const [justPurchased, setJustPurchased] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const purchasedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function refresh() {
     return Promise.all([getBillingSummary(), getCreditTransactions()]).then(([s, t]) => {
@@ -61,11 +56,23 @@ export function CreditsPage() {
   }
 
   useEffect(() => {
+    setLoadError(null);
     Promise.all([getCreditPackages(), refresh()])
-      .then(([p]) => setPackages(p.packages))
-      .catch((err) => setLoadError(friendlyErrorMessage(err, "We couldn't load credit packages.")));
+      .then(([p]) => {
+        setPackages(p.packages);
+        setCost(p.generationCreditCost);
+        setPackagesLoaded(true);
+        setSelectedId((cur) => cur ?? p.packages[middleIndex(p.packages.length)]?.id ?? null);
+      })
+      .catch((err) => setLoadError(friendlyErrorMessage(err, "We could not load the photo packs.")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt]);
+
+  useEffect(() => () => {
+    if (purchasedTimer.current) clearTimeout(purchasedTimer.current);
   }, []);
+
+  const photosOf = (credits: number) => (cost ? photosFrom(credits, cost) : null);
 
   async function buy(pkg: CreditPackage) {
     setBuyError(null);
@@ -76,8 +83,10 @@ export function CreditsPage() {
       const result = await openRazorpayCheckout(checkout, user?.email ?? undefined);
       await verifyCheckout(result);
       await refresh();
-      setJustPurchased(`${pkg.credits + pkg.bonusCredits} credits added to your account.`);
-      setTimeout(() => setJustPurchased(null), 6000);
+      const added = photosOf(pkg.credits + pkg.bonusCredits);
+      setJustPurchased(added !== null ? `${plural(added, "photo", "photos")} added. Thank you.` : `${pkg.credits + pkg.bonusCredits} credits added to your account.`);
+      if (purchasedTimer.current) clearTimeout(purchasedTimer.current);
+      purchasedTimer.current = setTimeout(() => setJustPurchased(null), 6000);
     } catch (err) {
       // Closing the payment window is not an error with the purchase; say plainly that nothing was charged.
       if (err instanceof CheckoutClosedError || err instanceof PaymentWidgetError) setBuyError(err.message);
@@ -87,165 +96,175 @@ export function CreditsPage() {
     }
   }
 
-  if (loadError) {
-    return (
-      <PageContainer className="max-w-5xl">
-        <ErrorState message={loadError} />
-      </PageContainer>
-    );
-  }
+  const selected = packages.find((p) => p.id === selectedId) ?? null;
+  const photosLeft = summary ? photosOf(summary.balance) : null;
+  const popular = packages.length >= 3 ? middleIndex(packages.length) : -1;
 
   return (
-    <PageContainer className="max-w-5xl">
-      <PageBanner
-        scene="terrazzo"
-        badge="Studio Passes • Rendering Power"
-        title="Trial Room Studio Passes & Credits"
-        subtitle="Fuel your virtual trial room with credits for photorealistic in-situ room visualizations, instant multi-tile comparisons, and high-resolution exports."
-        actions={
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-stone-700">
-              Secured with 256-bit encryption by Razorpay
-            </span>
-          </div>
-        }
-      />
+    <Screen className="pt-3.5 sm:pt-5">
+      <header className="flex items-center gap-3 pb-2.5">
+        <IconLink to="/more" label="Back" />
+        <h1 className="min-w-0 flex-1 font-display text-2xl font-semibold leading-[30px] text-ink">Add more photos</h1>
+      </header>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Tile tone="feature" className="flex flex-wrap items-center justify-between gap-4 p-6 lg:col-span-2">
-          <div>
-            <TileLabel>Available balance</TileLabel>
-            <p className="mt-1 font-display text-5xl font-bold text-white">
-              {summary ? <AnimatedNumber value={summary.balance} /> : "—"}
-              <span className="ml-2 text-lg font-medium text-teal-50">credits</span>
-            </p>
-          </div>
-          <Link to="/upload">
-            <Button size="lg" className="bg-white text-stone-900 hover:bg-teal-50">
-              Use credits in trial room →
-            </Button>
-          </Link>
-        </Tile>
-        <Tile tone="soft" className="flex flex-col justify-center">
-          <TileLabel>How it works</TileLabel>
-          <p className="mt-2 text-sm text-stone-700">Each preview holds credits while it generates. If it fails, the credits are returned automatically.</p>
-          <p className="mt-2 text-xs text-stone-500">Payments run securely through Razorpay.</p>
-        </Tile>
-      </div>
+      {loadError ? (
+        <div role="alert" className="flex flex-col items-center gap-4 rounded-2xl border-[1.5px] border-hairline bg-white px-5 py-8 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FBEDEA] text-[#A23B2A]">
+            <Icon name="alert" />
+          </span>
+          <p className="text-base font-semibold text-ink">{loadError}</p>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className={bigButton("secondary", "max-w-xs")}>
+            <Icon name="retry" />
+            Try again
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-hairline bg-white px-3.5 py-3 text-base leading-5 text-ink">
+            <Icon name="camera" />
+            {photosLeft !== null ? (
+              <span>
+                You have <b>{plural(photosLeft, "photo", "photos")}</b> left
+              </span>
+            ) : (
+              <span className="text-[#5B665D]">Checking your photos…</span>
+            )}
+          </p>
 
-      <AnimatePresence>
-        {justPurchased && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="mt-4 overflow-hidden"
-          >
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+          {justPurchased && (
+            <p role="status" className="flex items-center gap-2 rounded-2xl border-[1.5px] border-[#B9D7C4] bg-[#E6F2EA] px-3.5 py-3 text-[15px] font-semibold text-[#1F6B43]">
+              <Icon name="check" />
               {justPurchased}
+            </p>
+          )}
+          {buyError && (
+            <p role="alert" className="flex items-start gap-2 rounded-2xl bg-[#FBEDEA] px-3.5 py-3 text-[15px] font-semibold text-[#8C2F21]">
+              <Icon name="alert" className="h-5 w-5" />
+              {buyError}
+            </p>
+          )}
+
+          {!packagesLoaded ? (
+            <div aria-busy="true" aria-label="Loading photo packs" className="flex flex-col gap-2.5">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-[100px] animate-pulse rounded-[18px] bg-sage-200" />
+              ))}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {buyError && (
-        <div className="mt-4">
-          <ErrorState message={buyError} />
+          ) : packages.length === 0 ? (
+            <p className="rounded-2xl border-[1.5px] border-hairline bg-white px-3.5 py-4 text-base text-ink">No photo packs to buy right now. Please try again later.</p>
+          ) : (
+            <div role="radiogroup" aria-label="Choose a pack" className="mt-1 flex flex-col gap-2.5">
+              {packages.map((pkg, index) => {
+                const on = pkg.id === selectedId;
+                const total = photosOf(pkg.credits + pkg.bonusCredits);
+                const base = photosOf(pkg.credits);
+                const free = total !== null && base !== null ? total - base : 0;
+                const note = free > 0 && base !== null ? `${base.toLocaleString("en-IN")} + ${plural(free, "free photo", "free photos")}` : pkg.description;
+                const each = total ? Math.round(pkg.pricePaise / 100 / total) : null;
+                return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    disabled={buyingId !== null}
+                    onClick={() => setSelectedId(pkg.id)}
+                    className={cn(
+                      "relative flex items-center gap-3 rounded-[18px] p-3.5 text-left text-ink transition-colors disabled:cursor-not-allowed",
+                      on ? "border-[2.5px] border-stone-900 bg-sage-200" : "border-2 border-[#D3DACF] bg-white hover:border-[#8E9A8F]",
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn("h-6 w-6 shrink-0 rounded-full", on ? "border-[7px] border-stone-900 bg-white" : "border-2 border-[#8E9A8F]")}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-extrabold uppercase leading-4 tracking-[0.06em] text-[#5B665D]">{pkg.name}</span>
+                      <span className="block font-display text-[26px] font-semibold leading-8">
+                        {total !== null ? plural(total, "photo", "photos") : `${(pkg.credits + pkg.bonusCredits).toLocaleString("en-IN")} credits`}
+                      </span>
+                      {note && <span className="block text-sm leading-[18px] text-[#5B665D]">{note}</span>}
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-[22px] font-extrabold leading-7">{formatINR(pkg.pricePaise)}</span>
+                      {each !== null && <span className="block text-[13px] leading-4 text-[#5B665D]">about ₹{each.toLocaleString("en-IN")} a photo</span>}
+                    </span>
+                    {index === popular && (
+                      <span className="absolute -top-[11px] right-3 h-[22px] rounded-full bg-champagne-500 px-2.5 text-[11px] font-extrabold leading-[22px] text-ink">
+                        MOST SHOPS PICK THIS
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <ul className="mt-1 flex flex-col gap-2 text-[15px] leading-5 text-ink">
+            {CHECKS.map((line) => (
+              <li key={line} className="flex items-center gap-2.5">
+                <Icon name="check" className="text-[#1F6B43]" />
+                {line}
+              </li>
+            ))}
+          </ul>
+
+          <details className="group mt-2 rounded-2xl border-[1.5px] border-hairline bg-white">
+            <summary className="flex min-h-[56px] cursor-pointer list-none items-center gap-3 px-3.5 py-2 text-base font-bold text-ink [&::-webkit-details-marker]:hidden">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sage-200">
+                <Icon name="history" />
+              </span>
+              <span className="min-w-0 flex-1">Past payments and photos used</span>
+              <Icon name="chevron" className="text-[#5B665D] transition-transform group-open:rotate-90" />
+            </summary>
+            <div className="border-t border-[#EEF1EC] px-3.5 pb-3 pt-2">
+              <p className="text-[13px] leading-[17px] text-[#5B665D]">
+                Shown in credits{cost ? `: 1 photo uses ${cost} credits` : ""}.{" "}
+                <Link to="/payments" className="font-semibold text-ink underline">
+                  Bills and receipts
+                </Link>
+              </p>
+              {transactions.length === 0 ? (
+                <p className="py-4 text-center text-[15px] text-[#5B665D]">No payments or photos used yet.</p>
+              ) : (
+                <ul className="mt-1">
+                  {transactions.map((t) => (
+                    <li key={t.id} className="flex items-start gap-3 border-t border-[#EEF1EC] py-2.5 first:border-t-0">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] leading-5 text-ink">{t.description}</span>
+                        <span className="block text-[13px] leading-[17px] text-[#5B665D]">
+                          {[new Date(t.createdAt).toLocaleString("en-IN"), t.type.replace(/_/g, " "), t.status, t.referenceId && `Ref ${t.referenceId}`].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className={cn("block text-[15px] font-bold", t.amount >= 0 ? "text-[#1F6B43]" : "text-ink")}>
+                          {t.amount > 0 ? "+" : ""}
+                          {t.amount}
+                        </span>
+                        <span className="block text-[13px] text-[#5B665D]">Left {t.balanceAfter}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </details>
+
+          <ActionBar className="mt-3">
+            <button
+              type="button"
+              disabled={!selected || buyingId !== null}
+              aria-busy={buyingId !== null}
+              onClick={() => selected && buy(selected)}
+              className={bigButton("primary")}
+            >
+              {buyingId !== null ? "Opening payment…" : selected ? `Pay ${formatINR(selected.pricePaise)}` : "Pay"}
+              {buyingId === null && <Icon name="next" />}
+            </button>
+            <p className="mt-2 text-center text-[13px] leading-[17px] text-[#5B665D]">Safe payment by Razorpay</p>
+          </ActionBar>
         </div>
       )}
-
-      <section className="mt-8">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl text-stone-900 font-semibold">Choose a Studio Pass</h2>
-          <span className="text-xs text-stone-500">Instant credit activation</span>
-        </div>
-        {packages.length === 0 ? (
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <Skeleton className="h-56" />
-            <Skeleton className="h-56" />
-            <Skeleton className="h-56" />
-          </div>
-        ) : (
-          <motion.div className="mt-4 grid gap-4 sm:grid-cols-3" variants={packageGridVariants} initial="hidden" animate="show">
-            {packages.map((pkg, index) => {
-              const total = pkg.credits + pkg.bonusCredits;
-              const perCredit = pkg.pricePaise / total;
-              return (
-                <motion.div key={pkg.id} variants={packageCardVariants} whileHover={{ y: -4 }} transition={{ duration: 0.18 }}>
-                  <Tile tone={PACK_TONES[index % PACK_TONES.length] ?? "plain"} interactive className="flex h-full flex-col">
-                    <div className="flex flex-1 flex-col">
-                      <p className="font-display text-lg text-stone-900 font-semibold">{pkg.name}</p>
-                      {pkg.description && <p className="mt-1 text-sm text-stone-500">{pkg.description}</p>}
-                      <p className="mt-4 font-display text-3xl text-stone-900 font-bold">{formatINR(pkg.pricePaise)}</p>
-                      <p className="mt-1 text-sm text-stone-600">
-                        {pkg.credits.toLocaleString()} credits
-                        {pkg.bonusCredits > 0 && <span className="ml-1 text-emerald-700 font-medium">+ {pkg.bonusCredits} bonus</span>}
-                      </p>
-                      <p className="mt-1 text-xs text-stone-400">≈ ₹{(perCredit / 100).toFixed(2)} per credit</p>
-                      <div className="flex-1" />
-                      <Button className="mt-6 w-full" loading={buyingId === pkg.id} disabled={buyingId !== null} onClick={() => buy(pkg)}>
-                        Buy {total.toLocaleString()} Credits
-                      </Button>
-                    </div>
-                  </Tile>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        )}
-        <p className="mt-3 text-xs text-stone-400">Payments are processed securely via Razorpay with all major cards, UPI, and net banking.</p>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="font-display text-lg text-stone-900 font-semibold">Credit Transaction History</h2>
-        <Card className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead>
-              <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-400">
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Description</th>
-                <th className="px-4 py-3 text-right">Credits</th>
-                <th className="px-4 py-3 text-right">Balance</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Reference</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-stone-400">
-                    No credit activity yet.
-                  </td>
-                </tr>
-              ) : (
-                transactions.map((t, i) => (
-                  <motion.tr
-                    key={t.id}
-                    className="border-b border-stone-50 last:border-0"
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: Math.min(i, 12) * 0.025, ease: "easeOut" }}
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 text-stone-500">{new Date(t.createdAt).toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      <Badge tone={t.amount >= 0 ? "success" : "neutral"}>{t.type.replace(/_/g, " ")}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-stone-700">{t.description}</td>
-                    <td className={`px-4 py-3 text-right font-medium ${t.amount >= 0 ? "text-emerald-700" : "text-stone-900"}`}>
-                      {t.amount > 0 ? "+" : ""}
-                      {t.amount}
-                    </td>
-                    <td className="px-4 py-3 text-right text-stone-500">{t.balanceAfter}</td>
-                    <td className="px-4 py-3 text-stone-500">{t.status}</td>
-                    <td className="px-4 py-3 text-xs text-stone-400">{t.referenceId ?? "—"}</td>
-                  </motion.tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </Card>
-      </section>
-    </PageContainer>
+    </Screen>
   );
 }

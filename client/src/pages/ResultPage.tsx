@@ -1,43 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { PageContainer } from "@/components/layout/PageContainer";
+import { motion } from "framer-motion";
 import { BeforeAfterSlider } from "@/components/visualization/BeforeAfterSlider";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { Card, CardBody } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { getVisualization, deleteVisualization } from "@/api/visualizations";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { PATTERNS, SURFACES } from "@/lib/designPatterns";
+import { IconLink, Screen, bigButton } from "@/components/simple/Flow";
+import { Icon, type IconName } from "@/components/simple/Icon";
+import { getVisualization, deleteVisualization } from "@/api/visualizations";
+import { getRoom } from "@/api/rooms";
+import { listProjects } from "@/api/projectsRooms";
+import { friendlyErrorMessage } from "@/api/client";
+import { SURFACES } from "@/lib/designPatterns";
 import { keptWalls } from "@/lib/roomLayouts";
 import { cn } from "@/lib/cn";
-import { getRoom } from "@/api/rooms";
-import { friendlyErrorMessage } from "@/api/client";
-import { useWorkflow } from "@/context/WorkflowContext";
 import { getPublicTileImageUrl } from "@/lib/tileImage";
-import { editPathFor, isQuickDesign } from "@/lib/quickDesign";
-import type { RoomUpload, Visualization } from "@/api/types";
+import { editPathFor, isQuickDesign, surfaceTitle } from "@/lib/quickDesign";
+import { customerName } from "@/lib/customers";
+import type { RoomUpload, Tile, Visualization } from "@/api/types";
+
+const SHOP_NAME = "SDS Tiles & Ceramics";
+
+/** Every tile of a result with the part it is on, for the tile list and the WhatsApp message. */
+function resultTiles(viz: Visualization): Array<{ part: string; tile: Tile }> {
+  if (viz.design && viz.design.areas.length > 0) {
+    return viz.design.areas.flatMap((area) =>
+      area.tileIds.flatMap((id) => {
+        const tile = viz.designTiles?.find((t) => t.id === id);
+        return tile ? [{ part: area.surface in SURFACES ? surfaceTitle(area.surface) : area.location, tile }] : [];
+      }),
+    );
+  }
+  return viz.tile ? [{ part: viz.appliedSurfaces.map((s) => SURFACES[s]?.label ?? s).join(" + "), tile: viz.tile }] : [];
+}
 
 export function ResultPage() {
   const { visualizationId } = useParams<{ visualizationId: string }>();
   const navigate = useNavigate();
-  const { reset } = useWorkflow();
 
   const [visualization, setVisualization] = useState<Visualization | null>(null);
   const [room, setRoom] = useState<RoomUpload | null>(null);
-  const [viewerExpanded, setViewerExpanded] = useState(true);
+  const [customer, setCustomer] = useState<string | null>(null);
+  const [viewerExpanded, setViewerExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [imageLoadError, setImageLoadError] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshAttemptsRef = useRef(0);
-  const toggleViewerExpanded = useCallback(() => {
-    setViewerExpanded((current) => !current);
-  }, []);
+  // The finished photo, fetched once it is ready, so "Send on WhatsApp" can share it at once (phones only allow
+  // sharing straight after the tap).
+  const photoFile = useRef<File | null>(null);
+  const toggleViewerExpanded = useCallback(() => setViewerExpanded((current) => !current), []);
 
   useEffect(() => {
     if (!visualizationId) return;
@@ -49,10 +65,9 @@ export function ResultPage() {
         if (cancelled) return;
         setVisualization(viz);
 
-        // The original room photo stays private to its owner even when the
-        // visualization itself is public — a signed-out visitor (or anyone
-        // other than the owner) simply won't get it back, and that's fine:
-        // the page falls back to showing the result image alone below.
+        // The original room photo stays private to its owner even when the visualization itself is public — a
+        // signed-out visitor (or anyone other than the owner) simply won't get it back, and the page shows the
+        // result alone.
         if (viz.roomUploadId) {
           try {
             const roomData = await getRoom(viz.roomUploadId);
@@ -66,7 +81,7 @@ export function ResultPage() {
           pollTimer.current = setTimeout(load, 3000);
         }
       } catch (err) {
-        if (!cancelled) setError(friendlyErrorMessage(err, "We couldn't load this visualization."));
+        if (!cancelled) setError(friendlyErrorMessage(err, "We couldn't open this photo."));
       }
     }
 
@@ -78,16 +93,42 @@ export function ResultPage() {
   }, [visualizationId]);
 
   useEffect(() => {
-    setViewerExpanded(true);
+    setViewerExpanded(false);
     setImageLoadError(false);
     refreshAttemptsRef.current = 0;
+    photoFile.current = null;
   }, [visualizationId]);
 
-  // Signed image URLs are short-lived (5 minutes). On mobile, backgrounding
-  // the tab — switching apps, the phone locking — can delay the fetch past
-  // that window, so the <img> fails even though generation succeeded. Re-fetch
-  // the visualization (and room photo) to get fresh signed URLs, a couple of
-  // times automatically, then fall back to a manual "Reload" the user can tap.
+  // The customer's name for the title (owner only: it comes from the room's project).
+  useEffect(() => {
+    if (!room?.projectId || !visualization?.isOwner) return;
+    let cancelled = false;
+    listProjects()
+      .then((projects) => !cancelled && setCustomer(customerName(projects.find((p) => p.id === room.projectId)?.name)))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [room?.projectId, visualization?.isOwner]);
+
+  const resultUrl = visualization?.status === "completed" ? visualization.resultImageUrl : null;
+  useEffect(() => {
+    if (!resultUrl) return;
+    let cancelled = false;
+    fetch(resultUrl)
+      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
+      .then((blob) => {
+        if (!cancelled) photoFile.current = new File([blob], `sds-tiles-${visualizationId}.${blob.type.includes("png") ? "png" : "jpg"}`, { type: blob.type || "image/png" });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [resultUrl, visualizationId]);
+
+  // Signed image URLs are short-lived (5 minutes). On mobile, backgrounding the tab can delay the fetch past that
+  // window, so the <img> fails even though the photo was made. Re-fetch the visualization (and room photo) to get
+  // fresh signed URLs, a couple of times automatically, then fall back to a manual "Reload" the owner can tap.
   const MAX_AUTO_IMAGE_REFRESH = 2;
 
   const refreshImages = useCallback(async () => {
@@ -97,8 +138,7 @@ export function ResultPage() {
       setVisualization(viz);
       if (viz.roomUploadId) {
         try {
-          const roomData = await getRoom(viz.roomUploadId);
-          setRoom(roomData);
+          setRoom(await getRoom(viz.roomUploadId));
         } catch {
           // Room photo may not be visible to this viewer (not the owner) — fine.
         }
@@ -112,7 +152,7 @@ export function ResultPage() {
   const handleImageError = useCallback(() => {
     if (refreshAttemptsRef.current >= MAX_AUTO_IMAGE_REFRESH) {
       setImageLoadError(true);
-      // The "Reload image" button sits under the viewer; leave full screen so it can be seen and tapped.
+      // The "Reload" button sits under the viewer; leave full screen so it can be seen and tapped.
       setViewerExpanded(false);
       return;
     }
@@ -120,55 +160,86 @@ export function ResultPage() {
     refreshImages();
   }, [refreshImages]);
 
-  const handleManualImageRetry = useCallback(() => {
-    refreshAttemptsRef.current = 0;
-    refreshImages();
-  }, [refreshImages]);
+  async function photoBlob(): Promise<File> {
+    if (photoFile.current) return photoFile.current;
+    const response = await fetch(visualization!.resultImageUrl!);
+    if (!response.ok) throw new Error(`download fetch failed with status ${response.status}`);
+    const blob = await response.blob();
+    photoFile.current = new File([blob], `sds-tiles-${visualization!.id}.png`, { type: blob.type || "image/png" });
+    return photoFile.current;
+  }
 
-  async function handleDownload() {
-    if (!visualization?.resultImageUrl) return;
+  async function handleDownload(): Promise<boolean> {
+    if (!visualization?.resultImageUrl) return false;
     setDownloading(true);
-    setDownloadError(null);
+    setNotice(null);
     try {
-      // Fetches the actual bytes rather than just navigating to the signed
-      // URL — a plain <a href download> is unreliable cross-origin (Supabase
-      // Storage), and this also lets us surface a clear message if the
-      // short-lived signed URL has expired by the time the user clicks.
-      const response = await fetch(visualization.resultImageUrl);
-      if (!response.ok) throw new Error(`download fetch failed with status ${response.status}`);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
+      // Fetches the actual bytes rather than navigating to the signed URL — a plain <a href download> is unreliable
+      // cross-origin (Supabase Storage), and an expired link gets a clear message.
+      const file = await photoBlob();
+      const objectUrl = URL.createObjectURL(file);
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = `visualization-${visualization.id}.png`;
+      link.download = file.name;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(objectUrl);
+      return true;
     } catch {
-      setDownloadError("This download link may have expired. Refresh the page and try again.");
+      setNotice("This download link may have expired. Refresh the page and try again.");
+      return false;
     } finally {
       setDownloading(false);
     }
   }
 
+  const tiles = visualization ? resultTiles(visualization) : [];
+  const message = `${SHOP_NAME}: ${customer && customer !== "Walk-in customer" ? `${customer}, your` : "Your"} room with ${
+    tiles.length > 0 ? tiles.map((t) => `${t.tile.name}${t.tile.sizeMm ? ` (${t.tile.sizeMm})` : ""}`).filter((v, i, a) => a.indexOf(v) === i).join(" + ") : "new tiles"
+  }. See the photo.`;
+
+  /** Shares the photo and a short message (phone share sheet → WhatsApp). Where a phone cannot share photos, the photo is saved and WhatsApp opens with the message. */
+  async function shareOnWhatsApp() {
+    if (!visualization?.resultImageUrl) return;
+    setSharing(true);
+    setNotice(null);
+    try {
+      const file = await photoBlob().catch(() => null);
+      const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+      if (file && typeof nav.share === "function" && nav.canShare?.({ files: [file] })) {
+        try {
+          await nav.share({ files: [file], text: message });
+          return;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+        }
+      }
+      const saved = await handleDownload();
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+      if (saved) setNotice("The photo is saved on this phone. In WhatsApp, pick the customer and attach the photo.");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   if (error) {
     return (
-      <PageContainer compact>
-        <div className="mx-auto w-full max-w-xl">
-          <ErrorState message={error} />
-        </div>
-      </PageContainer>
+      <Screen>
+        <ErrorState message={error} />
+        <Link to="/" className={bigButton("secondary", "mt-4")}>
+          <Icon name="home" />
+          Go to Home
+        </Link>
+      </Screen>
     );
   }
 
   if (!visualization) {
     return (
-      <PageContainer compact>
-        <div className="mx-auto w-full max-w-3xl">
-          <Skeleton className="aspect-[4/3] w-full" />
-        </div>
-      </PageContainer>
+      <Screen>
+        <Skeleton className="aspect-[3/4] w-full sm:aspect-[4/3]" />
+      </Screen>
     );
   }
 
@@ -176,253 +247,192 @@ export function ResultPage() {
   const layout = visualization.design?.layout ?? "open";
   // Walls of an L / C layout that were NOT tiled: they stay exactly as in the photo.
   const kept = layout !== "open" && visualization.design ? keptWalls(layout, visualization.design.areas.map((a) => a.wall)) : [];
+  const owner = Boolean(visualization.isOwner);
+  const quick = isQuickDesign(visualization.design);
+  const editState = visualization.design ? { editDesign: visualization.design, editTiles: visualization.designTiles ?? [], editRequirements: visualization.requirements ?? "" } : undefined;
+  const openEditor = () => navigate(editPathFor(visualization.design, visualization.roomUploadId!), { state: editState });
+  const when = new Date(visualization.completedAt ?? visualization.createdAt);
+  const whenText = Number.isNaN(when.getTime()) ? "" : when.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
   return (
-    <PageContainer compact className="max-w-7xl">
-    <div className="w-full">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-clay-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-clay-800">
-              Virtual Trial Room Preview
-            </span>
-            <span className="hidden rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700 sm:inline">
-              In-Situ Transformation
-            </span>
-          </div>
-          <h1 className="mt-1.5 font-display text-2xl text-stone-900 sm:text-3xl">Your Virtual Preview</h1>
+    <Screen wide>
+      <header className="flex items-center gap-3 pb-3">
+        <IconLink to={owner ? "/" : undefined} onClick={owner ? undefined : () => navigate(-1)} label="Close" icon="close" />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-display text-[22px] font-semibold leading-7 text-ink">{customer ?? "Your real photo"}</h1>
+          <p className="text-sm text-ink-secondary">
+            {visualization.status === "completed" ? "Real photo" : visualization.status === "failed" ? "Could not be made" : "Being made…"}
+            {whenText && ` · ${whenText}`}
+          </p>
         </div>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={visualization.status}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 22 }}
-          >
-            <Badge tone={visualization.status === "completed" ? "success" : visualization.status === "failed" ? "danger" : "clay"}>
-              {visualization.status === "completed"
-                ? "Completed"
-                : visualization.status === "failed"
-                  ? "Failed"
-                  : "Generating…"}
-            </Badge>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+        {hasViewer && (
+          <button type="button" onClick={toggleViewerExpanded} aria-label="Show big on the screen" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-[1.5px] border-hairline bg-white text-ink">
+            <Icon name="expand" />
+          </button>
+        )}
+      </header>
 
       {visualization.status === "failed" && (
-        <div className="mt-4">
-          <ErrorState message={visualization.errorMessage ?? "We couldn't generate this visualization."} />
-        </div>
-      )}
-
-      {(visualization.status === "pending" || visualization.status === "generating") && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-4 flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-5"
-        >
-          <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900" />
-          <motion.p
-            className="text-sm text-stone-600"
-            animate={{ opacity: [1, 0.5, 1] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          >
-            Still generating — this page will update automatically.
-          </motion.p>
-        </motion.div>
-      )}
-
-      {/* Picture on the left, design details and actions beside it on a laptop, so nothing important sits below the fold. */}
-      <div className={cn("mt-4 grid gap-6", hasViewer && "lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start")}>
-      {hasViewer && visualization.resultImageUrl && (
-        <motion.div
-          className="min-w-0"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        >
-          <BeforeAfterSlider
-            beforeSrc={room?.imageUrl ?? undefined}
-            afterSrc={visualization.resultImageUrl}
-            beforeAlt="Original room before visualization"
-            afterAlt="Room finished with the selected tile"
-            expanded={viewerExpanded}
-            onToggleExpanded={toggleViewerExpanded}
-            onAfterError={handleImageError}
-            onBeforeError={handleImageError}
-          />
-          {imageLoadError && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-              <span>This image link timed out — common after a phone sits idle mid-load.</span>
-              <button
-                type="button"
-                onClick={handleManualImageRetry}
-                className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1 text-sm font-medium text-amber-900 hover:bg-amber-100"
-              >
-                Reload image
+        <section className="space-y-3 py-2 text-center" aria-labelledby="failed-title">
+          <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#FBEDEA] text-[#A23B2A]">
+            <Icon name="retry" className="h-10 w-10" strokeWidth={1.8} />
+          </span>
+          <h2 id="failed-title" className="font-display text-[28px] font-semibold leading-[34px]">
+            The photo could not be made
+          </h2>
+          <p className="text-[17px] text-ink">Nothing was used. You can try again.</p>
+          {visualization.errorMessage && <p className="text-sm text-ink-secondary">{visualization.errorMessage}</p>}
+          {owner && visualization.roomUploadId && (
+            <div className="mx-auto max-w-md space-y-2.5 pt-2">
+              <button type="button" onClick={openEditor} className={bigButton("primary")}>
+                <Icon name="retry" />
+                {quick ? "Try again" : "Edit Design / Try Another"}
               </button>
             </div>
           )}
+        </section>
+      )}
+
+      {(visualization.status === "pending" || visualization.status === "generating") && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 rounded-[18px] border-[1.5px] border-hairline bg-white p-4" role="status">
+          <span className="h-6 w-6 shrink-0 animate-spin rounded-full border-[3px] border-champagne-400 border-t-stone-900" />
+          <p className="text-base text-ink">Still making your photo — this screen updates by itself.</p>
         </motion.div>
       )}
 
-      <div className="min-w-0">
-      <motion.div
-        className={cn("grid gap-3 sm:grid-cols-2", hasViewer ? "lg:grid-cols-1" : "lg:grid-cols-3")}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1, ease: "easeOut" }}
-      >
-        {visualization.design && visualization.design.areas.length > 0 ? (
-          visualization.design.areas.map((area, i) => {
-            const tiles = area.tileIds.map((id) => visualization.designTiles?.find((t) => t.id === id));
-            const surface = SURFACES[area.surface];
-            return (
-              <Card key={`${area.surface}-${area.location}-${i}`}>
-                <CardBody className="py-4">
-                  <p className="text-xs uppercase tracking-wide text-stone-400">
-                    {surface?.label ?? area.surface} · {PATTERNS[area.pattern]?.label ?? area.pattern}
-                  </p>
-                  <p className="mt-0.5 truncate font-medium text-stone-900">{area.location}</p>
-                  {area.patternNote && <p className="truncate text-xs text-stone-500">{area.patternNote}</p>}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {tiles.map((tile, j) =>
-                      tile ? (
-                        <div key={tile.id + j} className="flex items-center gap-2">
-                          <img
-                            src={getPublicTileImageUrl(tile.storagePath)}
-                            alt={tile.name}
-                            className="h-9 w-9 shrink-0 rounded-md object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                          <span className="max-w-[9rem] truncate text-sm text-stone-700">{tile.name}</span>
-                        </div>
-                      ) : null,
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
-            );
-          })
-        ) : (
-          <>
-            <Card>
-              <CardBody className="flex items-center gap-3 py-4">
-                {visualization.tile && (
+      <div className={cn("grid gap-x-6 gap-y-3", hasViewer && "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start")}>
+        {hasViewer && visualization.resultImageUrl && (
+          <motion.div className="min-w-0" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+            <BeforeAfterSlider
+              beforeSrc={room?.imageUrl ?? undefined}
+              afterSrc={visualization.resultImageUrl}
+              beforeAlt="Before: the room as it was"
+              afterAlt="After: the room with the new tiles"
+              expanded={viewerExpanded}
+              onToggleExpanded={toggleViewerExpanded}
+              onAfterError={handleImageError}
+              onBeforeError={handleImageError}
+            />
+            {imageLoadError && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#FBF1DC] px-4 py-2.5 text-[15px] text-[#5C3D00]">
+                <span>The photo did not load. This happens after the phone sits idle.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    refreshAttemptsRef.current = 0;
+                    refreshImages();
+                  }}
+                  className="h-10 shrink-0 rounded-xl bg-white px-3 font-bold text-ink"
+                >
+                  Reload photo
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        <div className="min-w-0 space-y-3">
+          {tiles.length > 0 && (
+            <ul className="space-y-2" aria-label="Tiles in this photo">
+              {tiles.map(({ part, tile }, i) => (
+                <li key={`${tile.id}-${i}`} className="flex items-center gap-2.5 rounded-2xl border-[1.5px] border-hairline bg-white px-2.5 py-2">
                   <img
-                    src={getPublicTileImageUrl(visualization.tile.storagePath)}
-                    alt={visualization.tile.name}
-                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    src={getPublicTileImageUrl(tile.storagePath)}
+                    alt=""
+                    className="h-11 w-11 shrink-0 rounded-[10px] object-cover"
                     onError={(e) => {
-                      e.currentTarget.style.display = "none";
+                      e.currentTarget.style.visibility = "hidden";
                     }}
                   />
-                )}
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-wide text-stone-400">Tile applied</p>
-                  <p className="truncate font-medium text-stone-900">{visualization.tile?.name ?? "—"}</p>
-                </div>
-              </CardBody>
-            </Card>
-            <Card>
-              <CardBody className="py-4">
-                <p className="text-xs uppercase tracking-wide text-stone-400">Surfaces changed</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {visualization.appliedSurfaces.map((s) => (
-                    <Badge key={s} tone="clay">
-                      {SURFACES[s]?.label ?? s}
-                    </Badge>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          </>
-        )}
-        {kept.length > 0 && (
-          <Card className="border-dashed">
-            <CardBody className="py-4">
-              <p className="text-xs uppercase tracking-wide text-stone-400">Kept as in your photo</p>
-              <p className="mt-0.5 font-medium text-stone-900">{kept.map((w) => w.label).join(", ")}</p>
-              <p className="text-xs text-stone-500">Not tiled. The new tile stops at the corner.</p>
-            </CardBody>
-          </Card>
-        )}
-        {visualization.requirements && (
-          <Card className="sm:col-span-2 lg:col-span-1">
-            <CardBody className="py-4">
-              <p className="text-xs uppercase tracking-wide text-stone-400">Your requirements</p>
-              <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-sm text-stone-700">{visualization.requirements}</p>
-            </CardBody>
-          </Card>
-        )}
-      </motion.div>
+                  <span className="min-w-0 flex-1 text-[15px] leading-5">
+                    <b className="block truncate">
+                      {part}: {tile.name}
+                    </b>
+                    <span className="text-ink-secondary">{[tile.sizeMm, tile.pricePerSqft != null ? `₹${tile.pricePerSqft}/sq ft` : null].filter(Boolean).join(" · ")}</span>
+                  </span>
+                  {i === 0 && owner && visualization.roomUploadId && hasViewer && (
+                    <button type="button" onClick={openEditor} className="h-10 shrink-0 rounded-xl border-[1.5px] border-[#C9D2C6] bg-white px-3 text-sm font-bold">
+                      Not right?
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {kept.length > 0 && (
+            <p className="rounded-2xl border-[1.5px] border-dashed border-hairline bg-white px-3 py-2.5 text-[15px] text-ink-secondary">
+              <b className="text-ink">Kept as in your photo:</b> {kept.map((w) => w.label).join(", ")}. The new tile stops at the corner.
+            </p>
+          )}
+          {visualization.requirements && (
+            <p className="rounded-2xl border-[1.5px] border-hairline bg-white px-3 py-2.5 text-[15px] text-ink">
+              <b>Note:</b> {visualization.requirements}
+            </p>
+          )}
 
-      {downloadError && (
-        <p className="mt-3 text-sm text-red-700" role="alert">
-          {downloadError}
-        </p>
-      )}
+          {hasViewer && owner && (
+            <button type="button" onClick={shareOnWhatsApp} disabled={sharing} className={bigButton("whatsapp")}>
+              <Icon name="whatsapp" />
+              {sharing ? "Opening WhatsApp…" : customer && customer !== "Walk-in customer" && customer !== "Sample room" ? `Send to ${customer} on WhatsApp` : "Send on WhatsApp"}
+            </button>
+          )}
+          {notice && (
+            <p className="rounded-2xl bg-sage-200 px-3 py-2.5 text-[15px] text-ink" role="status">
+              {notice}
+            </p>
+          )}
 
-      <div className="mt-5 flex flex-wrap gap-2.5">
-        {visualization.status === "completed" && visualization.resultImageUrl && (
-          <Button size="md" variant="secondary" onClick={handleDownload} loading={downloading}>
-            Save Visualization
-          </Button>
-        )}
-        {visualization.isOwner && visualization.roomUploadId && (
-          <Button
-            size="md"
-            // The Studio reopens THIS design (areas, layouts, tiles) so the owner changes it instead of starting again.
-            onClick={() => navigate(editPathFor(visualization.design, visualization.roomUploadId!), { state: visualization.design ? { editDesign: visualization.design, editTiles: visualization.designTiles ?? [], editRequirements: visualization.requirements ?? "" } : undefined })}
-          >
-            {isQuickDesign(visualization.design) ? "Try another tile" : "Edit Design / Try Another"}
-          </Button>
-        )}
-        {visualization.isOwner && (
-          <Button size="md" variant="ghost" className="text-red-700 hover:bg-red-50" onClick={() => setConfirmingDelete(true)}>
-            Delete
-          </Button>
-        )}
-        <Link to="/tiles">
-          <Button size="md" variant="outline">
-            View Tile Catalog
-          </Button>
-        </Link>
-        {visualization.isOwner && (
-          <Link to="/projects">
-            <Button size="md" variant="ghost">
-              Saved Projects
-            </Button>
-          </Link>
-        )}
+          <div className="grid grid-cols-4 gap-2">
+            {owner && visualization.roomUploadId && (
+              <ActionTile onClick={openEditor} icon="retry" label={quick ? "Try another tile" : "Edit Design / Try Another"} />
+            )}
+            {owner && hasViewer && <ActionTile to={`/quote?viz=${visualization.id}`} icon="calculator" label="Boxes & price" />}
+            {owner && visualization.roomUploadId && <ActionTile to={`/compare/${visualization.roomUploadId}`} icon="compare" label="Compare tries" />}
+            {hasViewer && <ActionTile onClick={() => void handleDownload()} icon="download" label={downloading ? "Saving…" : "Save to phone"} />}
+          </div>
+
+          {owner ? (
+            <div className="flex items-center justify-between gap-3 pt-1 text-sm text-ink-secondary">
+              <span>Saved with this customer automatically.</span>
+              <button type="button" onClick={() => setConfirmingDelete(true)} className="h-10 rounded-xl px-2 font-bold text-[#A23B2A] hover:bg-red-50">
+                Delete
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-secondary">This photo was shared by {SHOP_NAME}.</p>
+          )}
+        </div>
       </div>
-      {visualization.isOwner ? (
-        <p className="mt-2.5 text-xs text-stone-400">
-          This project and visualization are already saved to your account automatically.
-        </p>
-      ) : (
-        <p className="mt-2.5 text-xs text-stone-400">This is a visualization its owner has chosen to make public.</p>
-      )}
-      </div>
-      </div>
-    </div>
-    <ConfirmDialog
-      open={confirmingDelete}
-      title="Delete visualization?"
-      message="Delete this visualization and its generated image?"
-      onConfirm={async () => {
-        try {
-          await deleteVisualization(visualization.id);
-        } catch (err) {
-          throw new Error(friendlyErrorMessage(err, "We couldn't delete that visualization. Please try again."));
-        }
-        navigate("/my-visualizations");
-      }}
-      onClose={() => setConfirmingDelete(false)}
-    />
-    </PageContainer>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete this photo?"
+        message="The real photo is deleted for good. The customer's room photo stays."
+        onConfirm={async () => {
+          try {
+            await deleteVisualization(visualization.id);
+          } catch (err) {
+            throw new Error(friendlyErrorMessage(err, "We couldn't delete that photo. Please try again."));
+          }
+          navigate("/customers");
+        }}
+        onClose={() => setConfirmingDelete(false)}
+      />
+    </Screen>
+  );
+}
+
+function ActionTile({ to, onClick, icon, label }: { to?: string; onClick?: () => void; icon: IconName; label: string }) {
+  const cls = "flex min-h-[76px] flex-col items-center justify-center gap-1 rounded-2xl border-[1.5px] border-[#C9D2C6] bg-white px-1 py-2 text-center text-[13px] font-extrabold leading-4 text-ink hover:border-[#8E9A8F]";
+  return to ? (
+    <Link to={to} className={cls}>
+      <Icon name={icon} />
+      {label}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} className={cls}>
+      <Icon name={icon} />
+      {label}
+    </button>
   );
 }

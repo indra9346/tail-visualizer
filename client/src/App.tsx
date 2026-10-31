@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider } from "@/context/AuthContext";
+import { lazy, Suspense, useState, type ReactNode } from "react";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WorkflowProvider } from "@/context/WorkflowContext";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -15,6 +15,8 @@ import { SmokeEffect } from "@/components/ui/SmokeEffect";
 import { LandingPage } from "@/pages/LandingPage";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { AppRail, AppTabs, showsTabs } from "@/components/simple/AppNav";
+import { cn } from "@/lib/cn";
 
 const RELOAD_KEY = "sds_chunk_reload";
 
@@ -52,7 +54,6 @@ const QuickDesignPage = lazy(loadPage(() => import("@/pages/QuickDesignPage").th
 const AnalysisPage = lazy(loadPage(() => import("@/pages/AnalysisPage").then((m) => ({ default: m.AnalysisPage }))));
 const TilesPage = lazy(loadPage(() => import("@/pages/TilesPage").then((m) => ({ default: m.TilesPage }))));
 const TileCatalogPage = lazy(loadPage(() => import("@/pages/TileCatalogPage").then((m) => ({ default: m.TileCatalogPage }))));
-const MyTilesPage = lazy(loadPage(() => import("@/pages/MyTilesPage").then((m) => ({ default: m.MyTilesPage }))));
 const ResultPage = lazy(loadPage(() => import("@/pages/ResultPage").then((m) => ({ default: m.ResultPage }))));
 const DashboardPage = lazy(loadPage(() => import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage }))));
 const CreditsPage = lazy(loadPage(() => import("@/pages/CreditsPage").then((m) => ({ default: m.CreditsPage }))));
@@ -61,6 +62,14 @@ const MyVisualizationsPage = lazy(loadPage(() => import("@/pages/MyVisualization
 const AdminPage = lazy(loadPage(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage }))));
 const CalculatorPage = lazy(loadPage(() => import("@/pages/CalculatorPage").then((m) => ({ default: m.CalculatorPage }))));
 const DemosPage = lazy(loadPage(() => import("@/pages/DemosPage").then((m) => ({ default: m.DemosPage }))));
+const HomePage = lazy(loadPage(() => import("@/pages/HomePage").then((m) => ({ default: m.HomePage }))));
+const CustomersPage = lazy(loadPage(() => import("@/pages/CustomersPage").then((m) => ({ default: m.CustomersPage }))));
+const CustomerPage = lazy(loadPage(() => import("@/pages/CustomerPage").then((m) => ({ default: m.CustomerPage }))));
+const ShowroomTilesPage = lazy(loadPage(() => import("@/pages/ShowroomTilesPage").then((m) => ({ default: m.ShowroomTilesPage }))));
+const AddTilePage = lazy(loadPage(() => import("@/pages/AddTilePage").then((m) => ({ default: m.AddTilePage }))));
+const MorePage = lazy(loadPage(() => import("@/pages/MorePage").then((m) => ({ default: m.MorePage }))));
+const ComparePage = lazy(loadPage(() => import("@/pages/ComparePage").then((m) => ({ default: m.ComparePage }))));
+const QuotePage = lazy(loadPage(() => import("@/pages/QuotePage").then((m) => ({ default: m.QuotePage }))));
 
 const SPLASH_KEY = "sds_splash_shown";
 
@@ -75,9 +84,50 @@ function PageFallback() {
   );
 }
 
+const P = ({ children }: { children: ReactNode }) => <ProtectedRoute>{children}</ProtectedRoute>;
+
+/** Every address of the app. Signed-in owners get the simple app; visitors get the public site. */
+function AppRoutes({ signedIn }: { signedIn: boolean }) {
+  return (
+    <Routes>
+      <Route path="/" element={signedIn ? <HomePage /> : <LandingPage />} />
+      <Route path="/demos" element={<DemosPage />} />
+      <Route path="/calculator" element={<CalculatorPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* The simple app */}
+      <Route path="/customers" element={<P><CustomersPage /></P>} />
+      <Route path="/customers/:projectId" element={<P><CustomerPage /></P>} />
+      <Route path="/tiles" element={<P><ShowroomTilesPage /></P>} />
+      <Route path="/add-tile" element={<P><AddTilePage /></P>} />
+      <Route path="/more" element={<P><MorePage /></P>} />
+      <Route path="/compare/:roomId" element={<P><ComparePage /></P>} />
+      <Route path="/quote" element={<P><QuotePage /></P>} />
+      <Route path="/upload" element={<P><QuickUploadPage /></P>} />
+      {/* The easy visualizer: mark the photo, pick tiles, make the real photo. */}
+      <Route path="/visualize/:roomId" element={<P><QuickDesignPage /></P>} />
+      <Route path="/credits" element={<P><CreditsPage /></P>} />
+      {/* Older pages, still reachable from More and from old links. */}
+      <Route path="/projects" element={<Navigate to="/customers" replace />} />
+      <Route path="/my-tiles" element={<Navigate to="/tiles" replace />} />
+      <Route path="/catalog" element={<P><TileCatalogPage /></P>} />
+      <Route path="/dashboard" element={<P><DashboardPage /></P>} />
+      <Route path="/payments" element={<P><PaymentsPage /></P>} />
+      <Route path="/my-visualizations" element={<MyVisualizationsPage />} />
+      <Route path="/admin" element={<P><AdminPage /></P>} />
+      <Route path="/analysis/:roomId" element={<P><AnalysisPage /></P>} />
+      <Route path="/tiles/:roomId" element={<P><TilesPage /></P>} />
+      {/* Unprotected: the API itself decides access (owner, or anonymous
+          if the visualization was made public) — see vizGet.ts. */}
+      <Route path="/result/:visualizationId" element={<ResultPage />} />
+    </Routes>
+  );
+}
+
 function AppShell() {
   const location = useLocation();
-  // The intro plays on the home page only: a shared result link or an email link opens straight away.
+  const { user, loading } = useAuth();
+  // The intro plays on the public home page only: a shared result link, an email link or a signed-in owner opens straight away.
   const [introPhase, setIntroPhase] = useState<IntroPhase>(() => {
     if (location.pathname !== "/") return "done";
     try {
@@ -96,6 +146,33 @@ function AppShell() {
     setIntroPhase("done");
   };
 
+  const routes = (
+    <ErrorBoundary resetKey={location.pathname}>
+      <Suspense fallback={<PageFallback />}>
+        <AppRoutes signedIn={Boolean(user)} />
+      </Suspense>
+    </ErrorBoundary>
+  );
+
+  if (loading) return <PageFallback />;
+
+  // The simple app for a signed-in owner: no intro, 4 tabs at the bottom (phone) or down the side (laptop).
+  if (user) {
+    const tabs = showsTabs(location.pathname);
+    return (
+      <div className="relative flex min-h-screen">
+        <AppRail />
+        {/* min-w-0: a flex item may otherwise never shrink below its widest content, so one wide table or grid
+            made the whole page wider than a phone screen. */}
+        <div className={cn("relative flex min-h-screen min-w-0 flex-1 flex-col", tabs && "pb-28 lg:pb-0")}>
+          <ConfigWarningBanner />
+          <div className="relative z-10 flex-1">{routes}</div>
+        </div>
+        {tabs && <AppTabs />}
+      </div>
+    );
+  }
+
   return (
     <RoomTransitionProvider>
       {introPhase === "splash" && <SplashScreen onFinish={() => setIntroPhase("promo")} />}
@@ -108,70 +185,7 @@ function AppShell() {
         <div className="flex min-h-screen min-w-0 flex-1 flex-col relative">
           <ConfigWarningBanner />
           <Navbar />
-          <div className="flex-1 relative z-10">
-            <ErrorBoundary resetKey={location.pathname}>
-              <Suspense fallback={<PageFallback />}>
-                <Routes>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/demos" element={<DemosPage />} />
-                  <Route path="/calculator" element={<CalculatorPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/reset-password" element={<ResetPasswordPage />} />
-                  <Route path="/tiles" element={<ProtectedRoute><TileCatalogPage /></ProtectedRoute>} />
-                  <Route path="/my-tiles" element={<ProtectedRoute><MyTilesPage /></ProtectedRoute>} />
-                  <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-                  <Route path="/credits" element={<ProtectedRoute><CreditsPage /></ProtectedRoute>} />
-                  <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-                  <Route path="/my-visualizations" element={<MyVisualizationsPage />} />
-                  <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-                  <Route
-                    path="/projects"
-                    element={
-                      <ProtectedRoute>
-                        <ProjectsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/upload"
-                    element={
-                      <ProtectedRoute>
-                        <QuickUploadPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  {/* The easy visualizer: mark the photo, pick tiles, make the real photo. */}
-                  <Route
-                    path="/visualize/:roomId"
-                    element={
-                      <ProtectedRoute>
-                        <QuickDesignPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/analysis/:roomId"
-                    element={
-                      <ProtectedRoute>
-                        <AnalysisPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/tiles/:roomId"
-                    element={
-                      <ProtectedRoute>
-                        <TilesPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  {/* Unprotected: the API itself decides access (owner, or anonymous
-                      if the visualization was made public) — see vizGet.ts. */}
-                  <Route path="/result/:visualizationId" element={<ResultPage />} />
-                </Routes>
-              </Suspense>
-            </ErrorBoundary>
-          </div>
+          <div className="flex-1 relative z-10">{routes}</div>
           <Footer />
           <SmokeEffect />
         </div>
