@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiSend } from "./client";
-import type { RoomAnalysis, RoomUpload } from "./types";
+import type { RoomAnalysis, RoomUpload, SurfaceType } from "./types";
 import { preprocessRoomImage } from "@/lib/imagePreprocess";
 import { MAX_SOURCE_IMAGE_BYTES, validateImageFileMeta } from "@/lib/imageSizing";
 
@@ -73,6 +73,14 @@ export async function getRoomAnalysis(roomId: string): Promise<RoomAnalysis | nu
 }
 
 /** Owner-only: permanently deletes a room photo with its analysis and every visualization made from it. */
+/**
+ * Asks the AI to find these surfaces on the room photo. `enabled: false` means AI marking is switched off on the
+ * server: the owner marks by hand. Masks are areaMask text on the photo's grid; a surface not found is left out.
+ */
+export async function autoMarkRoom(roomId: string, surfaces: SurfaceType[]): Promise<{ enabled: boolean; masks: Array<{ surface: SurfaceType; mask: string }> }> {
+  return apiPost(`/api/rooms/${roomId}/auto-mark`, { surfaces });
+}
+
 export async function deleteRoom(roomId: string): Promise<void> {
   await apiSend<{ deleted: boolean }>("DELETE", `/api/rooms/${roomId}`);
 }

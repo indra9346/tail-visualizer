@@ -38,6 +38,8 @@ export const aiConfig = {
     roomAnalysis: process.env.GEMINI_ROOM_ANALYSIS_MODEL || "gemini-3.6-flash",
     tileRecommendation: process.env.GEMINI_TILE_RECOMMENDATION_MODEL || "gemini-3.6-flash",
     visualization: process.env.GEMINI_VISUALIZATION_MODEL || "gemini-3.1-flash-image",
+    // Finds the floor / walls on the photo before the owner marks anything (see autoMark.ts).
+    autoMark: process.env.GEMINI_AUTO_MARK_MODEL || "gemini-3.6-flash",
   },
   timeoutsMs: {
     // Raised from 20 s (Phase 4): a real 4.7 MB phone photo took ~24 s at full size.
@@ -47,6 +49,7 @@ export const aiConfig = {
     roomAnalysis: envInt("GEMINI_ROOM_ANALYSIS_TIMEOUT_MS", 50_000),
     tileRecommendation: envInt("GEMINI_TILE_RECOMMENDATION_TIMEOUT_MS", 15_000),
     visualization: envInt("GEMINI_VISUALIZATION_TIMEOUT_MS", 45_000),
+    autoMark: envInt("GEMINI_AUTO_MARK_TIMEOUT_MS", 40_000),
   },
   sampling: {
     // Low temperature: the edit follows the design and the tile photos instead of "creatively" re-imagining the room,

@@ -73,6 +73,9 @@ export interface FakeBackend {
   /** Rooms the page asked the AI to check (POST /api/rooms/:id/analyze). */
   analyzed: string[];
   projects: Array<{ id: string; name: string; createdAt: string }>;
+  /** What POST /api/rooms/:id/auto-mark answers (off by default, like the server), and the surfaces asked each time. */
+  autoMark: { enabled: boolean; masks: Array<{ surface: string; mask: string }> };
+  autoMarkCalls: string[][];
   /** Room photos uploaded, as { projectId }. */
   uploads: Array<{ projectId: string }>;
 }
@@ -92,6 +95,8 @@ export function installFakeBackend(): FakeBackend {
     analyzed: [],
     projects: [],
     uploads: [],
+    autoMark: { enabled: false, masks: [] },
+    autoMarkCalls: [],
   };
 
   const reply = (status: number, json: unknown) => new Response(JSON.stringify(json), { status, headers: { "Content-Type": "application/json" } });
@@ -114,6 +119,11 @@ export function installFakeBackend(): FakeBackend {
         state.analyzed.push(id);
         state.analyses[id] ??= makeAnalysis(id);
         return reply(200, { analysis: state.analyses[id], reused: false });
+      }
+      const autoMark = /^\/api\/rooms\/([0-9a-z-]{4,36})\/auto-mark$/.exec(p);
+      if (autoMark && method === "POST") {
+        state.autoMarkCalls.push((body as { surfaces: string[] }).surfaces);
+        return reply(200, state.autoMark);
       }
       if (p === "/api/projects" && method === "GET") return reply(200, { projects: state.projects });
       if (p === "/api/projects" && method === "POST") {

@@ -21,6 +21,17 @@ export interface AreaMask {
   cells: Uint8Array;
 }
 
+/** The grid for a photo: MASK_MAX_SIDE cells along its long side, the short side in proportion (same as the UI). */
+export function maskGrid(photoWidth: number, photoHeight: number): { width: number; height: number } {
+  const w = Math.max(1, photoWidth);
+  const h = Math.max(1, photoHeight);
+  const scale = MASK_MAX_SIDE / Math.max(w, h);
+  return {
+    width: Math.min(MASK_MAX_SIDE, Math.max(MASK_MIN_SIDE, Math.round(w * scale))),
+    height: Math.min(MASK_MAX_SIDE, Math.max(MASK_MIN_SIDE, Math.round(h * scale))),
+  };
+}
+
 const FORMAT = /^(\d{1,3})x(\d{1,3}):([0-9a-z]+(?:\.[0-9a-z]+)*)$/;
 
 export function encodeMask(mask: AreaMask): string {

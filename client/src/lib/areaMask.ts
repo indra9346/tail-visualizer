@@ -44,6 +44,20 @@ export function maskGrid(photoWidth: number, photoHeight: number): { width: numb
   };
 }
 
+/** The same marks on another grid (nearest cell), e.g. AI marks made on a differently sized copy of the photo. */
+export function resampleMask(mask: AreaMask, width: number, height: number): AreaMask {
+  if (mask.width === width && mask.height === height) return mask;
+  const out = emptyMask(width, height);
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(mask.height - 1, Math.floor(((y + 0.5) * mask.height) / height));
+    for (let x = 0; x < width; x++) {
+      const sx = Math.min(mask.width - 1, Math.floor(((x + 0.5) * mask.width) / width));
+      out.cells[y * width + x] = mask.cells[sy * mask.width + sx]!;
+    }
+  }
+  return out;
+}
+
 export function emptyMask(width: number, height: number): AreaMask {
   return { width, height, cells: new Uint8Array(width * height) };
 }

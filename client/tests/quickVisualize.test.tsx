@@ -314,6 +314,61 @@ describe("the easy visualizer, start to finish", () => {
   });
 });
 
+describe("AI marking", () => {
+  const floorCells = (w: number, h: number) => {
+    const cells = new Uint8Array(w * h);
+    cells.fill(1, Math.round((WALL_ROWS / GRID.height) * h) * w);
+    return encodeMask({ width: w, height: h, cells });
+  };
+
+  test("the AI marks the floor: the owner only says Yes, correct, and the AI's marks reach the generator", async () => {
+    // Made on a bigger copy of the photo: fitted to the photo's own 64 x 48 grid.
+    backend.autoMark = { enabled: true, masks: [{ surface: "floor", mask: floorCells(128, 96) }] };
+    const user = userEvent.setup();
+    renderAt(`/visualize/${ROOM_ID}`);
+    await user.click(await choice(/^Floor The ground/));
+    await user.click(bigButton(/^Next/));
+    await heading("Is the red part the floor?");
+    expect(screen.getByText(/Marked by AI/)).toBeInTheDocument();
+    expect(backend.autoMarkCalls).toEqual([["floor"]]);
+    await user.click(bigButton(/Yes, correct/));
+    await user.click(await screen.findByRole("button", { name: /^Tile 72,/ }));
+    await user.click(bigButton(/Next: check & make photo/));
+    await user.click(await screen.findByRole("button", { name: /Make real photo/ }));
+    await screen.findByText("Result page");
+    expect(sentAreas()[0]!.mask).toBe(floorCells(64, 48));
+  });
+
+  test("floor and walls are asked in one go; a surface the AI cannot find is marked by hand", async () => {
+    backend.autoMark = { enabled: true, masks: [{ surface: "floor", mask: floorCells(64, 48) }] };
+    const user = userEvent.setup();
+    renderAt(`/visualize/${ROOM_ID}`);
+    await user.click(await choice(/^Floor \+ walls/));
+    await user.click(bigButton(/^Next/));
+    await heading("Is the red part the floor?");
+    await user.click(bigButton(/Yes, correct/));
+    await user.click(await screen.findByRole("button", { name: /^Tile 72,/ }));
+    await user.click(bigButton(/^Next/));
+    // The walls were not found: the owner taps them, as before.
+    await heading("Tap the wall in the photo");
+    expect(bigButton(/Tile the whole wall/)).toBeEnabled();
+    expect(backend.autoMarkCalls).toEqual([["floor", "wall"]]);
+  });
+
+  test("switched off on the server: the owner marks by hand and it is not asked again", async () => {
+    const user = userEvent.setup();
+    renderAt(`/visualize/${ROOM_ID}`);
+    await user.click(await choice(/^Floor \+ walls/));
+    await user.click(bigButton(/^Next/));
+    await heading("Tap the floor in the photo");
+    await user.click(bigButton(/Tile the whole floor/));
+    await user.click(await screen.findByRole("button", { name: /^Tile 72,/ }));
+    await user.click(bigButton(/^Next/));
+    await heading("Tap the wall in the photo");
+    expect(backend.autoMarkCalls).toEqual([["floor", "wall"]]);
+  });
+});
+
 describe("taking the photo", () => {
   test("no name typed: the photo goes into 'My rooms', created once and then reused", async () => {
     const user = userEvent.setup();

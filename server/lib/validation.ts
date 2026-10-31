@@ -345,6 +345,9 @@ export const updateTileBodySchema = z
 
 export const deleteTileQuerySchema = z.object({ tileId: uuidSchema });
 
+/** POST /api/rooms/:id/auto-mark: the surfaces the AI should find on the photo. */
+export const autoMarkBodySchema = z.object({ surfaces: z.array(z.enum(SURFACE_TYPES)).min(1).max(SURFACE_TYPES.length) }).strict();
+
 export const setTileActiveBodySchema = z.object({ tileId: uuidSchema, isActive: z.boolean() }).strict();
 
 export const setVisualizationVisibilityBodySchema = z.object({ isPublic: z.boolean() }).strict();

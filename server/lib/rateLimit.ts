@@ -33,6 +33,7 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): vo
 
 export const RateLimits = {
   roomAnalyze: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5 per 10 min per user
+  roomAutoMark: { limit: 20, windowMs: 10 * 60 * 1000 },
   tileRecommend: { limit: 15, windowMs: 10 * 60 * 1000 },
   visualizationGenerate: { limit: 10, windowMs: 60 * 60 * 1000 }, // 10 per hour per user
   roomUpload: { limit: 20, windowMs: 60 * 60 * 1000 },

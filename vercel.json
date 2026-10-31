@@ -19,6 +19,10 @@
       "destination": "/api/rooms?op=analysis&id=:id"
     },
     {
+      "source": "/api/rooms/:id/auto-mark",
+      "destination": "/api/rooms?op=autoMark&id=:id"
+    },
+    {
       "source": "/api/rooms/:id",
       "destination": "/api/rooms?op=get&id=:id"
     },

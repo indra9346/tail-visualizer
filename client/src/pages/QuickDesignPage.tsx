@@ -9,7 +9,7 @@ import { TileChooser } from "@/components/quick/TileChooser";
 import { STYLE_NAMES, StylePicker } from "@/components/quick/StylePicker";
 import { ActionBar, FlowHeader, Question, Screen, bigButton } from "@/components/simple/Flow";
 import { Icon, type IconName } from "@/components/simple/Icon";
-import { analyzeRoom, getRoom, getRoomAnalysis } from "@/api/rooms";
+import { analyzeRoom, autoMarkRoom, getRoom, getRoomAnalysis } from "@/api/rooms";
 import { fetchAllTiles, getTileRecommendations } from "@/api/tiles";
 import { generateVisualization } from "@/api/visualizations";
 import { getBillingSummary } from "@/api/billing";
@@ -18,7 +18,7 @@ import { useWorkflow } from "@/context/WorkflowContext";
 import { cn } from "@/lib/cn";
 import { PATTERNS, rolesFor } from "@/lib/designPatterns";
 import { MAX_AREAS, tileFitsSurface } from "@/lib/designDraft";
-import { DEFAULT_FILL_LEVEL, addRegion, cloneMask, emptyMask, growRegion, maskColour, maskCss, paintedCount, removeRegion, type AreaMask, type FillLevel } from "@/lib/areaMask";
+import { DEFAULT_FILL_LEVEL, addRegion, cloneMask, decodeMask, emptyMask, growRegion, maskColour, maskCss, paintedCount, removeRegion, resampleMask, type AreaMask, type FillLevel } from "@/lib/areaMask";
 import {
   QUICK_SURFACES,
   chosen,
@@ -345,6 +345,47 @@ export function QuickDesignPage() {
     update(active.key, (a) => ({ ...a, mask: null }));
   }
 
+  // ---- AI marking: the AI finds each new surface on the photo, so the owner only checks it ----
+  const [autoState, setAutoState] = useState<Record<string, "pending" | "done" | "none">>({});
+  // Switched off on the server (or failing): stop asking for the rest of this design.
+  const autoOff = useRef(false);
+  useEffect(() => {
+    if (step.kind !== "mark" || !roomId || !photo || !areas || autoOff.current) return;
+    // A surface with one area (two walls can only be told apart by the owner), nothing marked yet, never asked.
+    const todo = areas.filter((a) => !a.mask && autoState[a.key] === undefined && areas.filter((o) => o.surface === a.surface).length === 1);
+    if (todo.length === 0) return;
+    const keys = new Set(todo.map((a) => a.key));
+    const settle = (found: Set<SurfaceType>) => setAutoState((s) => ({ ...s, ...Object.fromEntries(todo.map((a) => [a.key, found.has(a.surface) ? ("done" as const) : ("none" as const)])) }));
+    setAutoState((s) => ({ ...s, ...Object.fromEntries(todo.map((a) => [a.key, "pending" as const])) }));
+    const grid = photo.grid;
+    autoMarkRoom(roomId, todo.map((a) => a.surface))
+      .then((res) => {
+        if (!res.enabled) autoOff.current = true;
+        const found = new Map(res.masks.map((m) => [m.surface, m.mask]));
+        setAreas(
+          (prev) =>
+            prev?.map((a, _, all) => {
+              // The owner's own marks always win: an area marked while the AI was working is left as it is.
+              const text = keys.has(a.key) && !a.mask ? found.get(a.surface) : undefined;
+              const decoded = text ? decodeMask(text) : null;
+              if (!decoded) return a;
+              const mine = resampleMask(decoded, grid.width, grid.height);
+              // Never on a spot another area already has.
+              for (const other of all) if (other.key !== a.key && other.mask && other.mask.width === grid.width && other.mask.height === grid.height) other.mask.cells.forEach((v, i) => v && (mine.cells[i] = 0));
+              return paintedCount(mine) > 0 ? { ...a, mask: mine } : a;
+            }) ?? prev,
+        );
+        settle(new Set(found.keys()));
+      })
+      .catch(() => {
+        autoOff.current = true;
+        settle(new Set());
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step.kind, roomId, photo, areas, autoState]);
+  const aiWorking = active ? autoState[active.key] === "pending" && !active.mask : false;
+  const aiMarked = active ? autoState[active.key] === "done" : false;
+
   // ---- tiles ----
   const [slot, setSlot] = useState(0);
   const [addingTile, setAddingTile] = useState(false);
@@ -452,7 +493,9 @@ export function QuickDesignPage() {
       : step.kind === "mark"
         ? marked
           ? `Is the ${colour} part the ${activeTitle}? If yes, tap Yes, correct. If not, tap Add and colour more, or tap Remove and rub away the wrong part.`
-          : `Tap the ${activeTitle} in the photo. It turns ${colour}. Tap again on any part that was missed.`
+          : aiWorking
+            ? `The AI is finding the ${activeTitle} on your photo. One moment. You can also tap it yourself.`
+            : `Tap the ${activeTitle} in the photo. It turns ${colour}. Tap again on any part that was missed.`
         : step.kind === "tile"
           ? `Pick a tile for the ${activeTitle}. Tap a tile and it shows on your photo.`
           : step.kind === "style"
@@ -590,11 +633,24 @@ export function QuickDesignPage() {
           <motion.div key={`head-${step.kind}-${activeKey ?? ""}`} className="min-w-0 lg:col-start-2 lg:row-start-1" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
             {active && list.length > 1 && <PartBadge index={activeIndex} title={surfaceTitle(active.surface)} />}
             {step.kind === "mark" && active && (
-              <Question id="mark-title" sub={marked ? "New tiles go only on the coloured part. Everything else stays the same." : `It turns ${colour}. Tap again on any part that was missed.`}>
+              <Question
+                id="mark-title"
+                sub={
+                  marked
+                    ? aiMarked
+                      ? "Marked by AI. New tiles go only on the coloured part. Not right? Use Add or Remove."
+                      : "New tiles go only on the coloured part. Everything else stays the same."
+                    : aiWorking
+                      ? "The AI is marking it for you. You can also tap it yourself."
+                      : `It turns ${colour}. Tap again on any part that was missed.`
+                }
+              >
                 {marked ? (
                   <>
                     Is the <span style={{ color: maskCss(activeIndex) }}>{colour} part</span> the {activeTitle}?
                   </>
+                ) : aiWorking ? (
+                  <>Finding the {activeTitle}…</>
                 ) : (
                   <>Tap the {activeTitle} in the photo</>
                 )}
@@ -619,7 +675,15 @@ export function QuickDesignPage() {
 
           {/* Big while marking (a finger needs room to paint), smaller while choosing tiles so the tiles show sooner. */}
           <div className={cn("min-w-0 lg:sticky lg:top-6 lg:col-start-1 lg:row-span-2 lg:row-start-1", step.kind === "style" && "hidden lg:block")}>
-            {photoView(step.kind === "mark" ? "mark" : "look", step.kind === "mark" ? "[--photo-vh:46vh] lg:[--photo-vh:74vh]" : "[--photo-vh:34vh] lg:[--photo-vh:70vh]")}
+            <div className="relative">
+              {photoView(step.kind === "mark" ? "mark" : "look", step.kind === "mark" ? "[--photo-vh:46vh] lg:[--photo-vh:74vh]" : "[--photo-vh:34vh] lg:[--photo-vh:70vh]")}
+              {step.kind === "mark" && aiWorking && (
+                <span className="pointer-events-none absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/95 px-3.5 py-2 text-sm font-extrabold text-ink shadow-md" role="status">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-champagne-400 border-t-stone-900" aria-hidden="true" />
+                  AI is marking the {activeTitle}…
+                </span>
+              )}
+            </div>
             {step.kind !== "mark" && list.some((a) => chosen(a).length > 0 && isMarked(a)) && (
               <p className="mt-2 text-center text-[13px] text-ink-secondary">Quick look · the real photo shows the tiles truly laid, with grout and real light.</p>
             )}
